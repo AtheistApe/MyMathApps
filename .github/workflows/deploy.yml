@@ -1,0 +1,152 @@
+name: Deploy MyMathApps to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build newtons-method
+        working-directory: newtons-method
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy newtons-method into combined site
+        run: |
+          mkdir -p _site/newtons-method
+          cp -r newtons-method/dist/* _site/newtons-method/
+
+      - name: Build numerical-methods
+        working-directory: numerical-methods
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy numerical-methods into combined site
+        run: |
+          mkdir -p _site/numerical-methods
+          cp -r numerical-methods/dist/* _site/numerical-methods/
+
+      - name: Build oscillator
+        working-directory: oscillator
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy oscillator into combined site
+        run: |
+          mkdir -p _site/oscillator
+          cp -r oscillator/dist/* _site/oscillator/
+
+      - name: Build parametric-curves
+        working-directory: parametric-curves
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy parametric-curves into combined site
+        run: |
+          mkdir -p _site/parametric-curves
+          cp -r parametric-curves/dist/* _site/parametric-curves/
+
+      - name: Build phase-portrait-explorer
+        working-directory: phase-portrait-explorer
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy phase-portrait-explorer into combined site
+        run: |
+          mkdir -p _site/phase-portrait-explorer
+          cp -r phase-portrait-explorer/dist/* _site/phase-portrait-explorer/
+
+      - name: Build polar-explorer
+        working-directory: polar-explorer
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy polar-explorer into combined site
+        run: |
+          mkdir -p _site/polar-explorer
+          cp -r polar-explorer/dist/* _site/polar-explorer/
+
+      - name: Build power-series
+        working-directory: power-series
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy power-series into combined site
+        run: |
+          mkdir -p _site/power-series
+          cp -r power-series/dist/* _site/power-series/
+
+      - name: Build power-series-dance
+        working-directory: power-series-dance
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy power-series-dance into combined site
+        run: |
+          mkdir -p _site/power-series-dance
+          cp -r power-series-dance/dist/* _site/power-series-dance/
+
+      - name: Build slope-field
+        working-directory: slope-field
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy slope-field into combined site
+        run: |
+          mkdir -p _site/slope-field
+          cp -r slope-field/dist/* _site/slope-field/
+
+      - name: Build volume-of-revolution
+        working-directory: volume-of-revolution
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy volume-of-revolution into combined site
+        run: |
+          mkdir -p _site/volume-of-revolution
+          cp -r volume-of-revolution/dist/* _site/volume-of-revolution/
+
+      - name: Copy landing page
+        run: cp index.html _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
