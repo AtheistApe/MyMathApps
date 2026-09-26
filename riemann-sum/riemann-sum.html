@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Riemann Sum Visualizer — Math 251</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f8f7f4;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 780px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      color: #111;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 8px;
+      align-items: end;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 7px 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      color: #111;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: #888; }
+
+    .hint {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .error-msg {
+      display: none;
+      font-size: 14px;
+      color: #c0392b;
+      background: #fdf0ee;
+      border: 1px solid #f5c6c0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 10px;
+    }
+
+    .canvas-wrap {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .sliders {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 6px;
+    }
+
+    .slider-group label {
+      font-size: 15px;
+      color: #555;
+    }
+
+    .slider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 5px;
+    }
+
+    .slider-val {
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Courier New', monospace;
+      color: #111;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #555;
+      cursor: pointer;
+    }
+
+    .tag-label {
+      font-size: 14px;
+      color: #666;
+      font-style: italic;
+      margin-bottom: 16px;
+      min-height: 16px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .metric-card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .metric-card .metric-label {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .metric-card .metric-val {
+      font-size: 20px;
+      font-weight: 500;
+      font-family: 'Courier New', monospace;
+      color: #111;
+    }
+
+    .metric-card .metric-val.small {
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .legend {
+      display: flex;
+      gap: 18px;
+      font-size: 13px;
+      color: #777;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .swatch-line {
+      width: 22px;
+      height: 2.5px;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+
+    .swatch-dash {
+      width: 20px;
+      height: 0;
+      border-top: 1.5px dashed #6366f1;
+      flex-shrink: 0;
+    }
+
+    .positive { color: #2563eb; }
+    .negative { color: #dc2626; }
+
+    .n-max-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: #555;
+    }
+    .n-max-group input {
+      width: 52px;
+      padding: 3px 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      color: #111;
+      text-align: center;
+      outline: none;
+    }
+    .n-max-group input:focus { border-color: #888; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>Riemann Sum Visualizer</h1>
+  <div class="subtitle">Math 251 · Introduction to Definite Integrals</div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label>f(t)</label>
+      <input type="text" id="fnExpr" value="sin(t)" placeholder="e.g. t*cos(t), t^2 - 3">
+    </div>
+    <div class="input-group">
+      <label>a (start)</label>
+      <input type="text" id="aVal" value="0">
+    </div>
+    <div class="input-group">
+      <label>b (end)</label>
+      <input type="text" id="bVal" value="2*PI">
+    </div>
+  </div>
+  <div class="hint">Supports: sin, cos, tan, sqrt, abs, exp, log (=ln), PI, E &nbsp;·&nbsp; Use <code>^</code> or <code>**</code> for powers</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="canvas-wrap">
+    <canvas id="graph" width="760" height="370"></canvas>
+  </div>
+
+  <div class="sliders">
+    <div class="slider-group">
+      <div class="slider-row">
+        <label>Subintervals <em>n</em></label>
+        <span class="slider-val" id="nOut">8</span>
+        <span class="n-max-group">
+          max:
+          <input type="text" id="nMaxVal" value="50">
+        </span>
+      </div>
+      <input type="range" id="nSlider" min="1" max="50" value="8" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <label>Tag <em>c</em> ∈ [0, 1]</label>
+        <span class="slider-val" id="cOut">0.50</span>
+      </div>
+      <input type="range" id="cSlider" min="0" max="1" value="0.5" step="0.01">
+    </div>
+  </div>
+
+  <div class="tag-label" id="tagLabel">ξᵢ = midpoint of each subinterval</div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Δt = (b − a) / n</div>
+      <div class="metric-val" id="deltaT">–</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">∑ f(ξᵢ) · Δt</div>
+      <div class="metric-val" id="riemannSum">–</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Net displacement</div>
+      <div class="metric-val small" id="dispResult">–</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item">
+      <span class="swatch" style="background:rgba(59,130,246,0.22);border:1.5px solid #3b82f6;"></span>
+      f(ξᵢ) > 0 → rightward
+    </span>
+    <span class="legend-item">
+      <span class="swatch" style="background:rgba(239,68,68,0.22);border:1.5px solid #ef4444;"></span>
+      f(ξᵢ) &lt; 0 → leftward
+    </span>
+    <span class="legend-item">
+      <span class="swatch-line" style="background:#d97706;"></span>
+      f(t)
+    </span>
+    <span class="legend-item">
+      <span class="swatch-dash"></span>
+      tag ξᵢ
+    </span>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const state = { fn: null, a: 0, b: 2 * Math.PI, n: 8, c: 0.5 };
+
+function parseExpr(s) {
+  try {
+    const proc = s.replace(/\^/g, '**').replace(/\bln\b/g, 'log');
+    const fn = new Function('t', `
+      const {abs,acos,asin,atan,atan2,ceil,cos,exp,floor,log,log2,log10,
+             max,min,pow,round,sign,sin,sqrt,tan,sinh,cosh,tanh,PI,E} = Math;
+      const pi = PI, e = E;
+      return (${proc});
+    `);
+    fn(1); fn(0); fn(-1);
+    return { fn, error: null };
+  } catch (err) {
+    return { fn: null, error: String(err).split('\n')[0] };
+  }
+}
+
+function parseNum(s) {
+  try {
+    const fn = new Function(`
+      const {PI,E,abs,sin,cos,sqrt,pow,log} = Math;
+      const pi = PI, e = E;
+      return (${s.replace(/\^/g, '**')});
+    `);
+    const v = fn();
+    return isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+function niceStep(range, target) {
+  if (!range || !isFinite(range) || range <= 0) return 1;
+  const rough = range / target;
+  const exp = Math.floor(Math.log10(rough));
+  const frac = rough / Math.pow(10, exp);
+  return (frac < 1.5 ? 1 : frac < 3.5 ? 2 : frac < 7.5 ? 5 : 10) * Math.pow(10, exp);
+}
+
+function fmtTick(v, step) {
+  if (Math.abs(v) < step * 1e-6) return '0';
+  const d = Math.max(0, Math.ceil(-Math.log10(step)));
+  return (+v.toFixed(d)).toString();
+}
+
+function draw() {
+  const { fn, a, b, n, c } = state;
+  const W = canvas.width, H = canvas.height;
+  const M = { top: 26, right: 20, bottom: 48, left: 60 };
+  const PW = W - M.left - M.right, PH = H - M.top - M.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!fn || a >= b) {
+    ctx.fillStyle = 'rgba(120,120,120,0.55)';
+    ctx.font = '15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(a >= b ? 'Requires a < b' : 'Invalid function', W / 2, H / 2);
+    return;
+  }
+
+  const dt = (b - a) / n;
+  const NS = 600;
+  const curvePts = [];
+  for (let i = 0; i <= NS; i++) {
+    const t = a + (b - a) * i / NS;
+    try {
+      const y = fn(t);
+      curvePts.push(isFinite(y) ? { t, y } : null);
+    } catch { curvePts.push(null); }
+  }
+
+  const rects = [];
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const t0 = a + i * dt;
+    let yi;
+    try { yi = fn(t0 + c * dt); } catch { yi = 0; }
+    if (!isFinite(yi)) yi = 0;
+    rects.push({ t0, t1: t0 + dt, xi: t0 + c * dt, yi });
+    sum += yi * dt;
+  }
+
+  const validY = [
+    ...curvePts.filter(Boolean).map(p => p.y),
+    ...rects.map(r => r.yi),
+    0
+  ];
+  let yMin = Math.min(...validY), yMax = Math.max(...validY);
+  if (!isFinite(yMin) || !isFinite(yMax)) { yMin = -1; yMax = 1; }
+  if (Math.abs(yMax - yMin) < 1e-10) { yMin -= 1; yMax += 1; }
+  const pad = (yMax - yMin) * 0.13;
+  yMin -= pad; yMax += pad;
+  const yRange = yMax - yMin;
+
+  const toX = t => M.left + (t - a) / (b - a) * PW;
+  const toY = y => M.top + (1 - (y - yMin) / yRange) * PH;
+  const clY  = y => Math.max(M.top, Math.min(M.top + PH, toY(y)));
+  const yAx  = clY(0);
+
+  // Grid
+  const xStep = niceStep(b - a, 7), yStep = niceStep(yRange, 6);
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = 'rgba(128,128,128,0.18)';
+  let t = Math.ceil(a / xStep) * xStep;
+  while (t <= b + 1e-9) {
+    const px = toX(t);
+    ctx.beginPath(); ctx.moveTo(px, M.top); ctx.lineTo(px, M.top + PH); ctx.stroke();
+    t += xStep;
+  }
+  let y = Math.ceil(yMin / yStep) * yStep;
+  while (y <= yMax + 1e-9) {
+    const py = toY(y);
+    ctx.beginPath(); ctx.moveTo(M.left, py); ctx.lineTo(M.left + PW, py); ctx.stroke();
+    y += yStep;
+  }
+
+  // Subinterval boundary lines (subtle)
+  ctx.strokeStyle = 'rgba(100,100,100,0.2)'; ctx.lineWidth = 0.75;
+  for (let i = 0; i <= n; i++) {
+    const px = toX(a + i * dt);
+    ctx.beginPath(); ctx.moveTo(px, M.top); ctx.lineTo(px, M.top + PH); ctx.stroke();
+  }
+
+  // Rectangles
+  const dotR = Math.max(2, 4.5 * Math.pow(8 / Math.max(n, 1), 0.38));
+  for (const r of rects) {
+    const rx = toX(r.t0), rw = toX(r.t1) - toX(r.t0);
+    const pos = r.yi >= 0;
+    const ryTop = pos ? toY(r.yi) : yAx;
+    const rh = Math.abs(toY(r.yi) - yAx);
+    ctx.fillStyle = pos ? 'rgba(59,130,246,0.18)' : 'rgba(239,68,68,0.18)';
+    ctx.fillRect(rx, ryTop, rw, rh);
+    ctx.strokeStyle = pos ? '#3b82f6' : '#ef4444'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(rx, ryTop, rw, rh);
+  }
+
+  // Step function horizontal segments
+  ctx.lineWidth = 2.5;
+  for (const r of rects) {
+    ctx.strokeStyle = r.yi >= 0 ? '#2563eb' : '#dc2626';
+    const py = toY(r.yi);
+    ctx.beginPath(); ctx.moveTo(toX(r.t0), py); ctx.lineTo(toX(r.t1), py); ctx.stroke();
+  }
+  // Step function vertical connectors
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(100,100,180,0.3)';
+  for (let i = 1; i < rects.length; i++) {
+    const px = toX(rects[i].t0);
+    ctx.beginPath(); ctx.moveTo(px, toY(rects[i-1].yi)); ctx.lineTo(px, toY(rects[i].yi)); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(70,70,70,0.8)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(M.left, yAx); ctx.lineTo(M.left + PW, yAx); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(M.left, M.top); ctx.lineTo(M.left, M.top + PH); ctx.stroke();
+  // Arrowheads
+  ctx.fillStyle = 'rgba(70,70,70,0.8)';
+  ctx.beginPath(); ctx.moveTo(M.left + PW + 2, yAx); ctx.lineTo(M.left + PW - 6, yAx - 3); ctx.lineTo(M.left + PW - 6, yAx + 3); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(M.left, M.top - 2); ctx.lineTo(M.left - 3, M.top + 6); ctx.lineTo(M.left + 3, M.top + 6); ctx.fill();
+
+  // Tick labels
+  ctx.font = '13px "Courier New", monospace';
+  ctx.fillStyle = 'rgba(70,70,70,0.85)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  t = Math.ceil(a / xStep) * xStep;
+  while (t <= b + 1e-9) {
+    const px = toX(t);
+    ctx.strokeStyle = 'rgba(70,70,70,0.45)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, yAx - 3); ctx.lineTo(px, yAx + 3); ctx.stroke();
+    ctx.fillText(fmtTick(t, xStep), px, yAx + 6);
+    t += xStep;
+  }
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  y = Math.ceil(yMin / yStep) * yStep;
+  while (y <= yMax + 1e-9) {
+    const py = toY(y);
+    ctx.strokeStyle = 'rgba(70,70,70,0.45)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(M.left - 3, py); ctx.lineTo(M.left + 3, py); ctx.stroke();
+    if (Math.abs(py - yAx) > 9) ctx.fillText(fmtTick(y, yStep), M.left - 7, py);
+    y += yStep;
+  }
+  // Axis labels
+  ctx.fillStyle = 'rgba(90,90,90,0.65)'; ctx.font = '14px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('t', M.left + PW + 8, yAx);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('f(t)', M.left + 22, M.top + 3);
+
+  // Tag dashed vertical lines from (ξᵢ, 0) to (ξᵢ, f(ξᵢ))
+  ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5;
+  for (const r of rects) {
+    const px = toX(r.xi);
+    ctx.strokeStyle = r.yi >= 0 ? 'rgba(99,102,241,0.72)' : 'rgba(220,38,38,0.65)';
+    ctx.beginPath(); ctx.moveTo(px, yAx); ctx.lineTo(px, toY(r.yi)); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Tag dots on x-axis
+  ctx.fillStyle = '#6366f1';
+  for (const r of rects) {
+    ctx.beginPath(); ctx.arc(toX(r.xi), yAx, dotR * 0.65, 0, 2 * Math.PI); ctx.fill();
+  }
+
+  // Tag dots on curve
+  for (const r of rects) {
+    ctx.fillStyle = r.yi >= 0 ? '#2563eb' : '#dc2626';
+    ctx.beginPath(); ctx.arc(toX(r.xi), toY(r.yi), dotR, 0, 2 * Math.PI); ctx.fill();
+  }
+
+  // Function curve — amber, drawn last
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i < curvePts.length; i++) {
+    const p = curvePts[i];
+    if (!p) { first = true; continue; }
+    const px = toX(p.t), py = clY(p.y);
+    if (!first && curvePts[i - 1]) {
+      if (Math.abs(py - clY(curvePts[i - 1].y)) > PH * 0.5) { ctx.moveTo(px, py); continue; }
+    }
+    first ? (ctx.moveTo(px, py), first = false) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Update metric cards
+  document.getElementById('deltaT').textContent = dt.toFixed(4);
+  document.getElementById('riemannSum').textContent = sum.toFixed(4);
+  const abs = Math.abs(sum);
+  document.getElementById('dispResult').innerHTML =
+    abs < 1e-8
+      ? '<span style="color:#888">≈ 0 (no net motion)</span>'
+      : sum > 0
+        ? `<span class="positive">▶ ${abs.toFixed(4)} units rightward</span>`
+        : `<span class="negative">◀ ${abs.toFixed(4)} units leftward</span>`;
+
+  document.getElementById('tagLabel').textContent =
+    c <= 0.005 ? 'ξᵢ = left endpoint of each subinterval' :
+    c >= 0.995 ? 'ξᵢ = right endpoint of each subinterval' :
+    Math.abs(c - 0.5) < 0.005 ? 'ξᵢ = midpoint of each subinterval' :
+    `ξᵢ = tᵢ₋₁ + ${c.toFixed(2)}·Δt  (${Math.round(c * 100)}% into subinterval)`;
+}
+
+function update() {
+  const { fn, error } = parseExpr(document.getElementById('fnExpr').value.trim());
+  const a = parseNum(document.getElementById('aVal').value.trim());
+  const b = parseNum(document.getElementById('bVal').value.trim());
+  const errEl = document.getElementById('errorMsg');
+  const err = error   ? 'Function error: ' + error
+            : a===null ? 'Invalid value for a'
+            : b===null ? 'Invalid value for b'
+            : a >= b   ? 'a must be strictly less than b'
+            : null;
+  errEl.style.display = err ? 'block' : 'none';
+  if (err) errEl.textContent = err;
+  state.fn = err ? null : fn;
+  if (a !== null) state.a = a;
+  if (b !== null) state.b = b;
+  draw();
+}
+
+document.getElementById('fnExpr').addEventListener('input', update);
+document.getElementById('aVal').addEventListener('input', update);
+document.getElementById('bVal').addEventListener('input', update);
+document.getElementById('nSlider').addEventListener('input', function () {
+  state.n = +this.value;
+  document.getElementById('nOut').textContent = this.value;
+  draw();
+});
+document.getElementById('cSlider').addEventListener('input', function () {
+  state.c = +this.value;
+  document.getElementById('cOut').textContent = (+this.value).toFixed(2);
+  draw();
+});
+document.getElementById('nMaxVal').addEventListener('input', function () {
+  const v = parseInt(this.value, 10);
+  if (v >= 1) {
+    const slider = document.getElementById('nSlider');
+    slider.max = v;
+    if (state.n > v) {
+      state.n = v;
+      slider.value = v;
+      document.getElementById('nOut').textContent = v;
+      draw();
+    }
+  }
+});
+
+// Initial render
+state.fn = parseExpr('sin(t)').fn;
+draw();
+</script>
+</body>
+</html>

@@ -134,6 +134,31 @@ jobs:
           mkdir -p _site/volume-of-revolution
           cp -r volume-of-revolution/dist/* _site/volume-of-revolution/
 
+      - name: Copy static app electrostatic-potential-explorer into combined site
+        run: |
+          mkdir -p _site/electrostatic-potential-explorer
+          cp -r electrostatic-potential-explorer/* _site/electrostatic-potential-explorer/
+
+      - name: Copy static app polar-area into combined site
+        run: |
+          mkdir -p _site/polar-area
+          cp -r polar-area/* _site/polar-area/
+
+      - name: Copy static app riemann-convergence into combined site
+        run: |
+          mkdir -p _site/riemann-convergence
+          cp -r riemann-convergence/* _site/riemann-convergence/
+
+      - name: Copy static app riemann-sum into combined site
+        run: |
+          mkdir -p _site/riemann-sum
+          cp -r riemann-sum/* _site/riemann-sum/
+
+      - name: Copy static app vector-field-explorer into combined site
+        run: |
+          mkdir -p _site/vector-field-explorer
+          cp -r vector-field-explorer/* _site/vector-field-explorer/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 

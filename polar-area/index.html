@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polar Area Visualizer — Math 252</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f8f7f4;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .container { width: 100%; max-width: 780px; }
+
+    h1 { font-size: 1.3rem; font-weight: 500; margin-bottom: 0.25rem; color: #111; }
+    .subtitle { font-size: 0.85rem; color: #666; margin-bottom: 1.5rem; }
+
+    .preset-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    }
+    .preset-row label { font-size: 14px; font-weight: 500; color: #333; white-space: nowrap; }
+    .preset-row select {
+      flex: 1; padding: 6px 10px; font-size: 14px;
+      border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #111;
+      cursor: pointer; outline: none;
+    }
+    .preset-row select:focus { border-color: #888; }
+
+    .input-row {
+      display: grid; grid-template-columns: 2fr 1fr 1fr;
+      gap: 10px; margin-bottom: 8px; align-items: end;
+    }
+
+    .input-group label { display: block; font-size: 15px; color: #555; margin-bottom: 4px; }
+
+    input[type="text"] {
+      width: 100%; padding: 7px 10px;
+      font-family: 'Courier New', monospace; font-size: 16px;
+      border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #111;
+      outline: none; transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: #888; }
+
+    .hint { font-size: 13px; color: #888; margin-bottom: 10px; }
+
+    .error-msg {
+      display: none; font-size: 14px; color: #c0392b; background: #fdf0ee;
+      border: 1px solid #f5c6c0; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px;
+    }
+
+    .canvas-wrap {
+      border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+      background: #fff; margin-bottom: 14px;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    .sum-type {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+      font-size: 14px; color: #555; flex-wrap: wrap;
+    }
+    .sum-type-label { font-weight: 500; color: #333; }
+    .sum-type input[type="radio"] { accent-color: #555; margin: 0 3px 0 0; cursor: pointer; }
+    .sum-type label { cursor: pointer; display: flex; align-items: center; gap: 3px; }
+
+    .sliders {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 6px;
+    }
+
+    .slider-group label { font-size: 15px; color: #555; }
+
+    .slider-row {
+      display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;
+    }
+
+    .slider-val {
+      font-size: 16px; font-weight: 500;
+      font-family: 'Courier New', monospace; color: #111;
+    }
+
+    input[type="range"] { width: 100%; accent-color: #555; cursor: pointer; }
+
+    .slider-group.disabled label,
+    .slider-group.disabled .slider-val { color: #bbb; }
+    .slider-group.disabled input[type="range"] { opacity: 0.3; pointer-events: none; }
+
+    .n-controls { display: flex; align-items: center; gap: 8px; }
+
+    .n-max-group { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #555; }
+    .n-max-group input {
+      width: 52px; padding: 3px 6px;
+      font-family: 'Courier New', monospace; font-size: 14px;
+      border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #111;
+      text-align: center; outline: none;
+    }
+    .n-max-group input:focus { border-color: #888; }
+
+    .animate-btn {
+      padding: 3px 10px; font-size: 13px;
+      border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #555;
+      cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
+    }
+    .animate-btn:hover { background: #f0f0f0; border-color: #aaa; }
+    .animate-btn.running { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+
+    .tag-label {
+      font-size: 14px; color: #666; font-style: italic; margin-bottom: 16px; min-height: 16px;
+    }
+
+    .metrics {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+    }
+
+    .metric-card {
+      background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 12px 14px;
+    }
+
+    .metric-card .metric-label { font-size: 13px; color: #888; margin-bottom: 4px; }
+
+    .metric-card .metric-val {
+      font-size: 20px; font-weight: 500;
+      font-family: 'Courier New', monospace; color: #111;
+    }
+
+    .metrics-extra {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+    }
+
+    .table-toggle {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+      cursor: pointer; font-size: 14px; color: #555; user-select: none;
+    }
+    .table-toggle:hover { color: #111; }
+    .table-toggle .arrow {
+      display: inline-block; transition: transform 0.2s; font-size: 11px;
+    }
+    .table-toggle .arrow.open { transform: rotate(90deg); }
+
+    .values-table-wrap {
+      max-height: 300px; overflow-y: auto;
+      border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 14px;
+    }
+    .values-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px; font-family: 'Courier New', monospace;
+    }
+    .values-table th {
+      position: sticky; top: 0; background: #f5f4f1; font-weight: 500;
+      font-size: 12px; color: #555; padding: 7px 10px; text-align: right;
+      border-bottom: 1px solid #ddd; font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .values-table th:first-child { text-align: center; }
+    .values-table td {
+      padding: 5px 10px; text-align: right; border-bottom: 1px solid #f0f0f0; color: #333;
+    }
+    .values-table td:first-child { text-align: center; color: #888; }
+    .values-table tr:last-child td { border-bottom: none; }
+
+    .legend {
+      display: flex; gap: 18px; font-size: 13px; color: #777; flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .swatch { width: 13px; height: 13px; border-radius: 2px; flex-shrink: 0; }
+    .swatch-line { width: 22px; height: 2.5px; border-radius: 1px; flex-shrink: 0; }
+    .swatch-dash {
+      width: 20px; height: 0; border-top: 1.5px dashed #6366f1; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>Polar Area Visualizer</h1>
+  <div class="subtitle">Math 252 · Area in Polar Coordinates</div>
+
+  <div class="preset-row">
+    <label>Presets:</label>
+    <select id="presetSelect">
+      <option value="">— choose a preset —</option>
+      <option value="1|0|2*PI" selected>r = 1  (unit circle, A = π)</option>
+      <option value="2*cos(theta)|0|PI">r = 2cos(θ)  (circle, A = π)</option>
+      <option value="1+cos(theta)|0|2*PI">r = 1 + cos(θ)  (cardioid)</option>
+      <option value="sin(2*theta)|0|PI/2">r = sin(2θ)  (one petal of rose)</option>
+      <option value="sin(3*theta)|0|PI">r = sin(3θ)  (three-petal rose)</option>
+      <option value="2+sin(theta)|0|2*PI">r = 2 + sin(θ)  (limaçon)</option>
+      <option value="theta/(2*PI)|0|4*PI">r = θ/(2π)  (spiral, 2 turns)</option>
+      <option value="sqrt(abs(4*cos(2*theta)))|0|PI/4">r = √|4cos(2θ)|  (lemniscate petal)</option>
+    </select>
+  </div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label>r(θ)</label>
+      <input type="text" id="fnExpr" value="1" placeholder="e.g. 1+cos(theta), sin(2*theta)">
+    </div>
+    <div class="input-group">
+      <label>α (start)</label>
+      <input type="text" id="aVal" value="0">
+    </div>
+    <div class="input-group">
+      <label>β (end)</label>
+      <input type="text" id="bVal" value="2*PI">
+    </div>
+  </div>
+  <div class="hint">Use <strong>theta</strong> or <strong>t</strong> for θ &nbsp;·&nbsp; Supports: sin, cos, tan, sqrt, abs, exp, log, PI, E &nbsp;·&nbsp; Use <code>^</code> or <code>**</code> for powers</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="canvas-wrap">
+    <canvas id="graph" width="650" height="650"></canvas>
+  </div>
+
+  <div class="sum-type">
+    <span class="sum-type-label">Sum type:</span>
+    <label><input type="radio" name="sumType" value="custom" checked> Custom tag</label>
+    <label><input type="radio" name="sumType" value="upper"> Upper</label>
+    <label><input type="radio" name="sumType" value="lower"> Lower</label>
+  </div>
+
+  <div class="sliders">
+    <div class="slider-group">
+      <div class="slider-row">
+        <label>Sectors <em>n</em></label>
+        <div class="n-controls">
+          <span class="slider-val" id="nOut">12</span>
+          <span class="n-max-group">
+            max:
+            <input type="text" id="nMaxVal" value="60">
+          </span>
+          <button class="animate-btn" id="animateBtn" title="Animate n from 1 to max">▶ Animate</button>
+        </div>
+      </div>
+      <input type="range" id="nSlider" min="1" max="60" value="12" step="1">
+    </div>
+    <div class="slider-group" id="tagSliderGroup">
+      <div class="slider-row">
+        <label>Tag <em>c</em> ∈ [0, 1]</label>
+        <span class="slider-val" id="cOut">0.50</span>
+      </div>
+      <input type="range" id="cSlider" min="0" max="1" value="0.5" step="0.01">
+    </div>
+  </div>
+
+  <div class="tag-label" id="tagLabel">θᵢ* = midpoint of each subinterval</div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Δθ = (β − α) / n</div>
+      <div class="metric-val" id="deltaT">–</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label" id="sumLabel">½ ∑ r(θᵢ*)² · Δθ</div>
+      <div class="metric-val" id="riemannSum">–</div>
+    </div>
+  </div>
+
+  <div class="metrics-extra">
+    <div class="metric-card">
+      <div class="metric-label">½∫ r(θ)² dθ  (numerical)</div>
+      <div class="metric-val" id="exactVal">–</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">|Error| = |exact − approx|</div>
+      <div class="metric-val" id="errorVal">–</div>
+    </div>
+  </div>
+
+  <div class="table-toggle" id="tableToggle">
+    <span class="arrow" id="tableArrow">▶</span>
+    <span id="tableToggleText">Show sector table</span>
+  </div>
+  <div id="tableContainer" style="display:none;">
+    <div class="values-table-wrap">
+      <table class="values-table">
+        <thead>
+          <tr><th>i</th><th>[θᵢ₋₁, θᵢ]</th><th>θᵢ*</th><th>r(θᵢ*)</th><th>½r²Δθ</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item">
+      <span class="swatch" style="background:rgba(59,130,246,0.22);border:1.5px solid #3b82f6;"></span>
+      Sector ½r(θᵢ*)²Δθ
+    </span>
+    <span class="legend-item">
+      <span class="swatch-line" style="background:#d97706;"></span>
+      r(θ) curve
+    </span>
+    <span class="legend-item">
+      <span class="swatch-dash"></span>
+      tag θᵢ*
+    </span>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const state = { fn: null, a: 0, b: 2 * Math.PI, n: 12, c: 0.5, mode: 'custom' };
+let animId = null;
+let cachedExact = null;
+
+function parseExpr(s) {
+  try {
+    const proc = s.replace(/\btheta\b/g, 't').replace(/\^/g, '**').replace(/\bln\b/g, 'log');
+    const fn = new Function('t', `
+      const {abs,acos,asin,atan,atan2,ceil,cos,exp,floor,log,log2,log10,
+             max,min,pow,round,sign,sin,sqrt,tan,sinh,cosh,tanh,PI,E} = Math;
+      const pi = PI, e = E;
+      return (${proc});
+    `);
+    fn(0); fn(1); fn(-1);
+    return { fn, error: null };
+  } catch (err) {
+    return { fn: null, error: String(err).split('\n')[0] };
+  }
+}
+
+function parseNum(s) {
+  try {
+    const fn = new Function(`
+      const {PI,E,abs,sin,cos,sqrt,pow,log} = Math;
+      const pi = PI, e = E;
+      return (${s.replace(/\^/g, '**')});
+    `);
+    const v = fn();
+    return isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+function safeEval(fn, t) {
+  try { const v = fn(t); return isFinite(v) ? v : 0; } catch { return 0; }
+}
+
+// Exact area via composite Simpson on r²
+function computeExact(fn, a, b) {
+  const N = 2000;
+  const h = (b - a) / N;
+  let s = 0;
+  try {
+    const fa = fn(a), fb = fn(b);
+    if (!isFinite(fa) || !isFinite(fb)) return null;
+    s = fa * fa + fb * fb;
+  } catch { return null; }
+  for (let i = 1; i < N; i++) {
+    const t = a + i * h;
+    try {
+      const y = fn(t);
+      if (!isFinite(y)) return null;
+      s += (i % 2 === 0 ? 2 : 4) * y * y;
+    } catch { return null; }
+  }
+  const result = 0.5 * s * h / 3;
+  return isFinite(result) ? result : null;
+}
+
+function updateExact() {
+  const { fn, a, b } = state;
+  cachedExact = (!fn || a >= b) ? null : computeExact(fn, a, b);
+}
+
+function niceStep(range, target) {
+  if (!range || !isFinite(range) || range <= 0) return 1;
+  const rough = range / target;
+  const exp = Math.floor(Math.log10(rough));
+  const frac = rough / Math.pow(10, exp);
+  return (frac < 1.5 ? 1 : frac < 3.5 ? 2 : frac < 7.5 ? 5 : 10) * Math.pow(10, exp);
+}
+
+function fmtNum(v) {
+  if (Math.abs(v) < 1e-10) return '0';
+  if (Number.isInteger(v)) return v.toString();
+  return v.toFixed(2);
+}
+
+function draw() {
+  const { fn, a, b, n, c, mode } = state;
+  const W = canvas.width, H = canvas.height;
+  const ctrX = W / 2, ctrY = H / 2;
+  const margin = 60;
+  const plotR = Math.min(ctrX, ctrY) - margin;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!fn || a >= b) {
+    ctx.fillStyle = 'rgba(120,120,120,0.55)';
+    ctx.font = '15px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(a >= b ? 'Requires α < β' : 'Invalid function', ctrX, ctrY);
+    updateMetrics(null);
+    return;
+  }
+
+  const dt = (b - a) / n;
+  const sampleN = 80;
+
+  // Sample curve for plotting and max radius
+  const NS = 800;
+  const curvePts = [];
+  let maxR = 0;
+  for (let i = 0; i <= NS; i++) {
+    const t = a + (b - a) * i / NS;
+    const r = safeEval(fn, t);
+    const ar = Math.abs(r);
+    if (ar > maxR) maxR = ar;
+    curvePts.push({ t, r });
+  }
+
+  // Build sectors
+  const sectors = [];
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const t0 = a + i * dt;
+    const t1 = t0 + dt;
+    let tStar, rStar;
+    if (mode === 'upper' || mode === 'lower') {
+      let bestT = t0, bestAbsR = Math.abs(safeEval(fn, t0));
+      for (let s = 0; s <= sampleN; s++) {
+        const ts = t0 + (s / sampleN) * dt;
+        const rs = Math.abs(safeEval(fn, ts));
+        if (mode === 'upper' ? rs > bestAbsR : rs < bestAbsR) {
+          bestAbsR = rs; bestT = ts;
+        }
+      }
+      tStar = bestT;
+      rStar = safeEval(fn, bestT);
+    } else {
+      tStar = t0 + c * dt;
+      rStar = safeEval(fn, tStar);
+    }
+    const absR = Math.abs(rStar);
+    if (absR > maxR) maxR = absR;
+    const area = 0.5 * rStar * rStar * dt;
+    // When r < 0, the sector is reflected through the origin (angle + π)
+    const offset = rStar < 0 ? Math.PI : 0;
+    sectors.push({ t0, t1, tStar, rStar, absR, area, offset });
+    sum += area;
+  }
+
+  if (maxR < 1e-10) maxR = 1;
+  const scale = plotR / (maxR * 1.12);
+
+  // Polar → canvas
+  const toXY = (r, theta) => ({
+    x: ctrX + r * scale * Math.cos(theta),
+    y: ctrY - r * scale * Math.sin(theta)
+  });
+
+  // --- Grid circles ---
+  const rStep = niceStep(maxR, 4);
+  ctx.lineWidth = 0.5;
+  for (let rv = rStep; rv <= maxR * 1.12 + 1e-9; rv += rStep) {
+    const pr = rv * scale;
+    ctx.strokeStyle = 'rgba(128,128,128,0.18)';
+    ctx.beginPath(); ctx.arc(ctrX, ctrY, pr, 0, 2 * Math.PI); ctx.stroke();
+    // radius label
+    ctx.fillStyle = 'rgba(100,100,100,0.55)';
+    ctx.font = '11px "Courier New", monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtNum(rv), ctrX + 4, ctrY - pr - 2);
+  }
+
+  // --- Grid radial lines (every 30°) ---
+  ctx.strokeStyle = 'rgba(128,128,128,0.12)'; ctx.lineWidth = 0.5;
+  const outerR = maxR * 1.12;
+  for (let k = 0; k < 12; k++) {
+    const ang = k * Math.PI / 6;
+    const end = toXY(outerR, ang);
+    ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(end.x, end.y); ctx.stroke();
+  }
+
+  // --- Angle labels ---
+  ctx.fillStyle = 'rgba(100,100,100,0.5)'; ctx.font = '11px sans-serif';
+  const aLabels = [
+    [0,'0'],[Math.PI/6,'π/6'],[Math.PI/3,'π/3'],[Math.PI/2,'π/2'],
+    [2*Math.PI/3,'2π/3'],[5*Math.PI/6,'5π/6'],[Math.PI,'π'],
+    [7*Math.PI/6,'7π/6'],[4*Math.PI/3,'4π/3'],[3*Math.PI/2,'3π/2'],
+    [5*Math.PI/3,'5π/3'],[11*Math.PI/6,'11π/6']
+  ];
+  for (const [ang, label] of aLabels) {
+    const lr = (outerR + rStep * 0.4) * scale;
+    const lx = ctrX + lr * Math.cos(ang);
+    const ly = ctrY - lr * Math.sin(ang);
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    ctx.textAlign = ca > 0.1 ? 'left' : ca < -0.1 ? 'right' : 'center';
+    ctx.textBaseline = sa > 0.1 ? 'bottom' : sa < -0.1 ? 'top' : 'middle';
+    ctx.fillText(label, lx, ly);
+  }
+
+  // --- Axes ---
+  ctx.strokeStyle = 'rgba(70,70,70,0.45)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ctrX - plotR - 15, ctrY); ctx.lineTo(ctrX + plotR + 15, ctrY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ctrX, ctrY + plotR + 15); ctx.lineTo(ctrX, ctrY - plotR - 15); ctx.stroke();
+
+  // --- Sector fills ---
+  for (const s of sectors) {
+    const r = s.absR * scale;
+    if (r < 0.3) continue;
+    ctx.fillStyle = 'rgba(59,130,246,0.20)';
+    ctx.strokeStyle = 'rgba(59,130,246,0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ctrX, ctrY);
+    ctx.arc(ctrX, ctrY, r, -(s.t0 + s.offset), -(s.t1 + s.offset), true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // --- Sector boundary radial lines ---
+  ctx.strokeStyle = 'rgba(59,130,246,0.4)'; ctx.lineWidth = 0.75;
+  for (let i = 0; i < n; i++) {
+    const s = sectors[i];
+    // Left boundary
+    const leftEnd = toXY(s.absR, s.t0 + s.offset);
+    ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(leftEnd.x, leftEnd.y); ctx.stroke();
+    // Right boundary of last sector
+    if (i === n - 1) {
+      const rightEnd = toXY(s.absR, s.t1 + s.offset);
+      ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(rightEnd.x, rightEnd.y); ctx.stroke();
+    }
+  }
+  // Also draw right boundary between adjacent sectors
+  for (let i = 0; i < n - 1; i++) {
+    const s0 = sectors[i], s1 = sectors[i + 1];
+    const r = Math.max(s0.absR, s1.absR);
+    // If both have the same offset, draw one line; if different offsets, draw both
+    const end0 = toXY(s0.absR, s0.t1 + s0.offset);
+    ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(end0.x, end0.y); ctx.stroke();
+    if (s1.offset !== s0.offset) {
+      const end1 = toXY(s1.absR, s1.t0 + s1.offset);
+      ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(end1.x, end1.y); ctx.stroke();
+    }
+  }
+
+  // --- Sector arcs (circular edge) ---
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#2563eb';
+  for (const s of sectors) {
+    const r = s.absR * scale;
+    if (r < 0.3) continue;
+    ctx.beginPath();
+    ctx.arc(ctrX, ctrY, r, -(s.t0 + s.offset), -(s.t1 + s.offset), true);
+    ctx.stroke();
+  }
+
+  // --- Tag dashed radial lines ---
+  ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(99,102,241,0.72)';
+  for (const s of sectors) {
+    const end = toXY(s.absR, s.tStar + s.offset);
+    ctx.beginPath(); ctx.moveTo(ctrX, ctrY); ctx.lineTo(end.x, end.y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // --- Tag dots on curve ---
+  const dotR = Math.max(2, 4.5 * Math.pow(8 / Math.max(n, 1), 0.38));
+  ctx.fillStyle = '#2563eb';
+  for (const s of sectors) {
+    const p = toXY(s.absR, s.tStar + s.offset);
+    ctx.beginPath(); ctx.arc(p.x, p.y, dotR, 0, 2 * Math.PI); ctx.fill();
+  }
+
+  // --- Polar curve (amber, drawn last) ---
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let first = true;
+  for (const p of curvePts) {
+    const r = Math.abs(p.r);
+    // Negative r: point is at angle + π
+    const angle = p.r >= 0 ? p.t : p.t + Math.PI;
+    const px = ctrX + r * scale * Math.cos(angle);
+    const py = ctrY - r * scale * Math.sin(angle);
+    if (first) { ctx.moveTo(px, py); first = false; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // --- Origin ---
+  ctx.fillStyle = 'rgba(70,70,70,0.5)';
+  ctx.beginPath(); ctx.arc(ctrX, ctrY, 2.5, 0, 2 * Math.PI); ctx.fill();
+
+  updateMetrics({ sum, dt, sectors });
+}
+
+function updateMetrics(data) {
+  if (!data) {
+    ['deltaT','riemannSum','exactVal','errorVal'].forEach(id =>
+      document.getElementById(id).textContent = '–');
+    updateTable([]);
+    return;
+  }
+  const { sum, dt, sectors } = data;
+  const { c, mode } = state;
+
+  document.getElementById('deltaT').textContent = dt.toFixed(6);
+  document.getElementById('riemannSum').textContent = sum.toFixed(6);
+
+  const labels = { custom: '½ ∑ r(θᵢ*)² · Δθ', upper: 'Upper sum', lower: 'Lower sum' };
+  document.getElementById('sumLabel').textContent = labels[mode] || labels.custom;
+
+  const tagTexts = {
+    upper: 'Upper sum: θᵢ* chosen to maximize |r| on each subinterval',
+    lower: 'Lower sum: θᵢ* chosen to minimize |r| on each subinterval',
+  };
+  document.getElementById('tagLabel').textContent = tagTexts[mode] ||
+    (c <= 0.005 ? 'θᵢ* = left endpoint of each subinterval' :
+     c >= 0.995 ? 'θᵢ* = right endpoint of each subinterval' :
+     Math.abs(c - 0.5) < 0.005 ? 'θᵢ* = midpoint of each subinterval' :
+     `θᵢ* = θᵢ₋₁ + ${c.toFixed(2)}·Δθ  (${Math.round(c * 100)}% into subinterval)`);
+
+  if (cachedExact !== null) {
+    document.getElementById('exactVal').textContent = cachedExact.toFixed(6);
+    document.getElementById('errorVal').textContent = Math.abs(cachedExact - sum).toFixed(6);
+  } else {
+    document.getElementById('exactVal').textContent = '—';
+    document.getElementById('errorVal').textContent = '—';
+  }
+
+  updateTable(sectors);
+}
+
+function updateTable(sectors) {
+  const tbody = document.getElementById('tableBody');
+  if (sectors.length === 0 || sectors.length > 200) {
+    tbody.innerHTML = sectors.length > 200
+      ? '<tr><td colspan="5" style="text-align:center;color:#888;font-family:sans-serif;">Table hidden for n > 200</td></tr>'
+      : '';
+    return;
+  }
+  let html = '';
+  for (let i = 0; i < sectors.length; i++) {
+    const s = sectors[i];
+    html += `<tr>
+      <td>${i + 1}</td>
+      <td>[${s.t0.toFixed(4)}, ${s.t1.toFixed(4)}]</td>
+      <td>${s.tStar.toFixed(4)}</td>
+      <td>${s.rStar.toFixed(4)}</td>
+      <td>${s.area.toFixed(6)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+function update() {
+  const { fn, error } = parseExpr(document.getElementById('fnExpr').value.trim());
+  const a = parseNum(document.getElementById('aVal').value.trim());
+  const b = parseNum(document.getElementById('bVal').value.trim());
+  const errEl = document.getElementById('errorMsg');
+  const err = error   ? 'Function error: ' + error
+            : a===null ? 'Invalid value for α'
+            : b===null ? 'Invalid value for β'
+            : a >= b   ? 'α must be strictly less than β'
+            : null;
+  errEl.style.display = err ? 'block' : 'none';
+  if (err) errEl.textContent = err;
+  state.fn = err ? null : fn;
+  if (a !== null) state.a = a;
+  if (b !== null) state.b = b;
+  document.getElementById('presetSelect').value = '';
+  updateExact();
+  draw();
+}
+
+// --- Event listeners ---
+document.getElementById('fnExpr').addEventListener('input', update);
+document.getElementById('aVal').addEventListener('input', update);
+document.getElementById('bVal').addEventListener('input', update);
+
+document.getElementById('nSlider').addEventListener('input', function () {
+  state.n = +this.value;
+  document.getElementById('nOut').textContent = this.value;
+  draw();
+});
+
+document.getElementById('cSlider').addEventListener('input', function () {
+  state.c = +this.value;
+  document.getElementById('cOut').textContent = (+this.value).toFixed(2);
+  draw();
+});
+
+document.getElementById('nMaxVal').addEventListener('input', function () {
+  const v = parseInt(this.value, 10);
+  if (v >= 1) {
+    const slider = document.getElementById('nSlider');
+    slider.max = v;
+    if (state.n > v) {
+      state.n = v; slider.value = v;
+      document.getElementById('nOut').textContent = v;
+      draw();
+    }
+  }
+});
+
+document.querySelectorAll('input[name="sumType"]').forEach(radio => {
+  radio.addEventListener('change', function () {
+    state.mode = this.value;
+    const tagGroup = document.getElementById('tagSliderGroup');
+    if (state.mode === 'custom') tagGroup.classList.remove('disabled');
+    else tagGroup.classList.add('disabled');
+    draw();
+  });
+});
+
+document.getElementById('presetSelect').addEventListener('change', function () {
+  if (!this.value) return;
+  const [expr, aStr, bStr] = this.value.split('|');
+  document.getElementById('fnExpr').value = expr;
+  document.getElementById('aVal').value = aStr;
+  document.getElementById('bVal').value = bStr;
+  const { fn, error } = parseExpr(expr);
+  state.fn = error ? null : fn;
+  const a = parseNum(aStr), b = parseNum(bStr);
+  if (a !== null) state.a = a;
+  if (b !== null) state.b = b;
+  document.getElementById('errorMsg').style.display = 'none';
+  updateExact();
+  draw();
+});
+
+document.getElementById('tableToggle').addEventListener('click', function () {
+  const container = document.getElementById('tableContainer');
+  const arrow = document.getElementById('tableArrow');
+  const text = document.getElementById('tableToggleText');
+  const visible = container.style.display !== 'none';
+  container.style.display = visible ? 'none' : 'block';
+  arrow.classList.toggle('open', !visible);
+  text.textContent = visible ? 'Show sector table' : 'Hide sector table';
+});
+
+document.getElementById('animateBtn').addEventListener('click', function () {
+  if (animId !== null) {
+    clearInterval(animId); animId = null;
+    this.textContent = '▶ Animate'; this.classList.remove('running');
+    return;
+  }
+  const slider = document.getElementById('nSlider');
+  const maxN = +slider.max;
+  state.n = 1; slider.value = 1;
+  document.getElementById('nOut').textContent = '1';
+  draw();
+
+  this.textContent = '■ Stop'; this.classList.add('running');
+  animId = setInterval(() => {
+    state.n++;
+    if (state.n > maxN) {
+      clearInterval(animId); animId = null;
+      document.getElementById('animateBtn').textContent = '▶ Animate';
+      document.getElementById('animateBtn').classList.remove('running');
+      return;
+    }
+    slider.value = state.n;
+    document.getElementById('nOut').textContent = state.n;
+    draw();
+  }, 120);
+});
+
+// --- Initial render ---
+state.fn = parseExpr('1').fn;
+updateExact();
+draw();
+</script>
+</body>
+</html>

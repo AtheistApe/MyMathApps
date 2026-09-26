@@ -68,17 +68,36 @@ def gh_username() -> str:
     return result.stdout.strip()
 
 
-def find_app_dirs(root: Path):
-    """Any immediate subfolder with package.json + a vite config is an app."""
-    apps = []
+def classify_app_dirs(root: Path):
+    """Split immediate subfolders into (vite_apps, static_apps).
+
+    A vite app has package.json + a vite config and needs `npm install`
+    + `npm run build`. A static app just has an index.html at its top
+    level (no package.json) and can be copied across as-is, no build
+    step needed — this covers plain HTML/JS visualizers that were never
+    Vite projects to begin with. Folders matching neither are reported
+    so nothing goes missing silently.
+    """
+    vite_apps, static_apps, unrecognized = [], [], []
     for child in sorted(root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
         has_pkg = (child / "package.json").exists()
         has_vite_cfg = (child / "vite.config.js").exists() or (child / "vite.config.ts").exists()
+        has_index = (child / "index.html").exists()
         if has_pkg and has_vite_cfg:
-            apps.append(child)
-    return apps
+            vite_apps.append(child)
+        elif has_index:
+            static_apps.append(child)
+        else:
+            unrecognized.append(child)
+
+    if unrecognized:
+        print("Skipped (no package.json+vite.config, and no index.html at top level):")
+        for u in unrecognized:
+            print(f"  - {u.name}")
+
+    return vite_apps, static_apps
 
 
 def strip_nested_git(app_dir: Path):
@@ -159,9 +178,8 @@ def patch_vite_base(app_dir: Path, repo_name: str):
         print(f"  base already correct in {app_dir.name}/{cfg_path.name}")
 
 
-def write_workflow(apps, repo_name: str):
+def write_workflow(vite_apps, static_apps, repo_name: str):
     WORKFLOW_PATH.parent.mkdir(parents=True, exist_ok=True)
-    app_names = [a.name for a in apps]
 
     build_steps = "\n".join(
         f"""
@@ -175,7 +193,16 @@ def write_workflow(apps, repo_name: str):
         run: |
           mkdir -p _site/{name}
           cp -r {name}/dist/* _site/{name}/"""
-        for name in app_names
+        for name in (a.name for a in vite_apps)
+    )
+
+    static_copy_steps = "\n".join(
+        f"""
+      - name: Copy static app {name} into combined site
+        run: |
+          mkdir -p _site/{name}
+          cp -r {name}/* _site/{name}/"""
+        for name in (a.name for a in static_apps)
     )
 
     workflow = f"""name: Deploy {repo_name} to GitHub Pages
@@ -204,6 +231,7 @@ jobs:
         with:
           node-version: 20
 {build_steps}
+{static_copy_steps}
 
       - name: Copy landing page
         run: cp index.html _site/index.html
@@ -304,23 +332,27 @@ def main():
     args = parser.parse_args()
 
     root = Path.cwd()
-    apps = find_app_dirs(root)
+    vite_apps, static_apps = classify_app_dirs(root)
+    apps = vite_apps + static_apps
     if not apps:
         sys.exit(
-            "No Vite app subfolders found here. Run this from inside your "
-            "MyMathApps/ folder, with each app as a subfolder."
+            "No app subfolders found here. Run this from inside your "
+            "MyMathApps/ folder, with each app as a subfolder (either a "
+            "Vite project, or a plain folder with an index.html)."
         )
 
-    print(f"Found {len(apps)} app(s): {', '.join(a.name for a in apps)}\n")
+    print(f"Found {len(vite_apps)} Vite app(s): {', '.join(a.name for a in vite_apps) or '(none)'}")
+    print(f"Found {len(static_apps)} static app(s): {', '.join(a.name for a in static_apps) or '(none)'}\n")
 
     username = gh_username()
     print(f"GitHub user: {username}\n")
 
     for app in apps:
         strip_nested_git(app)
+    for app in vite_apps:
         patch_vite_base(app, args.repo_name)
 
-    write_workflow(apps, args.repo_name)
+    write_workflow(vite_apps, static_apps, args.repo_name)
     write_index(apps, args.repo_name)
 
     ensure_git_repo()

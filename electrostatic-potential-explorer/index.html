@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electrostatic Potential Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-app:#15181c;
+    --bg-panel:#1b1f25;
+    --bg-panel-raised:#232830;
+    --bg-screen:#071019;
+    --screen-grid-minor:#122232;
+    --screen-grid-major:#1c3247;
+    --screen-axis:#2c4a63;
+    --text-primary:#e8ecf1;
+    --text-muted:#8a94a3;
+    --text-dim:#5c6675;
+    --rule:#2c313a;
+    --amber:#e8a33d;
+    --amber-dim:#8a6a2f;
+    --pos-light:#dbe9ff;
+    --pos-mid:#4d8fe0;
+    --pos-deep:#123a66;
+    --neg-light:#ffe1df;
+    --neg-mid:#d9534f;
+    --neg-deep:#6e1414;
+    --field-arrow:#7fe0c9;
+    font-family:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg-app);
+    color:var(--text-primary);
+    min-height:100%;
+  }
+  body{
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+  .topbar{
+    padding:18px 22px 14px;
+    border-bottom:1px solid var(--rule);
+  }
+  .topbar h1{
+    margin:0 0 4px;
+    font-size:19px;
+    font-weight:600;
+    letter-spacing:0.01em;
+  }
+  .topbar p{
+    margin:0;
+    font-size:13px;
+    color:var(--text-muted);
+    max-width:640px;
+    line-height:1.5;
+  }
+  .topbar p .kbd{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    color:var(--text-primary);
+    background:var(--bg-panel-raised);
+    border:1px solid var(--rule);
+    border-radius:4px;
+    padding:0 5px;
+    font-size:12px;
+  }
+  .main{
+    flex:1;
+    display:flex;
+    gap:16px;
+    padding:16px 22px 22px;
+    align-items:flex-start;
+  }
+  .screen-wrap{
+    position:relative;
+    flex:1 1 620px;
+    min-width:280px;
+    max-width:820px;
+  }
+  .screen-bezel{
+    position:relative;
+    background:var(--bg-screen);
+    border:1px solid #030608;
+    border-radius:10px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 12px 28px rgba(0,0,0,0.45);
+    overflow:hidden;
+    aspect-ratio:1/1;
+  }
+  canvas{
+    display:block;
+    width:100%;
+    height:100%;
+    cursor:crosshair;
+    touch-action:none;
+  }
+  .empty-hint{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-size:13px;
+    color:var(--text-dim);
+    pointer-events:none;
+    text-align:center;
+    line-height:1.6;
+    width:70%;
+  }
+  .charge-input{
+    position:absolute;
+    width:66px;
+    padding:4px 6px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13px;
+    background:#0c1520;
+    color:var(--text-primary);
+    border:1px solid var(--amber);
+    border-radius:5px;
+    outline:none;
+    z-index:5;
+    box-shadow:0 0 0 3px rgba(232,163,61,0.18);
+  }
+  .panel{
+    flex:0 0 250px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .card{
+    background:var(--bg-panel);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    padding:14px;
+  }
+  .field-label{
+    font-size:12px;
+    color:var(--text-muted);
+    margin:0 0 8px;
+    display:block;
+  }
+  .value-readout{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;
+    color:var(--amber);
+  }
+  input[type="range"]{
+    width:100%;
+    -webkit-appearance:none;
+    appearance:none;
+    height:4px;
+    background:var(--rule);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:15px; height:15px;
+    border-radius:50%;
+    background:var(--amber);
+    cursor:pointer;
+    border:2px solid #12151a;
+    box-shadow:0 0 0 1px rgba(232,163,61,0.4);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:15px; height:15px;
+    border-radius:50%;
+    background:var(--amber);
+    cursor:pointer;
+    border:2px solid #12151a;
+  }
+  input[type="range"]:focus-visible::-webkit-slider-thumb{
+    box-shadow:0 0 0 3px rgba(232,163,61,0.4);
+  }
+  .density-max-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:10px;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .density-max-row input[type="number"]{
+    width:60px;
+    background:#0c1520;
+    color:var(--text-primary);
+    border:1px solid var(--rule);
+    border-radius:5px;
+    padding:3px 6px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;
+    text-align:center;
+  }
+  .density-max-row input[type="number"]:focus-visible{
+    outline:none;
+    border-color:var(--amber);
+    box-shadow:0 0 0 3px rgba(232,163,61,0.18);
+  }
+  .switch-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .switch{
+    position:relative;
+    width:38px; height:21px;
+    background:var(--rule);
+    border-radius:11px;
+    transition:background 0.15s;
+    flex:0 0 auto;
+  }
+  .switch::after{
+    content:'';
+    position:absolute;
+    top:2px; left:2px;
+    width:17px; height:17px;
+    border-radius:50%;
+    background:var(--text-muted);
+    transition:transform 0.15s, background 0.15s;
+  }
+  .switch-row input{ display:none; }
+  .switch-row input:checked + .switch{ background:var(--amber-dim); }
+  .switch-row input:checked + .switch::after{
+    transform:translateX(17px);
+    background:var(--amber);
+  }
+  .switch-row input:focus-visible + .switch{
+    box-shadow:0 0 0 3px rgba(232,163,61,0.35);
+  }
+  .btn-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  button{
+    font-family:inherit;
+    font-size:12.5px;
+    color:var(--text-primary);
+    background:var(--bg-panel-raised);
+    border:1px solid var(--rule);
+    border-radius:6px;
+    padding:8px 10px;
+    cursor:pointer;
+    transition:border-color 0.12s, background 0.12s;
+    flex:1 1 auto;
+  }
+  button:hover{
+    border-color:var(--amber-dim);
+    background:#282e37;
+  }
+  button:focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:1px;
+  }
+  button.primary{
+    grid-column:1 / -1;
+  }
+  .legend-bar{
+    height:12px;
+    border-radius:4px;
+    background:linear-gradient(to right, #ff6b5c, #5a2c2c, #2a2f37, #2c4a68, #59c6ff);
+    margin:6px 0 4px;
+  }
+  .legend-labels{
+    display:flex;
+    justify-content:space-between;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:10.5px;
+    color:var(--text-dim);
+  }
+  .legend-caption{
+    font-size:11px;
+    color:var(--text-dim);
+    margin-top:8px;
+    line-height:1.5;
+  }
+  .status{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;
+    color:var(--text-muted);
+    line-height:1.6;
+    min-height:52px;
+  }
+  .status .hl{ color:var(--text-primary); }
+  .toast{
+    font-size:11.5px;
+    color:var(--amber);
+    margin-top:6px;
+    height:14px;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .toast{ transition:opacity 0.25s; }
+  }
+  @media (max-width: 760px){
+    .main{ flex-direction:column; }
+    .panel{ flex:1 1 auto; width:100%; }
+    .screen-wrap{ max-width:none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1>Electrostatic Potential Explorer</h1>
+    <p>Click the screen to place a point charge. Drag a charge to move it, click a charge to edit its value, and right-click (or long-press) a charge to remove it.</p>
+  </div>
+
+  <div class="main">
+    <div class="screen-wrap">
+      <div class="screen-bezel" id="bezel">
+        <canvas id="cv"></canvas>
+        <div class="empty-hint" id="emptyHint">Click anywhere on the screen<br>to place your first charge</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <span class="field-label">Equipotential line density &nbsp;<span class="value-readout" id="densityVal">12</span></span>
+        <input type="range" id="densitySlider" min="2" max="100" step="1" value="12">
+        <div class="density-max-row">
+          <label for="densityMaxInput">Slider max</label>
+          <input type="number" id="densityMaxInput" min="5" max="1000" step="1" value="100">
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="field-label">Field display</span>
+        <label class="switch-row" for="fieldToggle" style="margin-bottom:12px;">
+          Field vectors
+          <input type="checkbox" id="fieldToggle">
+          <span class="switch"></span>
+        </label>
+        <label class="switch-row" for="streamlineToggle" style="margin-bottom:12px;">
+          Field-line streamlines
+          <input type="checkbox" id="streamlineToggle">
+          <span class="switch"></span>
+        </label>
+        <span class="field-label">Streamline density &nbsp;<span class="value-readout" id="streamDensityVal">6</span></span>
+        <input type="range" id="streamDensitySlider" min="1" max="30" step="1" value="6">
+        <div class="legend-caption">Streamlines trace outward from positive charges into negative ones (or straight out to the edge, if only one sign is present).</div>
+      </div>
+
+      <div class="card">
+        <span class="field-label">Presets</span>
+        <div class="btn-row">
+          <button id="btnDipole">Dipole</button>
+          <button id="btnQuad">Quadrupole</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button id="btnClear" class="primary">Clear all charges</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="field-label">Potential V</span>
+        <div class="legend-bar"></div>
+        <div class="legend-labels"><span>negative</span><span>0</span><span>positive</span></div>
+        <div class="legend-caption">V = k &middot; &sum; qᵢ&frasl;rᵢ, with k&nbsp;=&nbsp;1 in these arbitrary units. Lines glow brighter where |V| is large and stay dim near zero, and they bunch closer together near stronger charges &mdash; both independent of how many lines the slider draws.</div>
+      </div>
+
+      <div class="card">
+        <span class="field-label">Cursor readout</span>
+        <div class="status" id="status">Move the pointer over the screen to read the potential at that point.</div>
+        <button id="btnShare" style="width:100%; margin-top:4px;">Copy shareable link</button>
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- constants ----------
+  var H = 10;            // world half-extent: x,y in [-H, H]
+  var K = 1;             // Coulomb constant in arbitrary units
+  var RMIN = 0.12;        // softening distance to avoid singular blow-up
+  var GRID_N = 84;        // contour sampling grid is (GRID_N+1) x (GRID_N+1)
+  var HIT_PX = 15;        // pointer hit-radius for an existing charge, in CSS px
+  var DRAG_THRESHOLD = 4; // px movement before a mousedown counts as a drag
+
+  // ---------- state ----------
+  var charges = [];       // {id, x, y, q}
+  var idCounter = 1;
+  var density = 12;
+  var showField = false;
+  var showStreamlines = false;
+  var streamDensity = 6;
+  var dirty = true;
+
+  var dragId = null;
+  var dragMoved = false;
+  var dragStartPx = null;
+  var activeInput = null;
+  var activeInputChargeId = null;
+  var activeInputWasNew = false;
+  var activeInputOriginalQ = null;
+
+  // ---------- dom ----------
+  var bezel = document.getElementById('bezel');
+  var canvas = document.getElementById('cv');
+  var ctx = canvas.getContext('2d');
+  var emptyHint = document.getElementById('emptyHint');
+  var statusEl = document.getElementById('status');
+  var toastEl = document.getElementById('toast');
+  var densitySlider = document.getElementById('densitySlider');
+  var densityVal = document.getElementById('densityVal');
+  var fieldToggle = document.getElementById('fieldToggle');
+  var streamlineToggle = document.getElementById('streamlineToggle');
+  var streamDensitySlider = document.getElementById('streamDensitySlider');
+  var streamDensityVal = document.getElementById('streamDensityVal');
+  var densityMaxInput = document.getElementById('densityMaxInput');
+
+  var cssW = 0, cssH = 0, DPR = Math.max(1, window.devicePixelRatio || 1);
+
+  function resizeCanvas(){
+    var rect = bezel.getBoundingClientRect();
+    cssW = rect.width;
+    cssH = rect.height;
+    canvas.width = Math.round(cssW * DPR);
+    canvas.height = Math.round(cssH * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    dirty = true;
+  }
+
+  if (window.ResizeObserver){
+    new ResizeObserver(resizeCanvas).observe(bezel);
+  } else {
+    window.addEventListener('resize', resizeCanvas);
+  }
+
+  // ---------- coordinate transforms (CSS-pixel space) ----------
+  function worldToPx(x, y){
+    return {
+      x: (x + H) / (2 * H) * cssW,
+      y: cssH - (y + H) / (2 * H) * cssH
+    };
+  }
+  function pxToWorld(px, py){
+    return {
+      x: (px / cssW) * (2 * H) - H,
+      y: H - (py / cssH) * (2 * H)
+    };
+  }
+
+  // ---------- physics ----------
+  function potentialAt(x, y, excludeId){
+    var v = 0;
+    for (var i = 0; i < charges.length; i++){
+      var c = charges[i];
+      if (excludeId != null && c.id === excludeId) continue;
+      var dx = x - c.x, dy = y - c.y;
+      var r = Math.sqrt(dx * dx + dy * dy);
+      if (r < RMIN) r = RMIN;
+      v += K * c.q / r;
+    }
+    return v;
+  }
+
+  function fieldAt(x, y){
+    var ex = 0, ey = 0;
+    for (var i = 0; i < charges.length; i++){
+      var c = charges[i];
+      var dx = x - c.x, dy = y - c.y;
+      var r = Math.sqrt(dx * dx + dy * dy);
+      if (r < RMIN) r = RMIN;
+      var r3 = r * r * r;
+      ex += K * c.q * dx / r3;
+      ey += K * c.q * dy / r3;
+    }
+    return { x: ex, y: ey };
+  }
+
+  // ---------- grid + marching squares ----------
+  var Vgrid = null;
+  var gridMin = 0, gridMax = 0;
+  var xs = [], ys = [];
+
+  function computeGrid(){
+    var n = GRID_N;
+    if (!Vgrid || Vgrid.length !== (n + 1) * (n + 1)){
+      Vgrid = new Float64Array((n + 1) * (n + 1));
+    }
+    if (xs.length !== n + 1){
+      xs = new Array(n + 1);
+      ys = new Array(n + 1);
+      for (var k = 0; k <= n; k++){
+        xs[k] = -H + k * (2 * H / n);
+        ys[k] = -H + k * (2 * H / n);
+      }
+    }
+    gridMin = Infinity; gridMax = -Infinity;
+    for (var j = 0; j <= n; j++){
+      var y = ys[j];
+      for (var i = 0; i <= n; i++){
+        var v = potentialAt(xs[i], y, null);
+        Vgrid[j * (n + 1) + i] = v;
+        if (v < gridMin) gridMin = v;
+        if (v > gridMax) gridMax = v;
+      }
+    }
+  }
+
+  function interpPt(v1, v2, p1, p2, level){
+    var t = (level - v1) / (v2 - v1);
+    return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+  }
+
+  // returns array of [{x1,y1,x2,y2}] world-space segments for one level
+  function marchLevel(level){
+    var n = GRID_N;
+    var segs = [];
+    for (var j = 0; j < n; j++){
+      var y0 = ys[j], y1 = ys[j + 1];
+      var rowBase = j * (n + 1), rowBase2 = (j + 1) * (n + 1);
+      for (var i = 0; i < n; i++){
+        var x0 = xs[i], x1 = xs[i + 1];
+        var a = Vgrid[rowBase + i];       // bottom-left
+        var b = Vgrid[rowBase + i + 1];   // bottom-right
+        var c = Vgrid[rowBase2 + i + 1];  // top-right
+        var d = Vgrid[rowBase2 + i];      // top-left
+
+        var lo = Math.min(a, b, c, d), hi = Math.max(a, b, c, d);
+        if (level < lo || level > hi) continue;
+
+        var Pbl = { x: x0, y: y0 }, Pbr = { x: x1, y: y0 };
+        var Ptr = { x: x1, y: y1 }, Ptl = { x: x0, y: y1 };
+
+        var pts = [];
+        if ((a - level) * (b - level) < 0) pts.push(interpPt(a, b, Pbl, Pbr, level));
+        if ((b - level) * (c - level) < 0) pts.push(interpPt(b, c, Pbr, Ptr, level));
+        if ((c - level) * (d - level) < 0) pts.push(interpPt(c, d, Ptr, Ptl, level));
+        if ((d - level) * (a - level) < 0) pts.push(interpPt(d, a, Ptl, Pbl, level));
+
+        if (pts.length === 2){
+          segs.push({ x1: pts[0].x, y1: pts[0].y, x2: pts[1].x, y2: pts[1].y });
+        } else if (pts.length === 4){
+          if (a > level){
+            segs.push({ x1: pts[0].x, y1: pts[0].y, x2: pts[3].x, y2: pts[3].y });
+            segs.push({ x1: pts[1].x, y1: pts[1].y, x2: pts[2].x, y2: pts[2].y });
+          } else {
+            segs.push({ x1: pts[0].x, y1: pts[0].y, x2: pts[1].x, y2: pts[1].y });
+            segs.push({ x1: pts[2].x, y1: pts[2].y, x2: pts[3].x, y2: pts[3].y });
+          }
+        }
+      }
+    }
+    return segs;
+  }
+
+  // ---------- color mapping ----------
+  function hexToRgb(hex){
+    var v = parseInt(hex.slice(1), 16);
+    return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+  }
+  // dim, muted color near V=0; bright, vivid color at large |V| -- against the
+  // dark screen, a bright color must mean *higher* luminance, not a darker one.
+  var POS_DIM = hexToRgb('#2c4a68'), POS_BRIGHT = hexToRgb('#59c6ff');
+  var NEG_DIM = hexToRgb('#5a2c2c'), NEG_BRIGHT = hexToRgb('#ff6b5c');
+
+  // Reference scale for "how large is |V|" -- the potential of a unit charge
+  // at unit distance, in these arbitrary units. Deliberately independent of
+  // the density slider, so brightness reflects physics, not line count.
+  var REF_V = 1;
+
+  function magFrac(absLevel){
+    var f = absLevel / (absLevel + REF_V);
+    return Math.pow(f, 0.7); // mild gamma lift for more visible contrast
+  }
+
+  function lerpColor(c1, c2, t){
+    return 'rgb(' +
+      Math.round(c1.r + (c2.r - c1.r) * t) + ',' +
+      Math.round(c1.g + (c2.g - c1.g) * t) + ',' +
+      Math.round(c1.b + (c2.b - c1.b) * t) + ')';
+  }
+
+  function levelColor(sign, frac){
+    frac = Math.max(0, Math.min(1, frac));
+    return sign > 0 ? lerpColor(POS_DIM, POS_BRIGHT, frac) : lerpColor(NEG_DIM, NEG_BRIGHT, frac);
+  }
+
+  // ---------- drawing ----------
+  function drawGridAndAxes(){
+    ctx.clearRect(0, 0, cssW, cssH);
+    ctx.fillStyle = '#071019';
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    // minor grid every 1 unit
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--screen-grid-minor').trim();
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var u = -H; u <= H; u += 1){
+      var p1 = worldToPx(u, -H), p2 = worldToPx(u, H);
+      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+      var p3 = worldToPx(-H, u), p4 = worldToPx(H, u);
+      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+    }
+    ctx.stroke();
+
+    // major grid every 5 units
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--screen-grid-major').trim();
+    ctx.beginPath();
+    for (var u2 = -H; u2 <= H; u2 += 5){
+      var q1 = worldToPx(u2, -H), q2 = worldToPx(u2, H);
+      ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y);
+      var q3 = worldToPx(-H, u2), q4 = worldToPx(H, u2);
+      ctx.moveTo(q3.x, q3.y); ctx.lineTo(q4.x, q4.y);
+    }
+    ctx.stroke();
+
+    // axes
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--screen-axis').trim();
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    var ax1 = worldToPx(-H, 0), ax2 = worldToPx(H, 0);
+    ctx.moveTo(ax1.x, ax1.y); ctx.lineTo(ax2.x, ax2.y);
+    var ay1 = worldToPx(0, -H), ay2 = worldToPx(0, H);
+    ctx.moveTo(ay1.x, ay1.y); ctx.lineTo(ay2.x, ay2.y);
+    ctx.stroke();
+
+    // tick labels
+    ctx.fillStyle = '#5c6675';
+    ctx.font = '10px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (var t = -H; t <= H; t += 5){
+      if (t === 0) continue;
+      var tp = worldToPx(t, 0);
+      ctx.fillText(String(t), tp.x, Math.min(tp.y + 3, cssH - 12));
+    }
+    ctx.textAlign = 'left';
+    for (var t2 = -H; t2 <= H; t2 += 5){
+      if (t2 === 0) continue;
+      var tp2 = worldToPx(0, t2);
+      ctx.fillText(String(t2), Math.max(tp2.x + 4, 2), tp2.y - 4);
+    }
+  }
+
+  function drawFieldVectors(){
+    var steps = 16;
+    var margin = H * 0.06;
+    var span = (2 * H) - 2 * margin;
+    ctx.lineWidth = 1.2;
+    for (var j = 0; j <= steps; j++){
+      var wy = -H + margin + (span * j / steps);
+      for (var i = 0; i <= steps; i++){
+        var wx = -H + margin + (span * i / steps);
+        // skip points too close to any charge
+        var tooClose = false;
+        for (var k = 0; k < charges.length; k++){
+          var dx = wx - charges[k].x, dy = wy - charges[k].y;
+          if (dx * dx + dy * dy < 0.36) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+        var E = fieldAt(wx, wy);
+        var mag = Math.sqrt(E.x * E.x + E.y * E.y);
+        if (mag < 1e-9) continue;
+        var dirx = E.x / mag, diry = E.y / mag;
+        var p = worldToPx(wx, wy);
+        var len = 9;
+        var ex = p.x + dirx * len, ey = p.y - diry * len; // flip y for screen space
+        var opacity = 0.18 + 0.6 * (mag / (mag + 2));
+        ctx.strokeStyle = 'rgba(127,224,201,' + Math.min(0.85, opacity).toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.moveTo(p.x - dirx * len * 0.4, p.y + diry * len * 0.4);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        // arrowhead
+        var ang = Math.atan2(ey - p.y, ex - p.x);
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - 4 * Math.cos(ang - 0.4), ey - 4 * Math.sin(ang - 0.4));
+        ctx.lineTo(ex - 4 * Math.cos(ang + 0.4), ey - 4 * Math.sin(ang + 0.4));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(127,224,201,' + Math.min(0.85, opacity).toFixed(2) + ')';
+        ctx.fill();
+      }
+    }
+  }
+
+  // ---------- field-line streamlines ----------
+  function fieldDirAt(x, y){
+    var E = fieldAt(x, y);
+    var mag = Math.hypot(E.x, E.y);
+    if (mag < 1e-9) return null;
+    return { x: E.x / mag, y: E.y / mag };
+  }
+
+  function traceStreamline(startX, startY, excludeId, forward){
+    var pts = [{ x: startX, y: startY }];
+    var x = startX, y = startY;
+    var h = 0.07, maxSteps = 350, capture = 0.3, sx = forward ? 1 : -1;
+    for (var s = 0; s < maxSteps; s++){
+      var d1 = fieldDirAt(x, y); if (!d1) break;
+      var k1x = sx * d1.x, k1y = sx * d1.y;
+      var d2 = fieldDirAt(x + 0.5 * h * k1x, y + 0.5 * h * k1y); if (!d2) break;
+      var k2x = sx * d2.x, k2y = sx * d2.y;
+      var d3 = fieldDirAt(x + 0.5 * h * k2x, y + 0.5 * h * k2y); if (!d3) break;
+      var k3x = sx * d3.x, k3y = sx * d3.y;
+      var d4 = fieldDirAt(x + h * k3x, y + h * k3y); if (!d4) break;
+      var k4x = sx * d4.x, k4y = sx * d4.y;
+      x += h / 6 * (k1x + 2 * k2x + 2 * k3x + k4x);
+      y += h / 6 * (k1y + 2 * k2y + 2 * k3y + k4y);
+      pts.push({ x: x, y: y });
+      if (Math.abs(x) > H + 0.5 || Math.abs(y) > H + 0.5) break;
+      var terminated = false;
+      for (var ci = 0; ci < charges.length; ci++){
+        if (charges[ci].id === excludeId) continue;
+        var dx = x - charges[ci].x, dy = y - charges[ci].y;
+        if (dx * dx + dy * dy < capture * capture){ terminated = true; break; }
+      }
+      if (terminated) break;
+    }
+    return pts;
+  }
+
+  function computeStreamlines(){
+    var lines = [];
+    if (charges.length === 0) return lines;
+    var positives = charges.filter(function(c){ return c.q > 0; });
+    var seedList, forward;
+    if (positives.length > 0){ seedList = positives; forward = true; }
+    else { seedList = charges.filter(function(c){ return c.q < 0; }); forward = false; }
+    for (var i = 0; i < seedList.length; i++){
+      var c = seedList[i];
+      var n = Math.max(2, Math.min(60, Math.round(streamDensity * Math.abs(c.q))));
+      for (var k = 0; k < n; k++){
+        var angle = (2 * Math.PI * k / n) + 0.15 * c.id;
+        var sx0 = c.x + 0.3 * Math.cos(angle), sy0 = c.y + 0.3 * Math.sin(angle);
+        var pts = traceStreamline(sx0, sy0, c.id, forward);
+        if (pts.length > 2) lines.push(pts);
+      }
+    }
+    return lines;
+  }
+
+  function drawStreamlines(lines){
+    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = 'rgba(139,233,212,0.55)';
+    for (var i = 0; i < lines.length; i++){
+      var pts = lines[i];
+      ctx.beginPath();
+      for (var j = 0; j < pts.length; j++){
+        var p = worldToPx(pts[j].x, pts[j].y);
+        if (j === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      // arrowhead partway along, oriented along the true (physical) field direction
+      var mid = Math.min(pts.length - 2, Math.max(1, Math.floor(pts.length * 0.5)));
+      var wp = pts[mid];
+      var dir = fieldDirAt(wp.x, wp.y);
+      if (dir){
+        var p0 = worldToPx(wp.x, wp.y);
+        var ang = Math.atan2(-dir.y, dir.x); // flip y for screen space
+        var alen = 6.5;
+        ctx.beginPath();
+        ctx.moveTo(p0.x + alen * Math.cos(ang), p0.y + alen * Math.sin(ang));
+        ctx.lineTo(p0.x - alen * Math.cos(ang - 0.5), p0.y - alen * Math.sin(ang - 0.5));
+        ctx.lineTo(p0.x - alen * Math.cos(ang + 0.5), p0.y - alen * Math.sin(ang + 0.5));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(139,233,212,0.85)';
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawContours(){
+    var totalAbsQ = 0;
+    for (var i = 0; i < charges.length; i++) totalAbsQ += Math.abs(charges[i].q);
+    if (totalAbsQ === 0) return;
+
+    var maxDisp = 4 * K * totalAbsQ / 1;
+    var nLevels = density;
+    var step = maxDisp / nLevels;
+
+    for (var n = 1; n <= nLevels; n++){
+      var posLevel = n * step;
+      if (posLevel >= gridMin && posLevel <= gridMax){
+        var fracP = magFrac(posLevel);
+        var segsP = marchLevel(posLevel);
+        strokeSegs(segsP, levelColor(1, fracP), 0.6 + 1.6 * fracP, 0.3 + 0.62 * fracP);
+      }
+      var negLevel = -n * step;
+      if (negLevel >= gridMin && negLevel <= gridMax){
+        var fracN = magFrac(Math.abs(negLevel));
+        var segsN = marchLevel(negLevel);
+        strokeSegs(segsN, levelColor(-1, fracN), 0.6 + 1.6 * fracN, 0.3 + 0.62 * fracN);
+      }
+    }
+  }
+
+  function strokeSegs(segs, color, lw, alpha){
+    if (!segs.length) return;
+    // soft glow pass -- stronger for bright (high-magnitude) lines
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw + 2.2;
+    ctx.beginPath();
+    for (var i = 0; i < segs.length; i++){
+      var p1 = worldToPx(segs[i].x1, segs[i].y1);
+      var p2 = worldToPx(segs[i].x2, segs[i].y2);
+      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+    }
+    ctx.stroke();
+    // crisp pass
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    for (var j = 0; j < segs.length; j++){
+      var q1 = worldToPx(segs[j].x1, segs[j].y1);
+      var q2 = worldToPx(segs[j].x2, segs[j].y2);
+      ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  function formatQ(q){
+    var r = Math.round(q * 100) / 100;
+    var s = (Math.abs(r) === Math.round(Math.abs(r))) ? String(Math.abs(r)) : Math.abs(r).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return (r >= 0 ? '+' : '\u2212') + s;
+  }
+
+  function drawCharges(){
+    for (var i = 0; i < charges.length; i++){
+      var c = charges[i];
+      var p = worldToPx(c.x, c.y);
+      var radius = Math.max(9, Math.min(26, 8 + 4 * Math.sqrt(Math.abs(c.q))));
+      var fill = c.q >= 0 ? '#4da3ff' : '#ff5c5c';
+
+      ctx.save();
+      ctx.shadowColor = fill;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(7,16,25,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = '600 11px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#071019';
+      ctx.fillText(formatQ(c.q), p.x, p.y + 0.5);
+    }
+  }
+
+  function render(){
+    computeGrid();
+    drawGridAndAxes();
+    if (showField) drawFieldVectors();
+    drawContours();
+    if (showStreamlines) drawStreamlines(computeStreamlines());
+    drawCharges();
+    emptyHint.style.display = charges.length === 0 ? 'block' : 'none';
+  }
+
+  function loop(){
+    if (dirty){
+      dirty = false;
+      render();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- charge hit testing ----------
+  function findChargeAt(px, py){
+    var best = null, bestD = HIT_PX;
+    for (var i = 0; i < charges.length; i++){
+      var p = worldToPx(charges[i].x, charges[i].y);
+      var d = Math.hypot(p.x - px, p.y - py);
+      if (d <= bestD){ bestD = d; best = charges[i]; }
+    }
+    return best;
+  }
+
+  // ---------- floating input for charge value ----------
+  function openInput(charge, isNew){
+    closeInput(false);
+    activeInputChargeId = charge.id;
+    activeInputWasNew = isNew;
+    activeInputOriginalQ = charge.q;
+
+    var p = worldToPx(charge.x, charge.y);
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.5';
+    input.className = 'charge-input';
+    input.value = charge.q;
+    input.style.left = Math.min(Math.max(p.x - 33, 2), cssW - 68) + 'px';
+    input.style.top = Math.max(p.y - 46, 2) + 'px';
+
+    bezel.appendChild(input);
+    activeInput = input;
+    input.focus();
+    input.select();
+
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ e.preventDefault(); commitInput(); }
+      else if (e.key === 'Escape'){ e.preventDefault(); cancelInput(); }
+    });
+    input.addEventListener('blur', function(){ commitInput(); });
+  }
+
+  function commitInput(){
+    if (!activeInput) return;
+    var raw = activeInput.value.trim();
+    var q = parseFloat(raw);
+    var c = getChargeById(activeInputChargeId);
+    if (!c){ closeInput(false); return; }
+    if (raw === '' || isNaN(q) || q === 0){
+      if (activeInputWasNew){ removeCharge(c.id); }
+      else { c.q = activeInputOriginalQ; }
+    } else {
+      c.q = q;
+    }
+    closeInput(true);
+  }
+
+  function cancelInput(){
+    if (!activeInput) return;
+    var c = getChargeById(activeInputChargeId);
+    if (c){
+      if (activeInputWasNew) removeCharge(c.id);
+      else c.q = activeInputOriginalQ;
+    }
+    closeInput(true);
+  }
+
+  function closeInput(triggerRedraw){
+    if (activeInput && activeInput.parentNode){
+      activeInput.parentNode.removeChild(activeInput);
+    }
+    activeInput = null;
+    activeInputChargeId = null;
+    if (triggerRedraw) dirty = true;
+  }
+
+  function getChargeById(id){
+    for (var i = 0; i < charges.length; i++) if (charges[i].id === id) return charges[i];
+    return null;
+  }
+  function removeCharge(id){
+    charges = charges.filter(function(c){ return c.id !== id; });
+    dirty = true;
+  }
+
+  // ---------- pointer interaction ----------
+  function localPos(e){
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  canvas.addEventListener('pointerdown', function(e){
+    if (activeInput) commitInput();
+    var pos = localPos(e);
+    var hit = findChargeAt(pos.x, pos.y);
+    if (hit){
+      dragId = hit.id;
+      dragMoved = false;
+      dragStartPx = pos;
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      dragId = 'NEW_PENDING';
+      dragStartPx = pos;
+      dragMoved = false;
+    }
+  });
+
+  canvas.addEventListener('pointermove', function(e){
+    if (dragId === null) {
+      var pos = localPos(e);
+      var w = pxToWorld(pos.x, pos.y);
+      if (Math.abs(w.x) <= H && Math.abs(w.y) <= H){
+        var v = potentialAt(w.x, w.y, null);
+        statusEl.innerHTML = 'x = <span class="hl">' + w.x.toFixed(2) + '</span>&nbsp;&nbsp;y = <span class="hl">' + w.y.toFixed(2) + '</span><br>V = <span class="hl">' + v.toFixed(3) + '</span>';
+      }
+      return;
+    }
+    var pos2 = localPos(e);
+    var dx = pos2.x - dragStartPx.x, dy = pos2.y - dragStartPx.y;
+    if (!dragMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD) dragMoved = true;
+
+    if (dragMoved && dragId !== 'NEW_PENDING'){
+      var c = getChargeById(dragId);
+      if (c){
+        var w2 = pxToWorld(pos2.x, pos2.y);
+        c.x = Math.max(-H, Math.min(H, w2.x));
+        c.y = Math.max(-H, Math.min(H, w2.y));
+        dirty = true;
+      }
+    }
+  });
+
+  canvas.addEventListener('pointerup', function(e){
+    var pos = localPos(e);
+    if (dragId === 'NEW_PENDING'){
+      if (!dragMoved){
+        var w = pxToWorld(pos.x, pos.y);
+        w.x = Math.max(-H, Math.min(H, w.x));
+        w.y = Math.max(-H, Math.min(H, w.y));
+        var nc = { id: idCounter++, x: w.x, y: w.y, q: 1 };
+        charges.push(nc);
+        dirty = true;
+        openInput(nc, true);
+      }
+    } else if (dragId !== null){
+      if (!dragMoved){
+        var c = getChargeById(dragId);
+        if (c) openInput(c, false);
+      }
+    }
+    dragId = null;
+    dragMoved = false;
+  });
+
+  canvas.addEventListener('pointerleave', function(){
+    if (dragId === null){
+      statusEl.textContent = 'Move the pointer over the screen to read the potential at that point.';
+    }
+  });
+
+  canvas.addEventListener('contextmenu', function(e){
+    e.preventDefault();
+    var pos = localPos(e);
+    var hit = findChargeAt(pos.x, pos.y);
+    if (hit) removeCharge(hit.id);
+  });
+
+  // ---------- controls ----------
+  densitySlider.addEventListener('input', function(){
+    density = parseInt(densitySlider.value, 10);
+    densityVal.textContent = String(density);
+    dirty = true;
+  });
+
+  fieldToggle.addEventListener('change', function(){
+    showField = fieldToggle.checked;
+    dirty = true;
+  });
+
+  streamlineToggle.addEventListener('change', function(){
+    showStreamlines = streamlineToggle.checked;
+    dirty = true;
+  });
+
+  streamDensitySlider.addEventListener('input', function(){
+    streamDensity = parseInt(streamDensitySlider.value, 10);
+    streamDensityVal.textContent = String(streamDensity);
+    dirty = true;
+  });
+
+  function clampSliderMax(v){
+    v = parseInt(v, 10);
+    if (isNaN(v)) v = 100;
+    return Math.max(5, Math.min(1000, v));
+  }
+
+  function applySliderMax(){
+    var m = clampSliderMax(densityMaxInput.value);
+    densityMaxInput.value = String(m);
+    densitySlider.max = String(m);
+    if (density > m){
+      density = m;
+      densitySlider.value = String(density);
+      densityVal.textContent = String(density);
+    }
+    dirty = true;
+  }
+  densityMaxInput.addEventListener('change', applySliderMax);
+  densityMaxInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){ e.preventDefault(); densityMaxInput.blur(); }
+  });
+
+  document.getElementById('btnClear').addEventListener('click', function(){
+    charges = [];
+    dirty = true;
+  });
+
+  document.getElementById('btnDipole').addEventListener('click', function(){
+    charges = [
+      { id: idCounter++, x: -3, y: 0, q: 2 },
+      { id: idCounter++, x: 3, y: 0, q: -2 }
+    ];
+    dirty = true;
+  });
+
+  document.getElementById('btnQuad').addEventListener('click', function(){
+    charges = [
+      { id: idCounter++, x: -3, y: 3, q: 2 },
+      { id: idCounter++, x: 3, y: 3, q: -2 },
+      { id: idCounter++, x: 3, y: -3, q: 2 },
+      { id: idCounter++, x: -3, y: -3, q: -2 }
+    ];
+    dirty = true;
+  });
+
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.textContent = ''; }, 2200);
+  }
+
+  document.getElementById('btnShare').addEventListener('click', function(){
+    try {
+      var payload = {
+        c: charges.map(function(c){ return [Math.round(c.x * 1000) / 1000, Math.round(c.y * 1000) / 1000, Math.round(c.q * 1000) / 1000]; }),
+        d: density,
+        f: showField ? 1 : 0,
+        s: showStreamlines ? 1 : 0,
+        sd: streamDensity,
+        m: clampSliderMax(densitySlider.max)
+      };
+      var encoded = encodeURIComponent(btoa(JSON.stringify(payload)));
+      window.location.hash = 'cfg=' + encoded;
+      var url = window.location.href;
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){
+          showToast('Link copied to clipboard');
+        }).catch(function(){
+          showToast('Link ready in the address bar');
+        });
+      } else {
+        showToast('Link ready in the address bar');
+      }
+    } catch (err){
+      showToast('Could not build link');
+    }
+  });
+
+  function loadFromHash(){
+    var h = window.location.hash;
+    if (!h || h.indexOf('cfg=') === -1) return;
+    try {
+      var enc = h.split('cfg=')[1];
+      var json = atob(decodeURIComponent(enc));
+      var payload = JSON.parse(json);
+      if (payload && Array.isArray(payload.c)){
+        charges = payload.c.map(function(arr){
+          return { id: idCounter++, x: arr[0], y: arr[1], q: arr[2] };
+        });
+      }
+      if (typeof payload.m === 'number'){
+        var m = clampSliderMax(payload.m);
+        densityMaxInput.value = String(m);
+        densitySlider.max = String(m);
+      }
+      if (typeof payload.d === 'number'){
+        var maxNow = parseInt(densitySlider.max, 10) || 100;
+        density = Math.max(2, Math.min(maxNow, payload.d));
+        densitySlider.value = String(density);
+        densityVal.textContent = String(density);
+      }
+      if (payload.f){
+        showField = true;
+        fieldToggle.checked = true;
+      }
+      if (payload.s){
+        showStreamlines = true;
+        streamlineToggle.checked = true;
+      }
+      if (typeof payload.sd === 'number'){
+        streamDensity = Math.max(1, Math.min(30, payload.sd));
+        streamDensitySlider.value = String(streamDensity);
+        streamDensityVal.textContent = String(streamDensity);
+      }
+    } catch (err){ /* ignore malformed hash */ }
+  }
+
+  // ---------- init ----------
+  loadFromHash();
+  resizeCanvas();
+  dirty = true;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
