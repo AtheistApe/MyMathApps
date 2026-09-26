@@ -126,7 +126,7 @@ def write_workflow(apps, repo_name: str):
       - name: Build {name}
         working-directory: {name}
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy {name} into combined site

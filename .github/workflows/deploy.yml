@@ -27,7 +27,7 @@ jobs:
       - name: Build newtons-method
         working-directory: newtons-method
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy newtons-method into combined site
@@ -38,7 +38,7 @@ jobs:
       - name: Build numerical-methods
         working-directory: numerical-methods
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy numerical-methods into combined site
@@ -49,7 +49,7 @@ jobs:
       - name: Build oscillator
         working-directory: oscillator
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy oscillator into combined site
@@ -60,7 +60,7 @@ jobs:
       - name: Build parametric-curves
         working-directory: parametric-curves
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy parametric-curves into combined site
@@ -71,7 +71,7 @@ jobs:
       - name: Build phase-portrait-explorer
         working-directory: phase-portrait-explorer
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy phase-portrait-explorer into combined site
@@ -82,7 +82,7 @@ jobs:
       - name: Build polar-explorer
         working-directory: polar-explorer
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy polar-explorer into combined site
@@ -93,7 +93,7 @@ jobs:
       - name: Build power-series
         working-directory: power-series
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy power-series into combined site
@@ -104,7 +104,7 @@ jobs:
       - name: Build power-series-dance
         working-directory: power-series-dance
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy power-series-dance into combined site
@@ -115,7 +115,7 @@ jobs:
       - name: Build slope-field
         working-directory: slope-field
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy slope-field into combined site
@@ -126,7 +126,7 @@ jobs:
       - name: Build volume-of-revolution
         working-directory: volume-of-revolution
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Copy volume-of-revolution into combined site
