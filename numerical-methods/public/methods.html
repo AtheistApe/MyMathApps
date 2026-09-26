@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How These Methods Work · Math 252</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400..900;1,400..900&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false},
+      {left: '\\(', right: '\\)', display: false},
+      {left: '\\[', right: '\\]', display: true}
+    ]
+  });"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    background: #faf6ec;
+    color: #1a1715;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  header.title {
+    border-bottom: 2px solid #1a1715;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+  }
+  header.title h1 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 42px;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+  }
+  header.title p {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #5a5347;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  nav.toc {
+    background: #fffdf6;
+    border: 1px solid #d8d2c0;
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 36px;
+  }
+  nav.toc strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 8px;
+    color: #5a5347;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 14px;
+  }
+  nav.toc ol li { margin-bottom: 3px; }
+  nav.toc a {
+    color: #1a1715;
+    text-decoration: none;
+    border-bottom: 1px dotted #8a8170;
+  }
+  nav.toc a:hover { border-bottom-style: solid; }
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    margin: 56px 0 8px;
+    padding-top: 12px;
+    border-top: 1px solid #d8d2c0;
+  }
+  h2:first-of-type { border-top: none; }
+  h2 .order-tag {
+    display: inline-block;
+    margin-left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 600;
+    color: #faf6ec;
+    background: #1a1715;
+    padding: 3px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+  }
+  h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 17px;
+    margin: 28px 0 6px;
+    color: #1a1715;
+  }
+  p { margin: 0 0 14px; }
+  .one-liner {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: #1a1715;
+    margin: 0 0 18px;
+  }
+  .formula {
+    background: #fffdf6;
+    border-left: 3px solid #1a1715;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-radius: 0 3px 3px 0;
+    overflow-x: auto;
+  }
+  .geometric {
+    background: #fffdf6;
+    border: 1px solid #d8d2c0;
+    border-radius: 3px;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .geometric strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5a5347;
+    display: block;
+    margin-bottom: 6px;
+  }
+  figure.diagram {
+    margin: 24px 0 28px;
+    text-align: center;
+  }
+  figure.diagram svg {
+    max-width: 100%;
+    height: auto;
+    background: #fffdf6;
+    border: 1px solid #d8d2c0;
+    border-radius: 4px;
+    padding: 8px;
+  }
+  figure.diagram figcaption {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #5a5347;
+    font-style: italic;
+    line-height: 1.5;
+    max-width: 540px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* SVG element styling shared across diagrams */
+  .d-curve { stroke: #1a1715; stroke-width: 2; fill: none; stroke-linecap: round; }
+  .d-axis { stroke: #8a8170; stroke-width: 1; }
+  .d-grid { stroke: #e3dccb; stroke-width: 1; }
+  .d-tick { stroke: #5a5347; stroke-width: 1; }
+  .d-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #5a5347; }
+  .d-axislabel { font-family: 'Fraunces', serif; font-style: italic; font-weight: 600; font-size: 13px; fill: #1a1715; }
+  .d-tangent { stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; stroke-linecap: round; }
+  .d-step { stroke-width: 2; fill: none; stroke-linecap: round; }
+  .d-error-gap { stroke: #5a5347; stroke-width: 1; stroke-dasharray: 2 3; }
+  .d-error-text { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #5a5347; font-style: italic; }
+  .d-formula { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #1a1715; }
+  .order-callout {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #5a5347;
+    background: #f0e9d6;
+    padding: 10px 14px;
+    border-radius: 3px;
+    margin: 16px 0;
+  }
+  .order-callout span.method-color { font-weight: 700; }
+  code, pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  code {
+    background: #f0e9d6;
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  blockquote {
+    border-left: 3px solid #c1432f;
+    margin: 18px 0;
+    padding: 4px 16px;
+    color: #5a5347;
+    font-style: italic;
+  }
+  /* Color cues that match the app's method colors */
+  .c-fwd-euler { color: #c1432f; font-weight: 600; }
+  .c-heun { color: #2f6fc1; font-weight: 600; }
+  .c-rk4 { color: #4a8a3a; font-weight: 600; }
+  .c-imp-euler { color: #a3578f; font-weight: 600; }
+  .c-ab4 { color: #c98c2a; font-weight: 600; }
+  .c-am3 { color: #3a8a8a; font-weight: 600; }
+  .back-link {
+    display: inline-block;
+    margin-top: 32px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid #1a1715;
+    border-radius: 3px;
+    color: #1a1715;
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .back-link:hover { background: #1a1715; color: #faf6ec; }
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid #d8d2c0;
+    font-size: 13px;
+    color: #5a5347;
+  }
+  @media print {
+    body { background: #fff; }
+    nav.toc, .back-link { display: none; }
+    h2 { break-before: page; }
+    h2:first-of-type { break-before: auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="title">
+  <h1>How these methods work</h1>
+  <p>Numerical solutions of $y' = f(t, y)$ — Math 252</p>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#setup">The setup: what we're trying to do</a></li>
+    <li><a href="#fwd-euler">Forward Euler</a></li>
+    <li><a href="#heun">Heun's method (improved Euler)</a></li>
+    <li><a href="#rk4">RK4 (classical Runge–Kutta)</a></li>
+    <li><a href="#imp-euler">Implicit Euler</a></li>
+    <li><a href="#ab4">Adams–Bashforth 4 (multistep)</a></li>
+    <li><a href="#am3">Adams–Moulton 3 (predictor–corrector)</a></li>
+    <li><a href="#order">A word on "order" and why it matters</a></li>
+    <li><a href="#stiffness">A word on stiffness</a></li>
+  </ol>
+</nav>
+
+<h2 id="setup">The setup</h2>
+
+<p>You have a first-order ODE</p>
+
+<div class="formula">
+$$y'(t) = f(t, y), \qquad y(t_0) = y_0.$$
+</div>
+
+<p>This says: at every point $(t, y)$, you know the slope of the solution curve. You also know one point the curve passes through — the initial condition. The question is: what is $y(t)$ for $t > t_0$?</p>
+
+<p>For a few special $f$'s, you can solve this with calculus. For most $f$'s, you can't. So instead we approximate $y$ at a sequence of $t$-values</p>
+
+<div class="formula">
+$$t_0, \quad t_1 = t_0 + h, \quad t_2 = t_0 + 2h, \quad \ldots, \quad t_n = t_0 + nh.$$
+</div>
+
+<p>The number $h$ is the <em>step size</em>. At each $t_n$, we'll compute an approximation $y_n \approx y(t_n)$. Different methods differ in <strong>how they decide what $y_{n+1}$ should be, given everything they know up to step $n$</strong>.</p>
+
+<p>That's the whole game. Every method below is just a different answer to that question.</p>
+
+
+<h2 id="fwd-euler">Forward Euler <span class="order-tag">order 1</span></h2>
+
+<p class="one-liner">Take the slope at where you are, and follow it for one step.</p>
+
+<p>You're at the point $(t_n, y_n)$. The ODE tells you the slope right there is $f(t_n, y_n)$. So you draw a straight line with that slope, walk to $t_{n+1} = t_n + h$, and call where you ended up your new $y_{n+1}$.</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + h \cdot f(t_n, y_n).$$
+</div>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Forward Euler diagram">
+  <!-- Axes -->
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <!-- t_n and t_{n+1} ticks -->
+  <line class="d-tick" x1="180" y1="240" x2="180" y2="246"/>
+  <text class="d-label" x="180" y="260" text-anchor="middle">t_n</text>
+  <line class="d-tick" x1="420" y1="240" x2="420" y2="246"/>
+  <text class="d-label" x="420" y="260" text-anchor="middle">t_n + h</text>
+  <!-- h bracket -->
+  <line class="d-tick" x1="180" y1="252" x2="420" y2="252" stroke-width="0.8"/>
+  <line class="d-tick" x1="180" y1="248" x2="180" y2="256" stroke-width="0.8"/>
+  <line class="d-tick" x1="420" y1="248" x2="420" y2="256" stroke-width="0.8"/>
+  <text class="d-label" x="300" y="272" text-anchor="middle" font-style="italic">h</text>
+
+  <!-- True solution curve (concave-up): from (180, 180) to (420, 80), curving -->
+  <path class="d-curve" d="M 100 215 Q 200 200 280 165 T 460 65"/>
+  <text class="d-axislabel" x="475" y="62" font-size="11">true y(t)</text>
+
+  <!-- Starting point (t_n, y_n) on curve -->
+  <circle cx="180" cy="184" r="4.5" fill="#1a1715" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="170" y="180" text-anchor="end">(t_n, y_n)</text>
+
+  <!-- Tangent line at the starting point, dashed red, extended to t_{n+1} -->
+  <!-- Slope is f(t_n, y_n) — the slope of the true curve at the start. We'll
+       compute it from the curve's local tangent, but visually pick a slope
+       that produces a noticeable gap from the true endpoint. -->
+  <line class="d-tangent" x1="180" y1="184" x2="420" y2="120" stroke="#c1432f"/>
+  <text class="d-error-text" x="290" y="148" fill="#c1432f">slope = f(t_n, y_n)</text>
+
+  <!-- Predicted point y_{n+1} where tangent meets t = t_n + h -->
+  <circle cx="420" cy="120" r="4.5" fill="#c1432f" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="430" y="124" fill="#c1432f">y_{n+1} (Euler)</text>
+
+  <!-- True solution at t_n + h (on the curve) -->
+  <circle cx="420" cy="92" r="3.5" fill="none" stroke="#1a1715" stroke-width="1.5"/>
+  <text class="d-label" x="430" y="92">y(t_n + h)</text>
+
+  <!-- Error gap with offset label -->
+  <line class="d-error-gap" x1="420" y1="92" x2="420" y2="120"/>
+  <text class="d-error-text" x="412" y="110" text-anchor="end">error</text>
+</svg>
+<figcaption>
+  Forward Euler walks along the tangent line at $(t_n, y_n)$ for one step. The true solution curves away, so the predicted point $y_{n+1}$ misses the curve. The gap shrinks as $h$ shrinks, but only proportionally to $h$.
+</figcaption>
+</figure>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  At each step, follow the tangent line to the solution curve at your current point. In the visualizer, the dashed <span class="c-fwd-euler">red</span> segment is exactly that tangent line. Forward Euler always lands on the tangent line, never on the actual curve.
+</div>
+
+<h3>Why it's not very accurate</h3>
+
+<p>The slope $f(t_n, y_n)$ is correct at the start of the step, but becomes wrong as soon as $y$ starts changing. Forward Euler keeps following the original slope all the way to $t_{n+1}$ — by the time it gets there, the real solution has curved away. Each step adds error proportional to $h^2$, and over $1/h$ steps that error accumulates to roughly $h$. So if you halve $h$, you halve the error.</p>
+
+<p>That's what we mean when we call Forward Euler an "order 1" method.</p>
+
+<blockquote>
+  Forward Euler is the simplest possible numerical method. Every other method on this page is some way of saying, "OK, but what if we were a little smarter about which slope to use?"
+</blockquote>
+
+
+<h2 id="heun">Heun's method <span class="order-tag">order 2</span></h2>
+
+<p class="one-liner">Take a peek ahead, then average the slope at the start with the slope where the peek landed.</p>
+
+<p>Forward Euler's flaw is that it commits to the slope at the start of the step. Heun's idea: don't commit yet. First, take a Forward Euler step — call where you'd land $\tilde y$. Now compute the slope <em>there</em>, at $(t_{n+1}, \tilde y)$. Average the two slopes, and use that average to take the actual step.</p>
+
+<div class="formula">
+$$\begin{aligned}
+k_1 &= f(t_n, y_n) \quad \textit{(slope at the start)} \\
+\tilde y &= y_n + h \cdot k_1 \quad \textit{(predictor: Forward-Euler peek)} \\
+k_2 &= f(t_{n+1}, \tilde y) \quad \textit{(slope at the peek)} \\
+y_{n+1} &= y_n + \tfrac{h}{2}(k_1 + k_2) \quad \textit{(corrector: averaged slopes)}
+\end{aligned}$$
+</div>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Heun's method diagram">
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <line class="d-tick" x1="180" y1="240" x2="180" y2="246"/>
+  <text class="d-label" x="180" y="260" text-anchor="middle">t_n</text>
+  <line class="d-tick" x1="420" y1="240" x2="420" y2="246"/>
+  <text class="d-label" x="420" y="260" text-anchor="middle">t_n + h</text>
+
+  <!-- True solution curve -->
+  <path class="d-curve" d="M 100 215 Q 200 200 280 165 T 460 65"/>
+  <text class="d-axislabel" x="475" y="62" font-size="11">true y(t)</text>
+
+  <!-- Starting point -->
+  <circle cx="180" cy="184" r="4.5" fill="#1a1715" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="170" y="180" text-anchor="end">(t_n, y_n)</text>
+
+  <!-- Predictor leg (slope k1, dashed blue) — same target as Euler -->
+  <line class="d-tangent" x1="180" y1="184" x2="420" y2="120" stroke="#2f6fc1"/>
+  <text class="d-error-text" x="270" y="160" fill="#2f6fc1">k₁ = f(t_n, y_n)</text>
+
+  <!-- Predicted point (hollow circle) -->
+  <circle cx="420" cy="120" r="4.5" fill="#fffdf6" stroke="#2f6fc1" stroke-width="2"/>
+  <text class="d-label" x="430" y="124" fill="#2f6fc1">ỹ (predictor)</text>
+
+  <!-- Slope tick at the predicted point — slope k2 -->
+  <line stroke="#2f6fc1" stroke-width="1.8" x1="402" y1="123" x2="438" y2="113"/>
+  <text class="d-error-text" x="446" y="138" fill="#2f6fc1">k₂ at predictor</text>
+
+  <!-- Committed corrector segment, slope (k1 + k2)/2 — solid blue -->
+  <line class="d-step" x1="180" y1="184" x2="420" y2="100" stroke="#2f6fc1"/>
+
+  <!-- Corrected y_{n+1} — solid filled blue circle on corrector segment -->
+  <circle cx="420" cy="100" r="4.5" fill="#2f6fc1" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="430" y="104" fill="#2f6fc1">y_{n+1} (corrected)</text>
+
+  <!-- True endpoint -->
+  <circle cx="420" cy="92" r="3.5" fill="none" stroke="#1a1715" stroke-width="1.5"/>
+  <text class="d-label" x="430" y="84">y(t_n + h)</text>
+</svg>
+<figcaption>
+  Heun's method first takes a Forward-Euler peek (dashed predictor leg) to get $\tilde y$, then samples the slope $k_2$ <em>there</em>. The committed step (solid blue) uses the average of $k_1$ and $k_2$ — landing much closer to the true solution than Forward Euler did.
+</figcaption>
+</figure>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  In the visualizer you'll see two things for each <span class="c-heun">blue</span> step:
+  <ul>
+    <li>A <em>predictor leg</em> — the dashed line Heun would have followed if it were just Forward Euler. It ends in a hollow circle at $(t_{n+1}, \tilde y)$.</li>
+    <li>A <em>corrector slope tick</em> at the predicted point — the slope $k_2$ Heun is about to incorporate.</li>
+  </ul>
+  The committed Heun segment uses the average of $k_1$ and $k_2$, so it lands somewhere between where Forward Euler would have landed and the true solution.
+</div>
+
+<h3>Why "averaging slopes" helps</h3>
+
+<p>Forward Euler systematically overshoots when the solution is curving away from its tangent line. Heun's trick is that the slope at the predictor point is also wrong — but wrong in <em>roughly the opposite direction</em>. Averaging them cancels most of the error.</p>
+
+<p>The result: Heun's method has error per step proportional to $h^3$, and accumulated error proportional to $h^2$. Halving $h$ now reduces the error by a factor of 4.</p>
+
+
+<h2 id="rk4">RK4 <span class="order-tag">order 4</span></h2>
+
+<p class="one-liner">Heun, but with four cleverly chosen slope evaluations.</p>
+
+<p>If averaging two slopes gives you order 2, what does averaging four give you? Order 4 — provided the four slopes and their weights are chosen carefully. RK4 is the choice that has worked best in practice for nearly a century.</p>
+
+<div class="formula">
+$$\begin{aligned}
+k_1 &= f(t_n, y_n) \\
+k_2 &= f(t_n + \tfrac{h}{2}, y_n + \tfrac{h}{2} k_1) \\
+k_3 &= f(t_n + \tfrac{h}{2}, y_n + \tfrac{h}{2} k_2) \\
+k_4 &= f(t_n + h, y_n + h\, k_3) \\
+y_{n+1} &= y_n + \tfrac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)
+\end{aligned}$$
+</div>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RK4 diagram">
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <line class="d-tick" x1="180" y1="240" x2="180" y2="246"/>
+  <text class="d-label" x="180" y="260" text-anchor="middle">t_n</text>
+  <line class="d-tick" x1="300" y1="240" x2="300" y2="246"/>
+  <text class="d-label" x="300" y="260" text-anchor="middle">t_n + h/2</text>
+  <line class="d-tick" x1="420" y1="240" x2="420" y2="246"/>
+  <text class="d-label" x="420" y="260" text-anchor="middle">t_n + h</text>
+
+  <!-- True solution curve -->
+  <path class="d-curve" d="M 100 215 Q 200 200 280 165 T 460 65"/>
+  <text class="d-axislabel" x="475" y="62" font-size="11">true y(t)</text>
+
+  <!-- k1: at (t_n, y_n) -->
+  <g stroke="#4a8a3a" stroke-width="1.5" fill="none">
+    <line x1="174" y1="178" x2="186" y2="190"/>
+    <line x1="186" y1="178" x2="174" y2="190"/>
+  </g>
+  <text class="d-error-text" x="155" y="172" fill="#4a8a3a" text-anchor="end">k₁</text>
+  <circle cx="180" cy="184" r="3" fill="#1a1715"/>
+
+  <!-- k2: at midpoint t, using y + (h/2)*k1.  k1 is the slope at start, so
+       y + (h/2)*k1 is the midpoint along the k1 tangent — between y_n and
+       the true midpoint y. Place at (300, 152). -->
+  <g stroke="#4a8a3a" stroke-width="1.5" fill="none">
+    <line x1="294" y1="146" x2="306" y2="158"/>
+    <line x1="306" y1="146" x2="294" y2="158"/>
+  </g>
+  <text class="d-error-text" x="282" y="146" fill="#4a8a3a" text-anchor="end">k₂</text>
+
+  <!-- k3: at midpoint t using y + (h/2)*k2 — k2 is steeper than k1, so
+       this point is closer to the true curve. Place at (300, 142). -->
+  <g stroke="#4a8a3a" stroke-width="1.5" fill="none">
+    <line x1="294" y1="136" x2="306" y2="148"/>
+    <line x1="306" y1="136" x2="294" y2="148"/>
+  </g>
+  <text class="d-error-text" x="316" y="138" fill="#4a8a3a">k₃</text>
+
+  <!-- k4: at (t_n + h, y + h*k3) -->
+  <g stroke="#4a8a3a" stroke-width="1.5" fill="none">
+    <line x1="414" y1="94" x2="426" y2="106"/>
+    <line x1="426" y1="94" x2="414" y2="106"/>
+  </g>
+  <text class="d-error-text" x="408" y="92" fill="#4a8a3a" text-anchor="end">k₄</text>
+
+  <!-- Committed RK4 step: weighted average -->
+  <line class="d-step" x1="180" y1="184" x2="420" y2="93" stroke="#4a8a3a"/>
+
+  <circle cx="420" cy="93" r="4.5" fill="#4a8a3a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="430" y="100" fill="#4a8a3a">y_{n+1}</text>
+
+  <!-- True endpoint, very close -->
+  <circle cx="420" cy="92" r="3.5" fill="none" stroke="#1a1715" stroke-width="1.5"/>
+
+  <!-- Weight formula at top -->
+  <text class="d-formula" x="180" y="32">slope = (k₁ + 2k₂ + 2k₃ + k₄) / 6</text>
+</svg>
+<figcaption>
+  RK4 samples the slope four times — at the start, twice near the midpoint (using two different estimates of where the midpoint $y$ is), and once at the endpoint. The weighted average of those four slopes produces a step that lands almost exactly on the true curve.
+</figcaption>
+</figure>
+
+<p>Read the formula slowly:</p>
+<ul>
+  <li>$k_1$ is the slope at the start (just like Heun and Euler).</li>
+  <li>$k_2$ is the slope at the midpoint, estimated using $k_1$ to take a half-step.</li>
+  <li>$k_3$ is also the slope at the midpoint, but using $k_2$ to take that half-step instead. Two midpoint estimates, computed differently — they will not be exactly equal.</li>
+  <li>$k_4$ is the slope at the endpoint, estimated using $k_3$ to take the full step.</li>
+</ul>
+
+<p>Then you weight the four slopes — the midpoint slopes count twice as much as the endpoint slopes — divide by 6, and that's your final slope. Multiply by $h$ to get the step.</p>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  Four small <span class="c-rk4">×</span> markers appear on the plot for each RK4 step, labeled $k_1$, $k_2$, $k_3$, $k_4$, at the points where each slope is sampled. Notice $k_2$ and $k_3$ are at slightly different $y$-values even though both are at the same $t$ — they're sampling the slope field from two different vertical positions.
+</div>
+
+<h3>Why does it work so well?</h3>
+
+<p>The weights $(1, 2, 2, 1)/6$ are chosen so that when you Taylor-expand the result and compare against the true solution, all the terms up to and including $h^4$ cancel out. The first surviving error term is order $h^5$ per step, $h^4$ accumulated.</p>
+
+<p>That extra accuracy is huge. Halving $h$ in RK4 reduces error by a factor of <strong>16</strong>. So a step size that gives you 1% error in Forward Euler gives you about 0.000005% error in RK4 — for only four times as much work per step.</p>
+
+
+<h2 id="imp-euler">Implicit Euler <span class="order-tag">order 1</span></h2>
+
+<p class="one-liner">Use the slope at where you're <em>going</em>, not where you are.</p>
+
+<p>Forward Euler uses $f(t_n, y_n)$ — the slope at the start of the step. Implicit Euler uses $f(t_{n+1}, y_{n+1})$ — the slope at the <em>end</em>:</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + h \cdot f(t_{n+1}, y_{n+1}).$$
+</div>
+
+<p>But there's a catch: $y_{n+1}$ appears on both sides! You can't just compute it. You have to <em>solve</em> the equation</p>
+
+<div class="formula">
+$$Y - y_n - h \cdot f(t_{n+1}, Y) = 0$$
+</div>
+
+<p>for the unknown $Y = y_{n+1}$. This is what makes the method "implicit" — each step requires an inner solve.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Implicit Euler diagram">
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <line class="d-tick" x1="180" y1="240" x2="180" y2="246"/>
+  <text class="d-label" x="180" y="260" text-anchor="middle">t_n</text>
+  <line class="d-tick" x1="420" y1="240" x2="420" y2="246"/>
+  <text class="d-label" x="420" y="260" text-anchor="middle">t_n + h</text>
+
+  <!-- True solution curve -->
+  <path class="d-curve" d="M 100 215 Q 200 200 280 165 T 460 65"/>
+  <text class="d-axislabel" x="475" y="62" font-size="11">true y(t)</text>
+
+  <!-- Starting point (t_n, y_n) -->
+  <circle cx="180" cy="184" r="4.5" fill="#1a1715" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="170" y="180" text-anchor="end">(t_n, y_n)</text>
+
+  <!-- Implicit Euler target: (t_{n+1}, y_{n+1}) where the slope AT the
+       target, projected back across t = h, lands on (t_n, y_n).
+       Place y_{n+1} a little above the true curve at t_n+h, since implicit
+       Euler is order 1 and isn't perfectly accurate. -->
+  <circle cx="420" cy="98" r="4.5" fill="#a3578f" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="408" y="92" text-anchor="end" fill="#a3578f">y_{n+1}</text>
+
+  <!-- Slope tick AT the target — slope = f(t_{n+1}, y_{n+1}) -->
+  <line stroke="#a3578f" stroke-width="2" x1="402" y1="102" x2="438" y2="94"/>
+  <text class="d-error-text" x="446" y="78" fill="#a3578f">slope at the target</text>
+
+  <!-- Backward projection: y_{n+1} − h * f(t_{n+1}, y_{n+1}) lands on y_n.
+       Visualize as a dashed violet line from y_{n+1} back to y_n. -->
+  <line class="d-tangent" x1="420" y1="98" x2="180" y2="184" stroke="#a3578f"/>
+
+  <!-- Newton iterate inset: stacked hollow circles at t = t_{n+1}, converging
+       upward to y_{n+1}. -->
+  <g>
+    <line stroke="#a3578f" stroke-width="0.8" stroke-opacity="0.4"
+      x1="420" y1="148" x2="420" y2="98"/>
+    <circle cx="420" cy="148" r="2.5" fill="#fffdf6" stroke="#a3578f" stroke-width="1.2"/>
+    <circle cx="420" cy="128" r="2.5" fill="#fffdf6" stroke="#a3578f" stroke-width="1.2"/>
+    <circle cx="420" cy="113" r="2.5" fill="#fffdf6" stroke="#a3578f" stroke-width="1.2"/>
+    <text class="d-error-text" x="408" y="151" text-anchor="end" fill="#a3578f">Y₀ (initial guess)</text>
+    <text class="d-error-text" x="408" y="131" text-anchor="end" fill="#a3578f">Y₁</text>
+    <text class="d-error-text" x="408" y="116" text-anchor="end" fill="#a3578f">Y₂</text>
+    <text class="d-error-text" x="446" y="100" fill="#a3578f">Y₃ ≈ y_{n+1}</text>
+  </g>
+
+  <text class="d-formula" x="80" y="32">y_{n+1} = y_n + h · f(t_{n+1}, y_{n+1})</text>
+</svg>
+<figcaption>
+  Implicit Euler doesn't follow a slope <em>from</em> the start point. Instead, it asks: where does the destination $y_{n+1}$ have to be so that the slope <em>there</em>, projected backward, lands exactly on $y_n$? Newton's method finds that destination by guessing and refining (the stacked hollow circles).
+</figcaption>
+</figure>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  In the visualizer, each <span class="c-imp-euler">violet</span> step shows a small vertical stack of hollow circles at $t_{n+1}$. Those are <em>Newton's method iterates</em> — the inner solver guessing values of $Y$ and refining its guess until it finds the value that satisfies the equation.
+</div>
+
+<h3>If it's the same order as Forward Euler, why bother?</h3>
+
+<p>Because of <strong>stability</strong> — it can take big steps on problems where Forward Euler explodes. We'll come back to this in <a href="#stiffness">"a word on stiffness"</a> below.</p>
+
+
+<h2 id="ab4">Adams–Bashforth 4 <span class="order-tag">order 4 · multistep</span></h2>
+
+<p class="one-liner">Use the slopes from the last four steps to extrapolate the next one.</p>
+
+<p>Every method up to here has been a "single-step" method: $y_{n+1}$ is computed from $y_n$ alone, ignoring all the earlier nodes you've already worked out. That's a waste — you've evaluated $f$ at every previous node, and that information is just sitting there.</p>
+
+<p>Adams–Bashforth uses it. AB4 fits a polynomial through the slopes at the last four nodes, and integrates that polynomial to predict the next $y$:</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + \frac{h}{24}\bigl(55 f_n - 59 f_{n-1} + 37 f_{n-2} - 9 f_{n-3}\bigr),$$
+</div>
+
+<p>where $f_k = f(t_k, y_k)$. The funny weights $(55, -59, 37, -9)/24$ come from integrating a cubic polynomial — they are not arbitrary.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Adams-Bashforth 4 diagram">
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <!-- Five t-positions: t_{n-3}, t_{n-2}, t_{n-1}, t_n, t_{n+1} -->
+  <g class="d-tick">
+    <line x1="120" y1="240" x2="120" y2="246"/>
+    <line x1="200" y1="240" x2="200" y2="246"/>
+    <line x1="280" y1="240" x2="280" y2="246"/>
+    <line x1="360" y1="240" x2="360" y2="246"/>
+    <line x1="440" y1="240" x2="440" y2="246"/>
+  </g>
+  <text class="d-label" x="120" y="260" text-anchor="middle">t_{n−3}</text>
+  <text class="d-label" x="200" y="260" text-anchor="middle">t_{n−2}</text>
+  <text class="d-label" x="280" y="260" text-anchor="middle">t_{n−1}</text>
+  <text class="d-label" x="360" y="260" text-anchor="middle">t_n</text>
+  <text class="d-label" x="440" y="260" text-anchor="middle">t_{n+1}</text>
+
+  <!-- True solution curve (passes through node y-values approximately) -->
+  <path class="d-curve" d="M 80 218 Q 200 210 280 188 Q 360 168 440 142 Q 470 132 510 118"/>
+  <text class="d-axislabel" x="475" y="105" font-size="11">true y(t)</text>
+
+  <!-- History bracket (thick translucent amber, joining 4 nodes) -->
+  <line stroke="#c98c2a" stroke-width="10" stroke-opacity="0.22" stroke-linecap="round"
+    x1="120" y1="216" x2="360" y2="170"/>
+
+  <!-- The four history nodes y_{n-3}, y_{n-2}, y_{n-1}, y_n with slope ticks -->
+  <g>
+    <!-- y_{n-3} at (120, 216), slope shallow -->
+    <circle cx="120" cy="216" r="4" fill="#c98c2a" stroke="#fffdf6" stroke-width="1.5"/>
+    <line stroke="#c98c2a" stroke-width="1.6" x1="106" y1="220" x2="134" y2="212"/>
+    <text class="d-error-text" x="120" y="200" text-anchor="middle" fill="#c98c2a">f_{n−3}</text>
+
+    <!-- y_{n-2} at (200, 200) -->
+    <circle cx="200" cy="200" r="4" fill="#c98c2a" stroke="#fffdf6" stroke-width="1.5"/>
+    <line stroke="#c98c2a" stroke-width="1.6" x1="186" y1="206" x2="214" y2="194"/>
+    <text class="d-error-text" x="200" y="184" text-anchor="middle" fill="#c98c2a">f_{n−2}</text>
+
+    <!-- y_{n-1} at (280, 184) -->
+    <circle cx="280" cy="184" r="4" fill="#c98c2a" stroke="#fffdf6" stroke-width="1.5"/>
+    <line stroke="#c98c2a" stroke-width="1.6" x1="266" y1="190" x2="294" y2="178"/>
+    <text class="d-error-text" x="280" y="168" text-anchor="middle" fill="#c98c2a">f_{n−1}</text>
+
+    <!-- y_n at (360, 168) -->
+    <circle cx="360" cy="168" r="4" fill="#c98c2a" stroke="#fffdf6" stroke-width="1.5"/>
+    <line stroke="#c98c2a" stroke-width="1.6" x1="346" y1="174" x2="374" y2="162"/>
+    <text class="d-error-text" x="360" y="152" text-anchor="middle" fill="#c98c2a">f_n</text>
+  </g>
+
+  <!-- Cubic polynomial fitted through the four slopes — drawn as a faint
+       curve overlapping the true curve up to t_n, extrapolating beyond. -->
+  <path d="M 120 216 Q 200 200 280 184 T 440 145"
+    stroke="#c98c2a" stroke-width="1.3" stroke-dasharray="4 3" fill="none"/>
+
+  <!-- New step: extrapolated using the polynomial -->
+  <line stroke="#c98c2a" stroke-width="2.4" stroke-linecap="round"
+    x1="360" y1="168" x2="440" y2="145"/>
+  <circle cx="440" cy="145" r="4.5" fill="#c98c2a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="450" y="142" fill="#c98c2a">y_{n+1}</text>
+
+  <!-- True solution at t_{n+1} -->
+  <circle cx="440" cy="142" r="3.5" fill="none" stroke="#1a1715" stroke-width="1.5"/>
+</svg>
+<figcaption>
+  AB4 fits a cubic polynomial through the four most recent slopes $f_{n-3}, f_{n-2}, f_{n-1}, f_n$ (dashed amber curve), then extrapolates that polynomial one step forward. Each new step only requires <em>one</em> new evaluation of $f$ — the others were already computed at earlier steps.
+</figcaption>
+</figure>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  Each <span class="c-ab4">amber</span> step shows a thick translucent bracket joining the four nodes the formula uses. As the method advances, the bracket shifts forward by one node per step.
+</div>
+
+<h3>The chicken-and-egg problem</h3>
+
+<p>AB4 needs four prior nodes to start, but at the very beginning you only have $y_0$. The standard fix is to use RK4 to compute $y_1, y_2, y_3$, then switch to AB4 from there on. The visualizer marks bootstrap nodes as <em>hollow squares</em> instead of filled circles — those are the nodes RK4 produced before AB4 took over.</p>
+
+<h3>Why bother, given that RK4 already exists?</h3>
+
+<p>RK4 evaluates $f$ four times per step. AB4 evaluates $f$ <em>once</em> per step (using slopes already computed). For problems where evaluating $f$ is expensive — for example, when $f$ involves another simulation or a database lookup — AB4 can be roughly 4× faster than RK4 for the same accuracy.</p>
+
+
+<h2 id="am3">Adams–Moulton 3 <span class="order-tag">order 4 · predictor–corrector</span></h2>
+
+<p class="one-liner">Like AB4, but the formula includes the slope at the new point — so it's implicit, and we use AB to predict, then AM to correct.</p>
+
+<p>Adams–Moulton is the implicit cousin of Adams–Bashforth. AM3 says</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + \frac{h}{24}\bigl(9 f_{n+1} + 19 f_n - 5 f_{n-1} + f_{n-2}\bigr).$$
+</div>
+
+<p>Notice $f_{n+1} = f(t_{n+1}, y_{n+1})$ depends on the unknown $y_{n+1}$, just like Implicit Euler. We could solve for $y_{n+1}$ with Newton's method, but there's an even simpler approach for this case: <strong>predictor–corrector</strong>.</p>
+
+<ol>
+  <li><strong>Predict</strong> $y_{n+1}$ using AB3 (the explicit cousin):
+    $$y^*_{n+1} = y_n + \frac{h}{12}\bigl(23 f_n - 16 f_{n-1} + 5 f_{n-2}\bigr).$$
+  </li>
+  <li><strong>Evaluate</strong> the slope at the predicted point: $f^*_{n+1} = f(t_{n+1}, y^*_{n+1})$.</li>
+  <li><strong>Correct</strong> using the AM3 formula with $f^*_{n+1}$ in place of $f_{n+1}$.</li>
+</ol>
+
+<p>This is the "PECE" pattern: <strong>P</strong>redict, <strong>E</strong>valuate, <strong>C</strong>orrect, <strong>E</strong>valuate. Cheap, no nonlinear solver, and you keep most of the accuracy benefit of being implicit.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Adams-Moulton 3 PECE diagram">
+  <line class="d-axis" x1="60" y1="240" x2="560" y2="240"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="240"/>
+  <text class="d-axislabel" x="555" y="258" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <g class="d-tick">
+    <line x1="160" y1="240" x2="160" y2="246"/>
+    <line x1="260" y1="240" x2="260" y2="246"/>
+    <line x1="360" y1="240" x2="360" y2="246"/>
+    <line x1="460" y1="240" x2="460" y2="246"/>
+  </g>
+  <text class="d-label" x="160" y="260" text-anchor="middle">t_{n−2}</text>
+  <text class="d-label" x="260" y="260" text-anchor="middle">t_{n−1}</text>
+  <text class="d-label" x="360" y="260" text-anchor="middle">t_n</text>
+  <text class="d-label" x="460" y="260" text-anchor="middle">t_{n+1}</text>
+
+  <!-- True curve -->
+  <path class="d-curve" d="M 100 220 Q 200 210 280 188 Q 360 168 460 138 Q 510 124 540 116"/>
+  <text class="d-axislabel" x="475" y="105" font-size="11">true y(t)</text>
+
+  <!-- Three prior nodes -->
+  <circle cx="160" cy="216" r="4" fill="#3a8a8a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-error-text" x="160" y="206" text-anchor="middle" fill="#3a8a8a">y_{n−2}</text>
+  <circle cx="260" cy="194" r="4" fill="#3a8a8a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-error-text" x="260" y="184" text-anchor="middle" fill="#3a8a8a">y_{n−1}</text>
+  <circle cx="360" cy="168" r="4" fill="#3a8a8a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-error-text" x="360" y="158" text-anchor="middle" fill="#3a8a8a">y_n</text>
+
+  <!-- Step 1: PREDICT with AB3 — extrapolate cubic through 3 prior slopes.
+       Predicted point is a hollow square at (460, 145) — slightly off true. -->
+  <line stroke="#3a8a8a" stroke-width="1.5" stroke-dasharray="4 3"
+    x1="360" y1="168" x2="460" y2="145"/>
+  <rect x="455.5" y="140.5" width="9" height="9"
+    fill="#fffdf6" stroke="#3a8a8a" stroke-width="1.8"/>
+  <text class="d-error-text" x="498" y="148" fill="#3a8a8a">y* (predictor)</text>
+
+  <!-- Step 2/3: EVALUATE slope at predicted point, then CORRECT. -->
+  <!-- Slope tick at predicted point -->
+  <line stroke="#3a8a8a" stroke-width="1.6" x1="446" y1="148" x2="474" y2="142"/>
+  <text class="d-error-text" x="498" y="160" fill="#3a8a8a">slope at y*</text>
+
+  <!-- Corrector arrow from predicted to corrected -->
+  <line stroke="#3a8a8a" stroke-width="1" stroke-dasharray="2 2"
+    x1="460" y1="145" x2="460" y2="139"/>
+  <polygon points="460,137 457,142 463,142" fill="#3a8a8a"/>
+
+  <!-- Corrected point: filled circle, on the true curve -->
+  <circle cx="460" cy="138" r="4.5" fill="#3a8a8a" stroke="#fffdf6" stroke-width="1.5"/>
+  <text class="d-label" x="498" y="135" fill="#3a8a8a">y_{n+1}</text>
+
+  <!-- Step legend at top -->
+  <text class="d-formula" x="80" y="32">P → E → C → E :  predict, evaluate, correct, evaluate</text>
+</svg>
+<figcaption>
+  AM3 in PECE form. The hollow square is the AB3 <em>predictor</em> guess. Then the slope at that guess is evaluated, fed into the AM3 formula, and the corrected point (filled circle) lands closer to the true curve. The small vertical arrow shows the correction.
+</figcaption>
+</figure>
+
+<div class="geometric">
+  <strong>Geometrically</strong>
+  Each <span class="c-am3">teal</span> step shows a <em>hollow square</em> at the predicted point $y^*_{n+1}$, and the committed solid circle is at the corrected point. The two are usually close, but not identical — the gap between them is exactly what the corrector is correcting.
+</div>
+
+
+<h2 id="order">A word on "order" and why it matters</h2>
+
+<p>When we say a method has "order $p$", we mean: when the step size is small enough, halving $h$ reduces the error by a factor of $2^p$.</p>
+
+<div class="order-callout">
+  <span class="method-color c-fwd-euler">Forward Euler</span> &nbsp; halve $h$ → error halves &nbsp; (factor 2 = $2^1$)<br>
+  <span class="method-color c-heun">Heun</span> &nbsp; halve $h$ → error reduces 4× &nbsp; ($2^2$)<br>
+  <span class="method-color c-rk4">RK4</span> &nbsp; halve $h$ → error reduces 16× &nbsp; ($2^4$)<br>
+  <span class="method-color c-ab4">AB4</span> &nbsp; halve $h$ → error reduces 16× &nbsp; ($2^4$)<br>
+  <span class="method-color c-am3">AM3</span> &nbsp; halve $h$ → error reduces 16× &nbsp; ($2^4$)
+</div>
+
+<p>This is exactly what the "Convergence study" button in the app verifies. Click it, and you'll see each method's empirical order computed from actual numerical experiments — they'll be very close to 1, 2, 4, 4, 4 (with some variation due to floating-point noise and pre-asymptotic behavior at large $h$).</p>
+
+<p>The practical consequence: for a target error $\epsilon$, an order-1 method needs steps of size $h \sim \epsilon$, while an order-4 method only needs $h \sim \epsilon^{1/4}$. For $\epsilon = 10^{-6}$, that's $10^6$ Forward Euler steps versus $\sim 32$ RK4 steps. Even though each RK4 step does 4× the work of an Euler step, RK4 still wins by orders of magnitude.</p>
+
+
+<h2 id="stiffness">A word on stiffness</h2>
+
+<p>Some ODEs are easy. Others are <strong>stiff</strong> — meaning they have one or more very fast-decaying components. The classic example is</p>
+
+<div class="formula">
+$$y' = -50\, y, \qquad y(0) = 1,$$
+</div>
+
+<p>whose exact solution is $y(t) = e^{-50t}$ — it crashes from 1 to nearly 0 in a fraction of a second.</p>
+
+<p>Try Forward Euler on this with $h = 0.05$. The recurrence is</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + 0.05 \cdot (-50\, y_n) = y_n \cdot (1 - 2.5) = -1.5\, y_n.$$
+</div>
+
+<p>Each step <strong>flips the sign and multiplies the magnitude by 1.5</strong>. Starting from $y_0 = 1$, you get $1, -1.5, 2.25, -3.375, \ldots$. The numerical solution oscillates and explodes, while the true solution decays smoothly to zero. That's instability.</p>
+
+<p>Try Implicit Euler on the same problem. Its recurrence is</p>
+
+<div class="formula">
+$$y_{n+1} = y_n + 0.05 \cdot (-50\, y_{n+1}) \implies y_{n+1} = \frac{y_n}{1 + 2.5} = \frac{y_n}{3.5}.$$
+</div>
+
+<p>Each step divides by 3.5. The numerical solution decays smoothly. <strong>Stable, even though $h$ is large.</strong></p>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stiff problem comparison">
+  <line class="d-axis" x1="60" y1="155" x2="560" y2="155"/>
+  <line class="d-axis" x1="60" y1="20" x2="60" y2="265"/>
+  <text class="d-axislabel" x="555" y="172" text-anchor="end">t</text>
+  <text class="d-axislabel" x="48" y="28" text-anchor="end">y</text>
+
+  <!-- y-axis ticks -->
+  <text class="d-label" x="52" y="40" text-anchor="end">3</text>
+  <text class="d-label" x="52" y="78" text-anchor="end">2</text>
+  <text class="d-label" x="52" y="116" text-anchor="end">1</text>
+  <text class="d-label" x="52" y="158" text-anchor="end">0</text>
+  <text class="d-label" x="52" y="195" text-anchor="end">−1</text>
+  <text class="d-label" x="52" y="232" text-anchor="end">−2</text>
+
+  <!-- y=0 line -->
+  <line class="d-grid" x1="60" y1="155" x2="560" y2="155" stroke="#bdb39c"/>
+
+  <!-- True solution: y(t) = e^(-50t), drops to ~0 quickly. y=1 at t=0. -->
+  <path class="d-curve" d="M 60 116 Q 70 155 110 155 L 540 155"/>
+  <text class="d-axislabel" x="65" y="105" font-size="11">true y(t) = e^(−50t)</text>
+
+  <!-- Forward Euler oscillating: y_n = (-1.5)^n at t = 0, h, 2h, ... 
+       y values: 1, -1.5, 2.25, -3.375, 5.0625, ...
+       Map: y=1 → 116, y=-1.5 → 211, y=2.25 → 70, y=-3.375 → 250 (clipped), 
+       y=5 would be off-screen, etc. Use h roughly = 80px. -->
+  <g stroke="#c1432f" stroke-width="2" fill="none" stroke-linecap="round">
+    <line x1="100" y1="116" x2="180" y2="211"/>  <!-- 1 -> -1.5 -->
+    <line x1="180" y1="211" x2="260" y2="70"/>   <!-- -1.5 -> 2.25 -->
+    <line x1="260" y1="70" x2="340" y2="263"/>   <!-- 2.25 -> -3.375 (clipped at edge) -->
+    <line x1="340" y1="263" x2="420" y2="20"/>   <!-- -3.375 -> ~5 (clipped) -->
+  </g>
+  <g fill="#c1432f" stroke="#fffdf6" stroke-width="1.2">
+    <circle cx="100" cy="116" r="3.5"/>
+    <circle cx="180" cy="211" r="3.5"/>
+    <circle cx="260" cy="70" r="3.5"/>
+    <circle cx="340" cy="263" r="3.5"/>
+  </g>
+  <text class="d-error-text" x="200" y="60" fill="#c1432f">Forward Euler oscillates and explodes</text>
+
+  <!-- Implicit Euler decaying: y_n = (1/3.5)^n. Values: 1, 0.286, 0.082, 0.023, 0.0067, ...
+       Map y=1→116, 0.286→144, 0.082→152, 0.023→154, 0.0067→154.7. -->
+  <g stroke="#a3578f" stroke-width="2" fill="none" stroke-linecap="round">
+    <line x1="100" y1="116" x2="180" y2="144"/>
+    <line x1="180" y1="144" x2="260" y2="152"/>
+    <line x1="260" y1="152" x2="340" y2="154"/>
+    <line x1="340" y1="154" x2="420" y2="155"/>
+    <line x1="420" y1="155" x2="500" y2="155"/>
+  </g>
+  <g fill="#a3578f" stroke="#fffdf6" stroke-width="1.2">
+    <circle cx="100" cy="116" r="3.5"/>
+    <circle cx="180" cy="144" r="3.5"/>
+    <circle cx="260" cy="152" r="3.5"/>
+    <circle cx="340" cy="154" r="3.5"/>
+    <circle cx="420" cy="155" r="3.5"/>
+  </g>
+  <text class="d-error-text" x="200" y="138" fill="#a3578f">Implicit Euler decays smoothly</text>
+
+  <text class="d-formula" x="80" y="252">y' = −50y, h = 0.05</text>
+</svg>
+<figcaption>
+  Same equation, same step size, two methods. Forward Euler (red) flips sign and grows by a factor of 1.5 each step. Implicit Euler (violet) shrinks by a factor of 3.5 each step. Both are order-1 methods on smooth problems — the difference here is <em>stability</em>, which has nothing to do with order.
+</figcaption>
+</figure>
+
+<blockquote>
+  This is the whole reason implicit methods exist. They are slower per step (Newton's method inside each step is not free), but they remain stable at step sizes that would blow up an explicit method. For stiff problems, that's the difference between getting an answer and not.
+</blockquote>
+
+<p>The <code>Stiff: y' = -50y</code> preset in the visualizer is set up to make this contrast visible. Activate Forward Euler and Implicit Euler at the same time, hit play, and watch what happens.</p>
+
+
+<footer>
+  <p>Math 252 · College of San Mateo</p>
+  <a href="./" class="back-link">← Back to the visualizer</a>
+</footer>
+
+</main>
+</body>
+</html>

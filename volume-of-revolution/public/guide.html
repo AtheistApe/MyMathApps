@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volume of Revolution Explorer — Student Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0d14;
+    --panel: #12141f;
+    --panel2: #171a27;
+    --border: #262b3d;
+    --border-light: #333a52;
+    --text: #e9ecf5;
+    --muted: #8992a9;
+    --faint: #5b6378;
+    --teal: #2fd9c3;
+    --amber: #f5b942;
+    --violet: #9d8cf0;
+    --blue: #60a5fa;
+    --good: #4ade80;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 24px 100px;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  h1 { font-size: 30px; margin: 0 0 6px; font-weight: 700; }
+  h2 {
+    font-size: 21px;
+    margin: 56px 0 6px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; margin-top: 40px; }
+  h3 { font-size: 15.5px; margin: 26px 0 6px; color: var(--text); }
+
+  p { margin: 10px 0; color: var(--text); max-width: 66ch; }
+  .lede { color: var(--muted); font-size: 16px; margin-top: 4px; }
+
+  a { color: var(--teal); }
+
+  code, .mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.92em;
+  }
+
+  .kicker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--teal);
+    margin-bottom: 10px;
+  }
+
+  /* ---- hero diagram ---- */
+  .hero {
+    margin: 28px 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: radial-gradient(ellipse at 50% 20%, #131728 0%, #0a0d14 75%);
+    padding: 18px 18px 8px;
+  }
+  .hero svg { display: block; width: 100%; height: auto; }
+  .hero-caption {
+    font-size: 12px;
+    color: var(--faint);
+    text-align: center;
+    padding: 6px 0 12px;
+  }
+
+  /* ---- control reference rows ---- */
+  .control {
+    display: grid;
+    grid-template-columns: 168px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  .control:first-of-type { border-top: none; }
+  .control-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--amber);
+    padding-top: 2px;
+  }
+  .control-body p { margin: 0 0 8px; }
+  .control-body p:last-child { margin-bottom: 0; }
+
+  @media (max-width: 560px) {
+    .control { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  /* ---- callouts ---- */
+  .try {
+    border-left: 3px solid var(--amber);
+    background: var(--panel);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .try .try-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    margin-bottom: 4px;
+  }
+  .try p { margin: 0; }
+
+  .note {
+    border-left: 3px solid var(--blue);
+    background: var(--panel);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .note p { margin: 0; }
+
+  /* ---- legend swatches ---- */
+  .legend-list { list-style: none; padding: 0; margin: 14px 0; }
+  .legend-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid var(--border);
+  }
+  .legend-list li:first-child { border-top: none; }
+  .swatch {
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    flex: none;
+    margin-top: 3px;
+  }
+  .legend-list b { font-weight: 600; }
+  .legend-list span.desc { color: var(--muted); }
+
+  /* ---- glossary ---- */
+  dl.glossary dt {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    margin-top: 18px;
+    color: var(--text);
+  }
+  dl.glossary dd {
+    margin: 4px 0 0;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  footer {
+    margin-top: 70px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--faint);
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  ul.plain { padding-left: 20px; margin: 10px 0; }
+  ul.plain li { margin: 4px 0; }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0 4px;
+  }
+  .presets span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="kicker">MATH 252 · APPLICATIONS OF INTEGRATION</div>
+  <h1>Volume of Revolution Explorer</h1>
+  <p class="lede">A guide to using the disk/washer &amp; cylindrical shell app</p>
+
+  <div class="hero">
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg">
+      <!-- axis -->
+      <line x1="40" y1="210" x2="680" y2="210" stroke="#f5b942" stroke-width="1.6" stroke-dasharray="6,5" opacity="0.85"/>
+      <!-- curve -->
+      <path d="M 90 210 C 160 90, 260 60, 340 60 C 420 60, 470 90, 500 150" fill="none" stroke="#f3f5fb" stroke-width="2.2"/>
+      <!-- disk stack (left half) -->
+      <g opacity="0.95">
+        <ellipse cx="150" cy="150" rx="8" ry="53" fill="#2fd9c3" opacity="0.55"/>
+        <ellipse cx="185" cy="120" rx="8" ry="82" fill="#2fd9c3" opacity="0.55"/>
+        <ellipse cx="220" cy="98" rx="8" ry="103" fill="#2fd9c3" opacity="0.55"/>
+        <ellipse cx="255" cy="82" rx="8" ry="119" fill="#f5b942" opacity="0.9"/>
+        <ellipse cx="290" cy="72" rx="8" ry="128" fill="#2fd9c3" opacity="0.55"/>
+      </g>
+      <!-- shell rings (right half) -->
+      <g opacity="0.9">
+        <ellipse cx="470" cy="210" rx="14" ry="7" fill="none" stroke="#60a5fa" stroke-width="3" opacity="0.55"/>
+        <ellipse cx="470" cy="210" rx="34" ry="17" fill="none" stroke="#60a5fa" stroke-width="3" opacity="0.55"/>
+        <ellipse cx="470" cy="210" rx="54" ry="27" fill="none" stroke="#f5b942" stroke-width="3.2"/>
+        <ellipse cx="470" cy="210" rx="74" ry="37" fill="none" stroke="#60a5fa" stroke-width="3" opacity="0.55"/>
+        <ellipse cx="470" cy="210" rx="94" ry="47" fill="none" stroke="#60a5fa" stroke-width="3" opacity="0.4"/>
+      </g>
+      <text x="150" y="238" fill="#8992a9" font-family="IBM Plex Mono, monospace" font-size="12">disks / washers</text>
+      <text x="430" y="238" fill="#8992a9" font-family="IBM Plex Mono, monospace" font-size="12">cylindrical shells</text>
+      <text x="590" y="118" fill="#5b6378" font-family="IBM Plex Mono, monospace" font-size="12">same solid,</text>
+      <text x="590" y="134" fill="#5b6378" font-family="IBM Plex Mono, monospace" font-size="12">two methods</text>
+    </svg>
+    <div class="hero-caption">Slice a solid one way and you get disks. Slice it the other way and you get shells. Both give the same volume.</div>
+  </div>
+
+  <h2>What this app is for</h2>
+  <p>You give it a curve — or two — and an axis to spin it around. It builds the resulting 3D solid two different ways: as a stack of <b>disks/washers</b>, and as a set of nested <b>cylindrical shells</b>. You can watch each method's approximation converge to the same exact volume as you add more pieces, pull out and inspect any single piece, and see both methods' numbers side by side to confirm they really do agree.</p>
+
+  <h2>The idea in one picture</h2>
+  <p>Take the region between a curve and the x-axis (or between two curves) and spin it around a line. That produces one 3D solid. There are two standard ways to break that solid into small pieces you can add up:</p>
+  <ul class="plain">
+    <li><b>Disks / washers</b> — thin slices <i>perpendicular</i> to the axis, stacked along it like coins.</li>
+    <li><b>Cylindrical shells</b> — thin tubes <i>parallel</i> to the axis, nested inside each other like tree rings.</li>
+  </ul>
+  <p>They look completely different, but they're describing the same object — so their volumes must match. That agreement is the main thing this app is built to show you.</p>
+
+  <h2>Setting up a region</h2>
+  <p>The <b>Region</b> panel on the left defines what gets rotated.</p>
+
+  <div class="control">
+    <div class="control-label">f(x)</div>
+    <div class="control-body">
+      <p>The main curve. Type any expression in <code>x</code> — <code>x^2</code>, <code>sqrt(x)</code>, <code>sin(x) + 2</code>, and so on. Standard math notation works; <code>^</code> is exponent, and you can write things like <code>2x^2</code> without needing a <code>*</code>.</p>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">g(x)</div>
+    <div class="control-body">
+      <p>The second boundary curve. Leave it at <code>0</code> and the region is just "under f(x), above the x-axis" — the usual single-curve setup. Give it a real function and the region becomes the area <i>between</i> the two curves instead.</p>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">presets</div>
+    <div class="control-body">
+      <p>A few one-click starting points, including the classic "region between <code>y = x</code> and <code>y = x²</code>" example:</p>
+      <div class="presets">
+        <span>x² (vs x-axis)</span><span>√x (vs x-axis)</span><span>sin(x)+2 (vs x-axis)</span><span>x vs x²</span><span>4 vs x²/2</span>
+      </div>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">a, b</div>
+    <div class="control-body">
+      <p>The interval of <code>x</code> the region is taken over. <code>a</code> is the left edge, <code>b</code> is the right edge.</p>
+    </div>
+  </div>
+
+  <h2>Choosing an axis</h2>
+  <p>The <b>Axis of revolution</b> panel picks the line the region spins around. This is the one choice that determines <i>which solid</i> you end up with — everything else is just how you look at it.</p>
+  <div class="control">
+    <div class="control-label">Horizontal / Vertical</div>
+    <div class="control-body">
+      <p>Horizontal spins the region around a line <code>y = k</code>. Vertical spins it around a line <code>x = k</code>.</p>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">k</div>
+    <div class="control-body">
+      <p>Where that line sits. <code>k = 0</code> puts the axis right on the x-axis (or y-axis, for a vertical axis). Move it away from the region and you'll usually get a washer (a disk with a hole) instead of a solid disk, since there's now a gap between the axis and the nearer edge of the region.</p>
+    </div>
+  </div>
+  <div class="note">
+    <p>If the axis line actually cuts through the middle of your region, the app will warn you that the solid may self-intersect. It still computes something, but it's no longer a straightforward "spin this region around a line outside it" problem — move <code>k</code> so the axis sits outside the region to get back to a standard setup.</p>
+  </div>
+
+  <h2>Picking a method</h2>
+  <p>The <b>Method</b> panel is separate from the axis on purpose — for a given axis, <i>either</i> method can describe the resulting solid. Switching between them doesn't change the shape you're rotating; it only changes how the app slices it up and displays it.</p>
+  <div class="control">
+    <div class="control-label">Disks / Washers</div>
+    <div class="control-body"><p>Shows the solid as a stack of flat, coin-like slices.</p></div>
+  </div>
+  <div class="control">
+    <div class="control-label">Cylindrical Shells</div>
+    <div class="control-body"><p>Shows the same solid as a set of nested tube-shaped slices.</p></div>
+  </div>
+  <p>The <b>Volume</b> panel below the 3D view always shows <i>both</i> methods' numbers at once, regardless of which one is currently displayed — that's where you can directly confirm they agree.</p>
+
+  <h2>Controlling the approximation</h2>
+  <div class="control">
+    <div class="control-label">Subintervals: n</div>
+    <div class="control-body">
+      <p>How many pieces the solid is chopped into, from 1 to 40. This is the Riemann-sum knob: small <code>n</code> gives a rough, blocky approximation you can see the individual pieces of; large <code>n</code> gives something that looks smooth and whose volume sits very close to the exact answer.</p>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">Sample point</div>
+    <div class="control-body">
+      <p><code>left</code>, <code>midpoint</code>, or <code>right</code> — which point in each subinterval the app measures the curve at to size that piece. This is the same left/midpoint/right choice you'd make setting up any Riemann sum.</p>
+    </div>
+  </div>
+  <div class="control">
+    <div class="control-label">Show exact solid (ghost)</div>
+    <div class="control-body">
+      <p>Overlays a faint, high-resolution version of the true solid behind your <code>n</code>-piece approximation, so you can see how closely the blocky version hugs the real shape.</p>
+    </div>
+  </div>
+
+  <h2>Inspecting one piece</h2>
+  <p>The <b>Inspect a single piece</b> panel lets you pull out and examine exactly one disk or shell.</p>
+  <div class="control">
+    <div class="control-label">Piece slider</div>
+    <div class="control-body"><p>Drag to select any piece by number, or click directly on a piece in the 3D view — either way selects it and lights it up amber.</p></div>
+  </div>
+  <div class="control">
+    <div class="control-label">Clear selection</div>
+    <div class="control-body"><p>Deselects the current piece and returns to the normal view.</p></div>
+  </div>
+  <div class="control">
+    <div class="control-label">Hide other pieces</div>
+    <div class="control-body"><p>Isolates the selected piece by hiding everything else, useful when a piece is small or tucked behind others.</p></div>
+  </div>
+  <p>Once a piece is selected, the <b>Selected piece</b> panel on the right shows its exact dimensions — radius, thickness, height, whatever's relevant to the current method — and the volume formula for that one piece worked out with real numbers.</p>
+
+  <h2>Reading the 3D view</h2>
+  <p><b>Drag</b> to rotate the view, <b>scroll</b> to zoom, and <b>click</b> any piece to select it. Everything in the scene follows one consistent color language:</p>
+  <ul class="legend-list">
+    <li><span class="swatch" style="background:#2fd9c3"></span><div><b>Teal</b> — <span class="desc">the disk or shell pieces making up the approximation</span></div></li>
+    <li><span class="swatch" style="background:#f5b942"></span><div><b>Amber</b> — <span class="desc">the selected piece, and the dashed axis of revolution</span></div></li>
+    <li><span class="swatch" style="background:#9d8cf0"></span><div><b>Violet</b> — <span class="desc">the faint exact solid, when "Show exact solid" is on</span></div></li>
+  </ul>
+  <p>The white curve traces <code>f(x)</code>; a lighter dashed line traces <code>g(x)</code>.</p>
+
+  <h2>Reading the numbers</h2>
+  <h3>Generating region</h3>
+  <p>The small 2D panel under the 3D view shows the flat region before it's spun — the curve(s), the axis (dashed amber), and a highlighted rectangle or band showing exactly which slice of the region the currently selected piece came from.</p>
+  <h3>Volume — two methods, one solid</h3>
+  <p>This is the results panel: approximate and exact volume for Disk/Washer, then the same two numbers for Shell. When the exact values agree to within about 1%, you'll see a green confirmation — that's the "yes, these really are the same solid" moment. If they don't agree, it's almost always because the axis is cutting through the region (see the warning above).</p>
+
+  <div class="try">
+    <div class="try-label">TRY THIS</div>
+    <p>Leave everything at its defaults, drag <code>n</code> from 1 up to 40, and watch both the Disk/Washer and Shell approximate volumes creep toward their exact values from different directions.</p>
+  </div>
+  <div class="try">
+    <div class="try-label">TRY THIS</div>
+    <p>Switch the Method between Disks/Washers and Cylindrical Shells without touching anything else. The 3D shape you're looking at changes completely — but the exact volume in the results panel doesn't move.</p>
+  </div>
+  <div class="try">
+    <div class="try-label">TRY THIS</div>
+    <p>Load the "x vs x²" preset, select a middle piece, and check the numbers in the Selected piece panel against what you'd compute by hand for that subinterval.</p>
+  </div>
+
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Axis of revolution</dt>
+    <dd>The line a 2D region is spun around to create a 3D solid.</dd>
+    <dt>Disk</dt>
+    <dd>A solid circular slice — used when the region touches the axis directly, so there's no hole.</dd>
+    <dt>Washer</dt>
+    <dd>A disk with a hole in the middle — used when there's a gap between the axis and the nearer edge of the region.</dd>
+    <dt>Cylindrical shell</dt>
+    <dd>A thin, hollow tube — the building block of the shell method, nested at increasing radius from the axis.</dd>
+    <dt>Riemann sum</dt>
+    <dd>An approximation built by adding up many small pieces; here, the sum of disk, washer, or shell volumes for a given <code>n</code>.</dd>
+  </dl>
+
+  <footer>Volume of Revolution Explorer — Student Guide</footer>
+
+</main>
+</body>
+</html>

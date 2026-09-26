@@ -44,6 +44,7 @@ changing and skips the rest.
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -78,6 +79,47 @@ def find_app_dirs(root: Path):
         if has_pkg and has_vite_cfg:
             apps.append(child)
     return apps
+
+
+def strip_nested_git(app_dir: Path):
+    """Remove a leftover .git inside an app folder.
+
+    If an app used to be deployed as its own separate repo (e.g. via
+    Netlify), it likely still has its own .git directory. Left in place,
+    the outer MyMathApps repo won't track that app's files at all — git
+    silently records it as a broken embedded-repo reference instead, so
+    GitHub Actions checks out an empty folder and the build fails with a
+    'no such file or directory' error on package.json.
+    """
+    git_path = app_dir / ".git"
+    if not git_path.exists():
+        return
+    if git_path.is_dir():
+        shutil.rmtree(git_path)
+    else:
+        git_path.unlink()
+    print(f"  removed nested .git in {app_dir.name} (it was its own separate repo)")
+
+
+def unstage_any_gitlinks(apps):
+    """If an app was already committed as a broken embedded-repo reference
+    (mode 160000) in an earlier run, plain `git add -A` won't fix that on
+    its own — git needs the path explicitly untracked first so it can be
+    re-added as normal files.
+    """
+    if not Path(".git").exists():
+        return  # nothing committed yet, nothing to unstage
+    for app in apps:
+        check = subprocess.run(
+            ["git", "ls-files", "-s", str(app)],
+            capture_output=True, text=True,
+        )
+        if check.stdout.strip().startswith("160000"):
+            subprocess.run(
+                ["git", "rm", "-r", "--cached", str(app)],
+                capture_output=True, text=True,
+            )
+            print(f"  un-staged broken embedded-repo reference for {app.name}")
 
 
 def patch_vite_base(app_dir: Path, repo_name: str):
@@ -275,12 +317,14 @@ def main():
     print(f"GitHub user: {username}\n")
 
     for app in apps:
+        strip_nested_git(app)
         patch_vite_base(app, args.repo_name)
 
     write_workflow(apps, args.repo_name)
     write_index(apps, args.repo_name)
 
     ensure_git_repo()
+    unstage_any_gitlinks(apps)
     ensure_github_repo(args.repo_name, username, args.private)
     enable_pages_via_actions(args.repo_name, username)
     commit_and_push()
