@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Numerical Integration Explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #edf1f5;
+    --surface: #ffffff;
+    --ink: #14213d;
+    --muted: #55657a;
+    --line: #cdd8e2;
+    --plot: #fbfdfe;
+    --grid: #dde6ed;
+    --axis: #5b6b80;
+    --curve: #14213d;
+    --pos: #1f7a8c;
+    --neg: #a23b72;
+    --accent: #1f7a8c;
+    --accent-ink: #ffffff;
+    --warn-bg: #fff4d6;
+    --warn-ink: #6b4a00;
+    --err-bg: #fde8ef;
+    --err-ink: #7a1b3f;
+    --sel: #e3f1f4;
+    --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-math: "STIX Two Text", "Cambria Math", Cambria, Georgia, "Times New Roman", serif;
+
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1621;
+      --surface: #16222f;
+      --ink: #e6edf3;
+      --muted: #93a4b7;
+      --line: #2a3b4e;
+      --plot: #101b27;
+      --grid: #1f3044;
+      --axis: #8ea0b4;
+      --curve: #f1f5f9;
+      --pos: #4fc3d9;
+      --neg: #e07ab0;
+      --accent: #4fc3d9;
+      --accent-ink: #08212a;
+      --warn-bg: #3a2f10;
+      --warn-ink: #f5d88a;
+      --err-bg: #3d1a29;
+      --err-ink: #f5b3cd;
+      --sel: #1b3543;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1621;
+    --surface: #16222f;
+    --ink: #e6edf3;
+    --muted: #93a4b7;
+    --line: #2a3b4e;
+    --plot: #101b27;
+    --grid: #1f3044;
+    --axis: #8ea0b4;
+    --curve: #f1f5f9;
+    --pos: #4fc3d9;
+    --neg: #e07ab0;
+    --accent: #4fc3d9;
+    --accent-ink: #08212a;
+    --warn-bg: #3a2f10;
+    --warn-ink: #f5d88a;
+    --err-bg: #3d1a29;
+    --err-ink: #f5b3cd;
+    --sel: #1b3543;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 40px; }
+  header h1 { font-size: 1.6rem; margin: 0 0 4px; font-weight: 700; letter-spacing: -0.01em; }
+  header p { margin: 0 0 18px; color: var(--muted); max-width: 62ch; }
+
+  .app { display: grid; grid-template-columns: minmax(260px, 330px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .app { grid-template-columns: minmax(0, 1fr); } }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .panel + .panel { margin-top: 20px; }
+  .panel h2 { font-size: 1.05rem; margin: 0 0 10px; }
+
+  label, .label { display: block; font-weight: 700; font-size: 0.9rem; margin: 0 0 4px; }
+  .field { margin-bottom: 14px; }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--plot);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  input.math { font-family: var(--font-math); font-size: 1.15rem; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 0.82rem; color: var(--muted); margin: 4px 0 0; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+  legend { font-weight: 700; font-size: 0.9rem; padding: 0; margin-bottom: 4px; }
+  .method { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-weight: 400; margin: 0; font-size: 1rem; }
+  .method:hover { background: var(--sel); }
+  .method input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; }
+  .method.on { background: var(--sel); font-weight: 700; }
+
+  .nrow { display: grid; grid-template-columns: 1fr 88px; gap: 12px; align-items: center; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  .msg { border-radius: 6px; padding: 8px 10px; font-size: 0.88rem; margin-top: 10px; }
+  .msg.err { background: var(--err-bg); color: var(--err-ink); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .msg[hidden] { display: none; }
+
+  .plotbox { position: relative; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 10; min-height: 260px; border-radius: 8px; border: 1px solid var(--line); background: var(--plot); }
+  .caption { font-size: 0.82rem; color: var(--muted); margin: 8px 0 0; }
+
+  .readout { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  @media (max-width: 720px) { .readout { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  .stat .k { font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
+  .stat .v { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .stat.main { border-color: var(--accent); }
+  .stat.main .v { font-size: 1.35rem; }
+  .stat .sub { font-size: 0.8rem; color: var(--muted); }
+  .formula { font-family: var(--font-math); font-size: 1.1rem; margin: 14px 0 0; padding: 10px 12px; border-left: 4px solid var(--accent); background: var(--sel); border-radius: 0 6px 6px 0; overflow-x: auto; }
+  .formula .dx { display: block; font-size: 0.98rem; color: var(--muted); margin-top: 2px; }
+
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
+  tr.sel td, tr.sel th { background: var(--sel); }
+  td.sel, th.sel { background: var(--sel); }
+  .linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .ratio { display: block; font-size: 0.75rem; color: var(--muted); }
+  .note { font-size: 0.88rem; color: var(--muted); margin: 10px 0 0; max-width: 78ch; }
+  .panel h3 { font-size: 0.98rem; margin: 22px 0 8px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tolrow { max-width: 260px; margin-bottom: 12px; }
+  .under { color: var(--neg); }
+  .over { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Numerical Integration Explorer</h1>
+    <p>Approximate a definite integral with five rules, see the shapes each rule uses, and watch how the error shrinks as you add subintervals.</p>
+  </header>
+
+  <div class="app">
+    <section class="panel" aria-label="Controls">
+      <div class="field">
+        <label for="preset">Examples</label>
+        <select id="preset">
+          <option value="">Choose an example…</option>
+          <option value="0">1/x on [1, 4]</option>
+          <option value="1">x sin(x) on [0, π]</option>
+          <option value="2">sin(x²) on [0, π]</option>
+          <option value="3">e^(−x²) on [0, 2]</option>
+          <option value="4">x² on [0, 3]</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="fx">Function f(x)</label>
+        <input id="fx" class="math" type="text" value="1/x" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="fxhelp">
+        <p class="hint" id="fxhelp">Write sin(x), cos(x), e^x, sqrt(x), abs(x), ln(x), x^2, 3x. Use * or a space for products.</p>
+      </div>
+
+      <div class="row2 field">
+        <div>
+          <label for="aval">Left endpoint a</label>
+          <input id="aval" class="math" type="text" value="1" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="bval">Right endpoint b</label>
+          <input id="bval" class="math" type="text" value="4" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="hint" style="grid-column: 1 / -1; margin-top: 0;">Endpoints can be expressions such as pi/2.</p>
+      </div>
+
+      <fieldset>
+        <legend>Rule</legend>
+        <label class="method"><input type="radio" name="method" value="left"> Left endpoint</label>
+        <label class="method"><input type="radio" name="method" value="right"> Right endpoint</label>
+        <label class="method"><input type="radio" name="method" value="mid" checked> Midpoint</label>
+        <label class="method"><input type="radio" name="method" value="trap"> Trapezoid</label>
+        <label class="method"><input type="radio" name="method" value="simpson"> Simpson's rule</label>
+      </fieldset>
+
+      <div class="field" style="margin-bottom:0">
+        <label for="nrange">Number of subintervals n</label>
+        <div class="nrow">
+          <input id="nrange" type="range" min="1" max="100" step="1" value="6" aria-label="Number of subintervals, slider">
+          <input id="nnum" type="number" min="1" max="5000" step="1" value="6" aria-label="Number of subintervals, exact value">
+        </div>
+        <p class="hint">The slider goes to 100. Type a larger n, up to 5000, in the box.</p>
+      </div>
+
+      <div id="msg-err" class="msg err" role="alert" hidden></div>
+      <div id="msg-warn" class="msg warn" hidden></div>
+    </section>
+
+    <main>
+      <section class="panel" aria-label="Graph and result">
+        <div class="plotbox">
+          <canvas id="plot" role="img" aria-label="Graph of the function with the approximation shapes"></canvas>
+        </div>
+        <p class="caption">Shaded regions above the x-axis add to the total; shaded regions below the x-axis subtract from it.</p>
+
+        <div class="readout" aria-live="polite">
+          <div class="stat main"><div class="k" id="k-approx">Approximation</div><div class="v" id="v-approx">–</div></div>
+          <div class="stat"><div class="k">Reference value</div><div class="v" id="v-ref">–</div></div>
+          <div class="stat"><div class="k">Error (approximation − reference)</div><div class="v" id="v-err">–</div><div class="sub" id="s-err"></div></div>
+          <div class="stat"><div class="k">Subinterval width Δx</div><div class="v" id="v-dx">–</div></div>
+        </div>
+        <p class="formula" id="formula"></p>
+        <p class="note" id="nnote" hidden></p>
+      </section>
+
+      <section class="panel" aria-label="Compare the five rules">
+        <h2>All five rules at this n</h2>
+        <div class="tablewrap">
+          <table id="cmp">
+            <thead><tr><th scope="col">Rule</th><th scope="col">Approximation</th><th scope="col">Error</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note">The reference value comes from Simpson's rule with n = 20,000. It is accurate to many digits for smooth functions, but it is a computed value, not an antiderivative.</p>
+      </section>
+
+      <section class="panel" aria-label="Error bounds">
+        <h2>Error bounds</h2>
+        <p class="note" style="margin-top:0">If |f″(x)| ≤ K₂ and |f⁗(x)| ≤ K₄ for every x in [a, b], then the error of each rule is guaranteed to be no larger than its bound. This panel covers the midpoint, trapezoid, and Simpson rules.</p>
+        <div class="row2 field" style="margin-top:12px">
+          <div>
+            <label for="k2">K₂, a bound for |f″(x)|</label>
+            <input id="k2" class="math" type="text" placeholder="automatic" autocomplete="off" spellcheck="false" aria-describedby="k2hint">
+            <p class="hint" id="k2hint"></p>
+          </div>
+          <div>
+            <label for="k4">K₄, a bound for |f⁗(x)|</label>
+            <input id="k4" class="math" type="text" placeholder="automatic" autocomplete="off" spellcheck="false" aria-describedby="k4hint">
+            <p class="hint" id="k4hint"></p>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table id="bnd">
+            <thead><tr><th scope="col">Rule</th><th scope="col">Error bound formula</th><th scope="col">K</th><th scope="col">Error bound</th><th scope="col">Actual error</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="bnd-note" class="msg warn" hidden></div>
+        <p class="note">Leave a K box empty to use the automatic estimate, which is the largest value found by sampling the derivative across [a, b]. A proof needs a K you can justify by hand, so try typing your own and see how a larger K loosens the bound.</p>
+
+        <h3>How many subintervals do you need?</h3>
+        <div class="tolrow">
+          <label for="tol">Make the error at most</label>
+          <input id="tol" class="math" type="text" value="0.0001" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="tablewrap">
+          <table id="need">
+            <thead><tr><th scope="col">Rule</th><th scope="col">n guaranteed to work</th><th scope="col">Actual error at that n</th><th scope="col"><span class="sr">Try it</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note" id="need-note"></p>
+      </section>
+
+      <section class="panel" aria-label="Convergence as n doubles">
+        <h2>What happens to the error when n doubles?</h2>
+        <div class="tablewrap">
+          <table id="conv">
+            <thead><tr><th scope="col">n</th><th scope="col" data-m="left">Left</th><th scope="col" data-m="right">Right</th><th scope="col" data-m="mid">Midpoint</th><th scope="col" data-m="trap">Trapezoid</th><th scope="col" data-m="simpson">Simpson</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note">Each cell shows the size of the error. The small number underneath tells you how many times smaller the error is than in the row above. For a smooth function, look for factors near 2 (left, right), 4 (midpoint, trapezoid), and 16 (Simpson).</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ==== numerics ====
+  var REF_N = 20000;
+
+  function rule(f, a, b, n, m) {
+    var dx = (b - a) / n, s = 0, i;
+    if (m === 'left') {
+      for (i = 0; i < n; i++) s += f(a + i * dx);
+      return s * dx;
+    }
+    if (m === 'right') {
+      for (i = 1; i <= n; i++) s += f(a + i * dx);
+      return s * dx;
+    }
+    if (m === 'mid') {
+      for (i = 0; i < n; i++) s += f(a + (i + 0.5) * dx);
+      return s * dx;
+    }
+    if (m === 'trap') {
+      s = 0.5 * (f(a) + f(b));
+      for (i = 1; i < n; i++) s += f(a + i * dx);
+      return s * dx;
+    }
+    if (m === 'simpson') {
+      if (n % 2 !== 0) return NaN;
+      s = f(a) + f(b);
+      for (i = 1; i < n; i++) s += (i % 2 === 1 ? 4 : 2) * f(a + i * dx);
+      return s * dx / 3;
+    }
+    return NaN;
+  }
+  // Error bounds: M and T use K2 = max|f''|, S uses K4 = max|f''''|.
+  function boundFor(m, K, L, n) {
+    if (m === 'mid') return K * Math.pow(L, 3) / (24 * n * n);
+    if (m === 'trap') return K * Math.pow(L, 3) / (12 * n * n);
+    return K * Math.pow(L, 5) / (180 * Math.pow(n, 4));
+  }
+  // smallest n (even for Simpson) whose bound is at most eps
+  function nNeeded(m, K, L, eps) {
+    var c = m === 'mid' ? K * Math.pow(L, 3) / 24
+          : m === 'trap' ? K * Math.pow(L, 3) / 12
+          : K * Math.pow(L, 5) / 180;
+    var p = m === 'simpson' ? 4 : 2;
+    var n = Math.max(1, Math.ceil(Math.pow(c / eps, 1 / p) - 1e-9));
+    if (m === 'simpson') { if (n % 2) n += 1; n = Math.max(2, n); }
+    return n;
+  }
+  // ==== /numerics ====
+
+  var METHODS = {
+    left:    { name: 'Left endpoint', label: 'Left endpoint rule', sym: 'Lₙ', formula: 'Lₙ = Δx · [ f(x₀) + f(x₁) + … + f(xₙ₋₁) ]' },
+    right:   { name: 'Right endpoint', label: 'Right endpoint rule', sym: 'Rₙ', formula: 'Rₙ = Δx · [ f(x₁) + f(x₂) + … + f(xₙ) ]' },
+    mid:     { name: 'Midpoint', label: 'Midpoint rule', sym: 'Mₙ', formula: 'Mₙ = Δx · [ f(m₁) + f(m₂) + … + f(mₙ) ],   mᵢ = midpoint of the i-th subinterval' },
+    trap:    { name: 'Trapezoid', label: 'Trapezoid rule', sym: 'Tₙ', formula: 'Tₙ = (Δx/2) · [ f(x₀) + 2f(x₁) + 2f(x₂) + … + 2f(xₙ₋₁) + f(xₙ) ]' },
+    simpson: { name: "Simpson's rule", label: "Simpson's rule", sym: 'Sₙ', formula: 'Sₙ = (Δx/3) · [ f(x₀) + 4f(x₁) + 2f(x₂) + 4f(x₃) + … + 2f(xₙ₋₂) + 4f(xₙ₋₁) + f(xₙ) ]' }
+  };
+  var ORDER = ['left', 'right', 'mid', 'trap', 'simpson'];
+  var PRESETS = [
+    { f: '1/x', a: '1', b: '4', n: 6, m: 'mid' },
+    { f: 'x sin(x)', a: '0', b: 'pi', n: 8, m: 'simpson' },
+    { f: 'sin(x^2)', a: '0', b: 'pi', n: 10, m: 'mid' },
+    { f: 'e^(-x^2)', a: '0', b: '2', n: 6, m: 'trap' },
+    { f: 'x^2', a: '0', b: '3', n: 6, m: 'left' }
+  ];
+  var CONV_NS = [2, 4, 8, 16, 32, 64, 128, 256];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    preset: $('preset'), fx: $('fx'), a: $('aval'), b: $('bval'),
+    range: $('nrange'), num: $('nnum'),
+    err: $('msg-err'), warn: $('msg-warn'),
+    canvas: $('plot'),
+    kApprox: $('k-approx'), vApprox: $('v-approx'), vRef: $('v-ref'), vErr: $('v-err'), sErr: $('s-err'), vDx: $('v-dx'),
+    formula: $('formula'), nnote: $('nnote'),
+    cmp: $('cmp').querySelector('tbody'), conv: $('conv'),
+    k2: $('k2'), k4: $('k4'), k2hint: $('k2hint'), k4hint: $('k4hint'),
+    bnd: $('bnd').querySelector('tbody'), bndNote: $('bnd-note'),
+    tol: $('tol'), need: $('need').querySelector('tbody'), needNote: $('need-note')
+  };
+  var radios = Array.prototype.slice.call(document.querySelectorAll('input[name="method"]'));
+
+  var state = { method: 'mid', n: 6 };
+  var model = { ok: false };
+  var convData = null;
+
+  // ---------- helpers ----------
+  function fmt(v, d) {
+    if (!isFinite(v)) return '–';
+    if (Math.abs(v) >= 1e7) return v.toPrecision(8);
+    return v.toFixed(d === undefined ? 8 : d);
+  }
+  function fmtDx(v) { return String(Number(v.toPrecision(6))); }
+  function fmtErr(e) {
+    if (!isFinite(e)) return '–';
+    if (Math.abs(e) < 5e-10) return '≈ 0';
+    return (e > 0 ? '+' : '−') + Math.abs(e).toFixed(8);
+  }
+  function effN() {
+    return (state.method === 'simpson' && state.n % 2 !== 0) ? state.n + 1 : state.n;
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---------- model ----------
+  function toReal(v, what) {
+    if (typeof v !== 'number' || !isFinite(v)) throw new Error(what + ' must be a real number.');
+    return v;
+  }
+
+  function buildModel() {
+    var errs = [], node = null, a = NaN, b = NaN;
+    var scope = { x: 0, ln: Math.log };
+
+    try { node = math.compile(el.fx.value); }
+    catch (e) { errs.push('f(x): ' + e.message); }
+    try { a = toReal(math.evaluate(el.a.value), 'The left endpoint'); }
+    catch (e) { errs.push(e.message); }
+    try { b = toReal(math.evaluate(el.b.value), 'The right endpoint'); }
+    catch (e) { errs.push(e.message); }
+    if (errs.length === 0 && !(a < b)) errs.push('The left endpoint a must be less than the right endpoint b.');
+
+    var f = null;
+    if (errs.length === 0) {
+      f = function (x) {
+        scope.x = x;
+        var v = node.evaluate(scope);
+        return typeof v === 'number' ? v : NaN;
+      };
+      try { f((a + b) / 2); }
+      catch (e) { errs.push('f(x): ' + e.message); }
+    }
+    if (errs.length) return { ok: false, errs: errs };
+
+    // sample the curve
+    var S = 800, xs = new Array(S + 1), ys = new Array(S + 1), bad = false, lo = 0, hi = 0, k;
+    for (k = 0; k <= S; k++) {
+      xs[k] = a + (b - a) * k / S;
+      var y;
+      try { y = f(xs[k]); } catch (e) { y = NaN; }
+      ys[k] = y;
+      if (!isFinite(y)) bad = true;
+      else { if (y < lo) lo = y; if (y > hi) hi = y; }
+    }
+    var ref;
+    try { ref = rule(f, a, b, REF_N, 'simpson'); } catch (e) { ref = NaN; }
+
+    // K estimates are filled in right after the first render (see scheduleK) so typing stays responsive
+    var K = bad ? { 2: { ok: false, why: 'undefined' }, 4: { ok: false, why: 'undefined' } }
+                : { 2: { ok: false, pending: true }, 4: { ok: false, pending: true } };
+
+    return { ok: true, f: f, a: a, b: b, xs: xs, ys: ys, bad: bad, ymin: lo, ymax: hi, ref: ref, K: K, fstr: el.fx.value };
+  }
+
+  // Estimate max |f^(order)| on [a, b]: differentiate symbolically, scan a fine grid,
+  // then refine around the largest grid value by golden-section search.
+  function estimateK(fstr, order, a, b) {
+    if (/\b(abs|sign|floor|ceil|round|fix|max|min)\s*\(/.test(fstr)) return { ok: false, why: 'corner' };
+    try {
+      var node = math.parse(fstr.replace(/\bln\s*\(/g, 'log('));
+      for (var i = 0; i < order; i++) node = math.derivative(node, 'x');
+      var code = node.compile(), sc = { x: 0 };
+      var g = function (x) {
+        sc.x = x;
+        var v = code.evaluate(sc);
+        return typeof v === 'number' ? Math.abs(v) : NaN;
+      };
+      var G = 2000, best = -1, bi = 0, v, q;
+      for (q = 0; q <= G; q++) {
+        v = g(a + (b - a) * q / G);
+        if (!isFinite(v)) return { ok: false };
+        if (v > best) { best = v; bi = q; }
+      }
+      var lo = a + (b - a) * Math.max(bi - 1, 0) / G, hi = a + (b - a) * Math.min(bi + 1, G) / G;
+      var phi = (Math.sqrt(5) - 1) / 2;
+      var x1 = hi - phi * (hi - lo), x2 = lo + phi * (hi - lo), f1 = g(x1), f2 = g(x2);
+      for (q = 0; q < 60; q++) {
+        if (f1 < f2) { lo = x1; x1 = x2; f1 = f2; x2 = lo + phi * (hi - lo); f2 = g(x2); }
+        else { hi = x2; x2 = x1; f2 = f1; x1 = hi - phi * (hi - lo); f1 = g(x1); }
+      }
+      var r = best;
+      if (isFinite(f1)) r = Math.max(r, f1);
+      if (isFinite(f2)) r = Math.max(r, f2);
+      return { ok: true, v: r };
+    } catch (e) { return { ok: false }; }
+  }
+
+  function safeEval(f, x) { try { return f(x); } catch (e) { return NaN; } }
+
+  function computeConv() {
+    if (!model.ok || !isFinite(model.ref)) { convData = null; return; }
+    convData = CONV_NS.map(function (n) {
+      var row = { n: n, err: {} };
+      ORDER.forEach(function (m) {
+        var v; try { v = rule(model.f, model.a, model.b, n, m); } catch (e) { v = NaN; }
+        row.err[m] = Math.abs(v - model.ref);
+      });
+      return row;
+    });
+  }
+
+  // ---------- drawing ----------
+  function niceTicks(lo, hi, target) {
+    var raw = (hi - lo) / target;
+    var p = Math.pow(10, Math.floor(Math.log10(raw)));
+    var r = raw / p;
+    var step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * p;
+    var t = Math.ceil(lo / step - 1e-9) * step, out = [];
+    for (; t <= hi + step * 1e-9; t += step) out.push(Math.abs(t) < step * 1e-9 ? 0 : t);
+    return { ticks: out, step: step };
+  }
+  function tickLabel(t, step) {
+    var dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+    return String(Number(t.toFixed(Math.min(dec, 8))));
+  }
+
+  function draw() {
+    var c = el.canvas, dpr = window.devicePixelRatio || 1;
+    var w = c.clientWidth, h = c.clientHeight;
+    if (!w || !h) return;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    }
+    var ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (!model.ok) return;
+
+    var colPlot = cssVar('--plot'), colGrid = cssVar('--grid'), colAxis = cssVar('--axis'), colCurve = cssVar('--curve');
+    var colPos = cssVar('--pos'), colNeg = cssVar('--neg'), colMuted = cssVar('--muted');
+    var M = { l: 52, r: 16, t: 14, b: 30 };
+    var pw = w - M.l - M.r, ph = h - M.t - M.b;
+
+    var padX = (model.b - model.a) * 0.05;
+    var x0 = model.a - padX, x1 = model.b + padX;
+    var yr = model.ymax - model.ymin;
+    if (yr < 1e-12) { yr = 1; }
+    var y0 = model.ymin - yr * 0.08, y1 = model.ymax + yr * 0.08;
+
+    var X = function (x) { return M.l + (x - x0) / (x1 - x0) * pw; };
+    var Y = function (y) { return M.t + ph - (y - y0) / (y1 - y0) * ph; };
+
+    // plot background + grid
+    ctx.fillStyle = colPlot; ctx.fillRect(M.l, M.t, pw, ph);
+    ctx.font = '12px ' + cssVar('--font-ui');
+    ctx.fillStyle = colMuted;
+    var tx = niceTicks(x0, x1, Math.max(3, Math.floor(pw / 90)));
+    var ty = niceTicks(y0, y1, Math.max(3, Math.floor(ph / 50)));
+    ctx.lineWidth = 1; ctx.strokeStyle = colGrid;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    tx.ticks.forEach(function (t) {
+      var px = Math.round(X(t)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(px, M.t); ctx.lineTo(px, M.t + ph); ctx.stroke();
+      ctx.fillText(tickLabel(t, tx.step), px, M.t + ph + 6);
+    });
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ty.ticks.forEach(function (t) {
+      var py = Math.round(Y(t)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(M.l, py); ctx.lineTo(M.l + pw, py); ctx.stroke();
+      ctx.fillText(tickLabel(t, ty.step), M.l - 8, py);
+    });
+
+    // clip to plot area for everything below
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M.l, M.t, pw, ph); ctx.clip();
+
+    // axes at zero
+    ctx.strokeStyle = colAxis; ctx.lineWidth = 1.5;
+    var zy = Math.round(Y(0)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(M.l, zy); ctx.lineTo(M.l + pw, zy); ctx.stroke();
+    if (x0 < 0 && x1 > 0) {
+      var zx = Math.round(X(0)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(zx, M.t); ctx.lineTo(zx, M.t + ph); ctx.stroke();
+    }
+
+    // approximation shapes
+    var n = effN(), m = state.method, f = model.f, a = model.a, b = model.b;
+    var dx = (b - a) / n;
+    var pxW = (X(b) - X(a)) / n;
+    var outline = pxW >= 4;
+    var fillA = 0.28, lineA = 0.95;
+
+    function paint(pts, sign) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var q = 1; q < pts.length; q++) ctx.lineTo(pts[q][0], pts[q][1]);
+      ctx.closePath();
+      var col = sign >= 0 ? colPos : colNeg;
+      ctx.fillStyle = col; ctx.globalAlpha = fillA; ctx.fill();
+      if (outline) { ctx.strokeStyle = col; ctx.globalAlpha = lineA; ctx.lineWidth = 1.25; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    var dots = [], i, xl, xr, yv;
+
+    if (m === 'left' || m === 'right' || m === 'mid') {
+      for (i = 0; i < n; i++) {
+        xl = a + i * dx; xr = xl + dx;
+        var sx = m === 'left' ? xl : m === 'right' ? xr : xl + dx / 2;
+        yv = safeEval(f, sx);
+        if (!isFinite(yv)) continue;
+        paint([[X(xl), Y(0)], [X(xl), Y(yv)], [X(xr), Y(yv)], [X(xr), Y(0)]], yv);
+        dots.push([X(sx), Y(yv)]);
+      }
+    } else if (m === 'trap') {
+      var yPrev = safeEval(f, a);
+      if (isFinite(yPrev)) dots.push([X(a), Y(yPrev)]);
+      for (i = 0; i < n; i++) {
+        xl = a + i * dx; xr = xl + dx;
+        var yl = yPrev, yr2 = safeEval(f, xr);
+        yPrev = yr2;
+        if (isFinite(yr2)) dots.push([X(xr), Y(yr2)]);
+        if (!isFinite(yl) || !isFinite(yr2)) continue;
+        paint([[X(xl), Y(0)], [X(xl), Y(yl)], [X(xr), Y(yr2)], [X(xr), Y(0)]], yl + yr2);
+      }
+    } else if (m === 'simpson') {
+      var seg = pxW * 2 >= 24 ? 24 : pxW * 2 >= 8 ? 10 : 4;
+      for (i = 0; i < n; i += 2) {
+        var xa = a + i * dx, xb = xa + dx, xc = xb + dx;
+        var ya = safeEval(f, xa), yb = safeEval(f, xb), yc = safeEval(f, xc);
+        if (i === 0 && isFinite(ya)) dots.push([X(xa), Y(ya)]);
+        if (isFinite(yb)) dots.push([X(xb), Y(yb)]);
+        if (isFinite(yc)) dots.push([X(xc), Y(yc)]);
+        if (!isFinite(ya) || !isFinite(yb) || !isFinite(yc)) continue;
+        var pts = [[X(xa), Y(0)]];
+        for (var s = 0; s <= seg; s++) {
+          var xx = xa + (xc - xa) * s / seg;
+          var yy = ya * (xx - xb) * (xx - xc) / (2 * dx * dx)
+                 - yb * (xx - xa) * (xx - xc) / (dx * dx)
+                 + yc * (xx - xa) * (xx - xb) / (2 * dx * dx);
+          pts.push([X(xx), Y(yy)]);
+        }
+        pts.push([X(xc), Y(0)]);
+        paint(pts, ya + yb + yc);
+      }
+    }
+
+    // the curve itself
+    ctx.strokeStyle = colCurve; ctx.lineWidth = 2.25; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    var pen = false;
+    for (i = 0; i < model.xs.length; i++) {
+      var yy2 = model.ys[i];
+      if (!isFinite(yy2)) { pen = false; continue; }
+      if (!pen) { ctx.moveTo(X(model.xs[i]), Y(yy2)); pen = true; }
+      else ctx.lineTo(X(model.xs[i]), Y(yy2));
+    }
+    ctx.stroke();
+
+    // sample points
+    if (dots.length && dots.length <= 60) {
+      ctx.fillStyle = colCurve;
+      dots.forEach(function (d) { ctx.beginPath(); ctx.arc(d[0], d[1], 3.2, 0, 2 * Math.PI); ctx.fill(); });
+    }
+    ctx.restore();
+
+    // frame
+    ctx.strokeStyle = colAxis; ctx.lineWidth = 1;
+    ctx.strokeRect(M.l + 0.5, M.t + 0.5, pw - 1, ph - 1);
+  }
+
+  // ---------- readout ----------
+  function renderReadout() {
+    if (!model.ok) {
+      el.vApprox.textContent = el.vRef.textContent = el.vErr.textContent = el.vDx.textContent = '–';
+      el.sErr.textContent = ''; el.formula.textContent = ''; el.nnote.hidden = true;
+      el.cmp.innerHTML = '';
+      return;
+    }
+    var n = effN(), m = state.method;
+    var approx; try { approx = rule(model.f, model.a, model.b, n, m); } catch (e) { approx = NaN; }
+    var err = approx - model.ref;
+    el.kApprox.textContent = METHODS[m].label + ', n = ' + n;
+    el.vApprox.textContent = fmt(approx);
+    el.vRef.textContent = fmt(model.ref);
+    el.vErr.textContent = fmtErr(err);
+    el.sErr.textContent = !isFinite(err) || Math.abs(err) < 5e-10 ? '' : (err > 0 ? 'overestimate' : 'underestimate');
+    var dx = (model.b - model.a) / n;
+    el.vDx.textContent = fmtDx(dx);
+    var f = document.createElement('span');
+    f.textContent = METHODS[m].formula;
+    var d = document.createElement('span');
+    d.className = 'dx';
+    d.textContent = 'Δx = (b − a)/n = (' + fmtDx(model.b) + ' − ' + fmtDx(model.a) + ')/' + n + ' = ' + fmtDx(dx);
+    el.formula.textContent = '';
+    el.formula.appendChild(f); el.formula.appendChild(d);
+
+    if (m === 'simpson' && n !== state.n) {
+      el.nnote.hidden = false;
+      el.nnote.textContent = "Simpson's rule pairs up subintervals, so n must be even. n = " + state.n + ' was rounded up to ' + n + '.';
+    } else el.nnote.hidden = true;
+
+    // comparison table
+    el.cmp.innerHTML = '';
+    ORDER.forEach(function (k) {
+      var v; try { v = rule(model.f, model.a, model.b, n, k); } catch (e) { v = NaN; }
+      var tr = document.createElement('tr');
+      if (k === m) tr.className = 'sel';
+      var th = document.createElement('th'); th.scope = 'row';
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'linkbtn'; btn.textContent = METHODS[k].name;
+      btn.addEventListener('click', function () { setMethod(k); });
+      th.appendChild(btn);
+      var td1 = document.createElement('td'), td2 = document.createElement('td');
+      if (isNaN(v)) { td1.textContent = 'needs even n'; td2.textContent = '–'; }
+      else {
+        td1.textContent = fmt(v);
+        var e2 = v - model.ref;
+        td2.textContent = fmtErr(e2);
+        if (isFinite(e2) && Math.abs(e2) >= 5e-10) td2.className = e2 > 0 ? 'over' : 'under';
+      }
+      tr.appendChild(th); tr.appendChild(td1); tr.appendChild(td2);
+      el.cmp.appendChild(tr);
+    });
+  }
+
+  function renderConv() {
+    var tbody = el.conv.querySelector('tbody');
+    tbody.innerHTML = '';
+    Array.prototype.forEach.call(el.conv.querySelectorAll('thead th[data-m]'), function (th) {
+      th.className = th.getAttribute('data-m') === state.method ? 'sel' : '';
+    });
+    if (!convData) return;
+    var TINY = 1e-12;
+    convData.forEach(function (row, idx) {
+      var tr = document.createElement('tr');
+      var th = document.createElement('th'); th.scope = 'row'; th.textContent = row.n;
+      tr.appendChild(th);
+      ORDER.forEach(function (k) {
+        var td = document.createElement('td');
+        if (k === state.method) td.className = 'sel';
+        var e = row.err[k];
+        var main = document.createElement('span');
+        main.textContent = !isFinite(e) ? '–' : e < TINY ? '< 1e-12' : e.toExponential(2);
+        td.appendChild(main);
+        if (idx > 0 && isFinite(e) && e >= TINY) {
+          var pe = convData[idx - 1].err[k];
+          if (isFinite(pe) && pe >= TINY) {
+            var r = document.createElement('span');
+            r.className = 'ratio';
+            r.textContent = '÷ ' + (pe / e).toFixed(2);
+            td.appendChild(r);
+          }
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function fmtK(v) { return String(Number(v.toPrecision(5))); }
+  function fmtBound(v) {
+    if (!isFinite(v)) return '–';
+    if (v === 0) return '0';
+    return (v < 1e-4 || v >= 1e7) ? v.toExponential(3) : v.toFixed(8);
+  }
+  function fmtActual(e) {
+    if (!isFinite(e)) return '–';
+    return e < 1e-12 ? '< 1e-12' : (e < 1e-4 ? e.toExponential(3) : e.toFixed(8));
+  }
+  // K to use for a given derivative order: the student's own value if valid, else the estimate
+  function getK(order) {
+    var input = order === 2 ? el.k2 : el.k4;
+    var txt = input.value.trim();
+    if (txt !== '') {
+      try {
+        var v = math.evaluate(txt);
+        if (typeof v === 'number' && isFinite(v) && v >= 0) return { v: v, src: 'your value' };
+      } catch (e) { /* fall through to automatic */ }
+      return { invalid: true };
+    }
+    var est = model.ok ? model.K[order] : null;
+    return est && est.ok ? { v: est.v, src: 'estimated' } : null;
+  }
+  var ERR_ROWS = [['mid', 2], ['trap', 2], ['simpson', 4]];
+  var BOUND_TEXT = {
+    mid: 'K₂(b − a)³ / (24n²)',
+    trap: 'K₂(b − a)³ / (12n²)',
+    simpson: 'K₄(b − a)⁵ / (180n⁴)'
+  };
+
+  function renderBounds() {
+    el.bnd.innerHTML = ''; el.need.innerHTML = '';
+    el.bndNote.hidden = true; el.needNote.textContent = '';
+    [[2, el.k2hint], [4, el.k4hint]].forEach(function (p) {
+      var h = p[1], k = getK(p[0]);
+      if (!model.ok) { h.textContent = ''; return; }
+      if (k && k.invalid) h.textContent = 'Enter a number that is 0 or larger, or leave this empty.';
+      else if (model.bad) h.textContent = 'f(x) is not defined everywhere on [a, b], so no estimate is available.';
+      else if (model.K[p[0]].pending) h.textContent = 'Estimating…';
+      else if (model.K[p[0]].ok) h.textContent = 'Estimated maximum on [a, b]: ' + fmtK(model.K[p[0]].v);
+      else if (model.K[p[0]].why === 'corner') h.textContent = 'This function has corners, so these error bounds do not apply. If you enter a K anyway, it is your responsibility to justify it.';
+      else h.textContent = 'This derivative could not be estimated automatically. Enter K yourself.';
+    });
+    if (!model.ok) return;
+
+    var n = effN(), L = model.b - model.a, tooSmall = false;
+    ERR_ROWS.forEach(function (r) {
+      var m = r[0], k = getK(r[1]);
+      var tr = document.createElement('tr');
+      if (m === state.method) tr.className = 'sel';
+      var th = document.createElement('th'); th.scope = 'row'; th.textContent = METHODS[m].name;
+      var tdF = document.createElement('td'); tdF.textContent = BOUND_TEXT[m];
+      var tdK = document.createElement('td'), tdB = document.createElement('td'), tdA = document.createElement('td');
+      if (!k || k.invalid) { tdK.textContent = '–'; tdB.textContent = '–'; tdA.textContent = '–'; }
+      else {
+        tdK.textContent = fmtK(k.v);
+        var sub = document.createElement('span'); sub.className = 'ratio'; sub.textContent = k.src; tdK.appendChild(sub);
+        if (m === 'simpson' && n % 2 !== 0) { tdB.textContent = 'needs even n'; tdA.textContent = '–'; }
+        else {
+          var bound = boundFor(m, k.v, L, n);
+          var v; try { v = rule(model.f, model.a, model.b, n, m); } catch (e) { v = NaN; }
+          var act = Math.abs(v - model.ref);
+          tdB.textContent = fmtBound(bound);
+          tdA.textContent = fmtActual(act);
+          if (isFinite(act) && act > bound + 1e-12) tooSmall = true;
+        }
+      }
+      tr.appendChild(th); tr.appendChild(tdF); tr.appendChild(tdK); tr.appendChild(tdB); tr.appendChild(tdA);
+      el.bnd.appendChild(tr);
+    });
+    if (tooSmall) {
+      el.bndNote.hidden = false;
+      el.bndNote.textContent = 'At least one actual error is larger than its bound, so that K is too small. |f″| (or |f⁗|) must stay at or below K everywhere on [a, b].';
+    }
+
+    // how many subintervals are needed?
+    var eps = NaN;
+    try { var ev = math.evaluate(el.tol.value); if (typeof ev === 'number') eps = ev; } catch (e) { /* invalid */ }
+    if (!(eps > 0) || !isFinite(eps)) { el.needNote.textContent = 'Enter a tolerance greater than 0, such as 0.001 or 1e-6.'; return; }
+    var anyNeed = false;
+    ERR_ROWS.forEach(function (r) {
+      var m = r[0], k = getK(r[1]);
+      var tr = document.createElement('tr');
+      var th = document.createElement('th'); th.scope = 'row'; th.textContent = METHODS[m].name;
+      var td1 = document.createElement('td'), td2 = document.createElement('td'), td3 = document.createElement('td');
+      if (!k || k.invalid) { td1.textContent = '–'; td2.textContent = '–'; }
+      else {
+        var need = nNeeded(m, k.v, L, eps);
+        if (need > 5000) { td1.textContent = 'more than 5000'; td2.textContent = '–'; }
+        else {
+          anyNeed = true;
+          td1.textContent = String(need);
+          var v2; try { v2 = rule(model.f, model.a, model.b, need, m); } catch (e) { v2 = NaN; }
+          td2.textContent = fmtActual(Math.abs(v2 - model.ref));
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'linkbtn'; btn.textContent = 'Try n = ' + need;
+          btn.addEventListener('click', function () { state.n = need; el.num.value = need; setMethod(m); });
+          td3.appendChild(btn);
+        }
+      }
+      tr.appendChild(th); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      el.need.appendChild(tr);
+    });
+    if (anyNeed) el.needNote.textContent = 'These values of n come from the error bound formulas, so they are guaranteed to work. Compare the actual error to your tolerance: the bound is usually far more cautious than it needs to be.';
+  }
+
+  function renderMessages() {
+    if (!model.ok) {
+      el.err.hidden = false; el.err.textContent = model.errs.join(' ');
+      el.warn.hidden = true;
+      return;
+    }
+    el.err.hidden = true;
+    if (model.bad) {
+      el.warn.hidden = false;
+      el.warn.textContent = 'f(x) is undefined or infinite at some points of [a, b]. The approximations, and the reference value, may not be meaningful.';
+    } else el.warn.hidden = true;
+  }
+
+  // ---------- controls ----------
+  function syncControls() {
+    var simp = state.method === 'simpson';
+    el.range.min = simp ? 2 : 1;
+    el.range.step = simp ? 2 : 1;
+    el.range.value = Math.min(Math.max(effN(), +el.range.min), 100);
+    radios.forEach(function (r) {
+      r.checked = r.value === state.method;
+      r.parentNode.className = 'method' + (r.checked ? ' on' : '');
+    });
+  }
+  function renderAll(modelChanged) {
+    if (modelChanged) { computeConv(); }
+    syncControls();
+    renderMessages();
+    renderReadout();
+    renderBounds();
+    renderConv();
+    draw();
+  }
+  function setMethod(m) {
+    state.method = m;
+    if (m === 'simpson' && state.n % 2 !== 0) { state.n += 1; el.num.value = state.n; }
+    renderAll(false);
+  }
+  function scheduleK(m) {
+    if (!m.ok || m.bad) return;
+    setTimeout(function () {
+      if (m !== model) return;
+      m.K = { 2: estimateK(m.fstr, 2, m.a, m.b), 4: estimateK(m.fstr, 4, m.a, m.b) };
+      renderBounds();
+    }, 20);
+  }
+  function rebuild() { model = buildModel(); renderAll(true); scheduleK(model); }
+
+  var timer = null;
+  function schedule() { clearTimeout(timer); timer = setTimeout(rebuild, 180); }
+
+  [el.fx, el.a, el.b].forEach(function (inp) { inp.addEventListener('input', function () { el.preset.value = ''; schedule(); }); });
+  [el.k2, el.k4, el.tol].forEach(function (inp) { inp.addEventListener('input', renderBounds); });
+  radios.forEach(function (r) { r.addEventListener('change', function () { setMethod(r.value); }); });
+
+  el.range.addEventListener('input', function () {
+    state.n = parseInt(el.range.value, 10);
+    el.num.value = state.n;
+    renderAll(false);
+  });
+  el.num.addEventListener('input', function () {
+    var v = parseInt(el.num.value, 10);
+    if (isNaN(v)) return;
+    state.n = Math.min(Math.max(v, 1), 5000);
+    renderAll(false);
+  });
+  el.num.addEventListener('change', function () {
+    var v = parseInt(el.num.value, 10);
+    if (isNaN(v)) v = state.n;
+    state.n = Math.min(Math.max(v, 1), 5000);
+    if (state.method === 'simpson' && state.n % 2 !== 0) state.n += 1;
+    el.num.value = state.n;
+    renderAll(false);
+  });
+
+  el.preset.addEventListener('change', function () {
+    if (el.preset.value === '') return;
+    var p = PRESETS[+el.preset.value];
+    el.fx.value = p.f; el.a.value = p.a; el.b.value = p.b;
+    state.method = p.m; state.n = p.n; el.num.value = p.n;
+    el.k2.value = ''; el.k4.value = '';
+    var keep = el.preset.value;
+    rebuild();
+    el.preset.value = keep;
+  });
+
+  window.addEventListener('resize', draw);
+  if (window.ResizeObserver) new ResizeObserver(draw).observe(el.canvas);
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', draw);
+  }
+  new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  if (typeof math === 'undefined') {
+    el.err.hidden = false;
+    el.err.textContent = 'The math library could not be loaded. Check your internet connection and reload the page.';
+    return;
+  }
+  rebuild();
+})();
+</script>
+</body>
+</html>

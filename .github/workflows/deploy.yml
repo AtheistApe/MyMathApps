@@ -139,6 +139,11 @@ jobs:
           mkdir -p _site/electrostatic-potential-explorer
           cp -r electrostatic-potential-explorer/* _site/electrostatic-potential-explorer/
 
+      - name: Copy static app numerical-integration into combined site
+        run: |
+          mkdir -p _site/numerical-integration
+          cp -r numerical-integration/* _site/numerical-integration/
+
       - name: Copy static app polar-area into combined site
         run: |
           mkdir -p _site/polar-area
