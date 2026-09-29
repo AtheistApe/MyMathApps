@@ -4,9 +4,7 @@
 <meta charset="utf-8">
 <title>Numerical Integration Explorer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<meta name="color-scheme" content="light dark">
 <style>
   :root {
     --bg: #edf1f5;
@@ -27,8 +25,8 @@
     --err-bg: #fde8ef;
     --err-ink: #7a1b3f;
     --sel: #e3f1f4;
-    --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --font-math: "STIX Two Text", "Cambria Math", Cambria, Georgia, "Times New Roman", serif;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-math: "STIX Two Text", "Iowan Old Style", "Palatino Linotype", Palatino, "Cambria Math", Cambria, Georgia, "Times New Roman", serif;
 
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -185,7 +183,7 @@
       <div class="field">
         <label for="fx">Function f(x)</label>
         <input id="fx" class="math" type="text" value="1/x" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="fxhelp">
-        <p class="hint" id="fxhelp">Write sin(x), cos(x), e^x, sqrt(x), abs(x), ln(x), x^2, 3x. Use * or a space for products.</p>
+        <p class="hint" id="fxhelp">Write sin(x), cos(x), e^x, sqrt(x), abs(x), ln(x), x^2, 3x. Use * or a space for products. ln(x) and log(x) are both the natural log; use log10(x) for base 10.</p>
       </div>
 
       <div class="row2 field">
@@ -272,7 +270,7 @@
           </table>
         </div>
         <div id="bnd-note" class="msg warn" hidden></div>
-        <p class="note">Leave a K box empty to use the automatic estimate, which is the largest value found by sampling the derivative across [a, b]. A proof needs a K you can justify by hand, so try typing your own and see how a larger K loosens the bound.</p>
+        <p class="note">Leave a K box empty to use the automatic estimate, which is the largest value of the derivative found at many sample points across [a, b]. A proof needs a K you can justify by hand, so try typing your own and see how a larger K loosens the bound.</p>
 
         <h3>How many subintervals do you need?</h3>
         <div class="tolrow">
@@ -302,7 +300,6 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -354,6 +351,316 @@
     return n;
   }
   // ==== /numerics ====
+
+  // ==== expr ====
+  // A small expression parser/evaluator so the page needs no external library.
+  // Scalar evaluation is used for the graph and the rules; Taylor-series ("jet")
+  // arithmetic gives f'' and f'''' exactly at any point for the error-bound estimates.
+  var Expr = (function () {
+    var FN = {
+      sin: Math.sin, cos: Math.cos, tan: Math.tan,
+      sec: function (x) { return 1 / Math.cos(x); },
+      csc: function (x) { return 1 / Math.sin(x); },
+      cot: function (x) { return 1 / Math.tan(x); },
+      asin: Math.asin, acos: Math.acos, atan: Math.atan,
+      sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+      exp: Math.exp, ln: Math.log, log: Math.log, log10: Math.log10, log2: Math.log2,
+      sqrt: Math.sqrt, cbrt: Math.cbrt,
+      abs: Math.abs, sign: Math.sign, floor: Math.floor, ceil: Math.ceil, round: Math.round
+    };
+    var CORNER = { abs: 1, sign: 1, floor: 1, ceil: 1, round: 1 };
+    var has = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+
+    function normalize(s) {
+      return s.replace(/[\u2212\u2013\u2014]/g, '-').replace(/[\u00d7\u00b7\u2219]/g, '*')
+              .replace(/\u00f7/g, '/').replace(/\u03c0/g, 'pi')
+              .replace(/\u00b2/g, '^2').replace(/\u00b3/g, '^3');
+    }
+
+    function tokenize(src) {
+      var toks = [], i = 0, m, rest, c;
+      while (i < src.length) {
+        c = src.charAt(i);
+        if (c === ' ' || c === '\t' || c === '\n') { i++; continue; }
+        rest = src.slice(i);
+        m = /^(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/i.exec(rest);
+        if (m) { toks.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue; }
+        m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(rest);
+        if (m) { toks.push({ t: 'id', v: m[0].toLowerCase(), raw: m[0] }); i += m[0].length; continue; }
+        if ('+-*/^(),'.indexOf(c) >= 0) { toks.push({ t: c }); i++; continue; }
+        throw new Error("Unexpected character '" + c + "'.");
+      }
+      return toks;
+    }
+
+    // Precedence, loosest to tightest: + -  |  * /  |  unary -  |  implicit product (2x, x sin(x))  |  ^
+    // Like most calculators, 1/2x means (1/2)x when a plain number is divided by a plain number
+    // and then followed directly by a variable or bracket; otherwise 2x binds tighter than /.
+    function parse(src, allowX) {
+      var toks = tokenize(normalize(src)), p = 0, corner = false;
+      if (!toks.length) throw new Error('Enter an expression.');
+      var peek = function (k) { return toks[p + (k || 0)]; };
+      var isStart = function (t) { return !!t && (t.t === 'id' || t.t === '('); };
+
+      function expectClose() {
+        if (!peek() || peek().t !== ')') throw new Error('A closing parenthesis is missing.');
+        p++;
+      }
+      function parseAdd() {
+        var l = parseMul();
+        while (peek() && (peek().t === '+' || peek().t === '-')) {
+          var op = toks[p++].t, r = parseMul();
+          l = { t: op === '+' ? 'add' : 'sub', a: l, b: r };
+        }
+        return l;
+      }
+      function parseMul() {
+        var l = parseUnary();
+        while (peek() && (peek().t === '*' || peek().t === '/')) {
+          var op = toks[p++].t, r = parseUnary();
+          l = { t: op === '*' ? 'mul' : 'div', a: l, b: r };
+        }
+        return l;
+      }
+      function parseUnary() {
+        var t = peek();
+        if (t && t.t === '-') { p++; return { t: 'neg', a: parseUnary() }; }
+        if (t && t.t === '+') { p++; return parseUnary(); }
+        return parseImplicit();
+      }
+      function parseImplicit() {
+        var l = parseFactor();
+        while (isStart(peek())) l = { t: 'mul', a: l, b: parseFactor() };
+        return l;
+      }
+      function parseFactor() {
+        var t0 = peek(), t1 = peek(1), t2 = peek(2), t3 = peek(3);
+        if (t0 && t0.t === 'num' && t1 && t1.t === '/' && t2 && t2.t === 'num' && isStart(t3)) {
+          p += 3; return { t: 'num', v: t0.v / t2.v };
+        }
+        return parsePower();
+      }
+      function parsePower() {
+        var b = parsePrimary();
+        if (peek() && peek().t === '^') { p++; return { t: 'pow', a: b, b: parseExponent() }; }
+        return b;
+      }
+      function parseExponent() {
+        var t = peek();
+        if (t && t.t === '-') { p++; return { t: 'neg', a: parseExponent() }; }
+        if (t && t.t === '+') { p++; return parseExponent(); }
+        return parsePower();
+      }
+      function parsePrimary() {
+        var t = toks[p++];
+        if (!t) throw new Error('The expression ends too soon.');
+        if (t.t === 'num') return { t: 'num', v: t.v };
+        if (t.t === '(') { var e = parseAdd(); expectClose(); return e; }
+        if (t.t === 'id') {
+          var nm = t.v, isSym = nm === 'x' || nm === 'pi' || nm === 'e';
+          if (peek() && peek().t === '(' && !isSym) {
+            if (!has(FN, nm)) {
+              var hint = '', names = Object.keys(FN), q;
+              for (q = 0; q < names.length; q++) {
+                if (nm.length > names[q].length && nm.slice(-names[q].length) === names[q]) {
+                  hint = ' If you meant ' + t.raw.slice(0, nm.length - names[q].length) + ' times ' + names[q] + '(...), write ' + t.raw.slice(0, nm.length - names[q].length) + '*' + names[q] + '(...).';
+                  break;
+                }
+              }
+              throw new Error("Unknown function '" + t.raw + "'." + hint);
+            }
+            p++;
+            if (peek() && peek().t === ')') throw new Error(nm + ' needs an input, for example ' + nm + '(x).');
+            var arg = parseAdd();
+            if (peek() && peek().t === ',') throw new Error(nm + ' takes a single input.');
+            expectClose();
+            if (CORNER[nm]) corner = true;
+            return { t: 'call', name: nm, a: arg };
+          }
+          if (nm === 'x') {
+            if (!allowX) throw new Error('x cannot be used here. Enter a number such as 2 or pi/2.');
+            return { t: 'x' };
+          }
+          if (nm === 'pi') return { t: 'num', v: Math.PI };
+          if (nm === 'e') return { t: 'num', v: Math.E };
+          if (has(FN, nm)) throw new Error(nm + ' needs parentheses, for example ' + nm + '(x).');
+          throw new Error("Unknown symbol '" + t.raw + "'. " +
+            (t.raw.length > 1 ? 'Put a space or * between the parts, like x*sin(x).' : 'Use x as the variable.'));
+        }
+        throw new Error(t.t === ')' ? 'There is an extra closing parenthesis.' : "Unexpected '" + t.t + "'.");
+      }
+
+      var ast = parseAdd();
+      if (p < toks.length) {
+        var t = toks[p];
+        throw new Error(t.t === ')' ? 'There is an extra closing parenthesis.'
+          : t.t === 'num' ? 'Two numbers in a row. Is an operator missing?'
+          : "Unexpected '" + (t.raw || t.t) + "'.");
+      }
+      return { ast: ast, corner: corner };
+    }
+
+    // ----- scalar compile (closures, no eval) -----
+    function cs(n) {
+      var a, b, f, v;
+      switch (n.t) {
+        case 'num': v = n.v; return function () { return v; };
+        case 'x': return function (x) { return x; };
+        case 'neg': a = cs(n.a); return function (x) { return -a(x); };
+        case 'add': a = cs(n.a); b = cs(n.b); return function (x) { return a(x) + b(x); };
+        case 'sub': a = cs(n.a); b = cs(n.b); return function (x) { return a(x) - b(x); };
+        case 'mul': a = cs(n.a); b = cs(n.b); return function (x) { return a(x) * b(x); };
+        case 'div': a = cs(n.a); b = cs(n.b); return function (x) { return a(x) / b(x); };
+        case 'pow':
+          a = cs(n.a); b = cs(n.b);
+          if (n.b.t === 'num' && n.b.v === 2) return function (x) { var t = a(x); return t * t; };
+          return function (x) { return Math.pow(a(x), b(x)); };
+        default: f = FN[n.name]; a = cs(n.a); return function (x) { return f(a(x)); };
+      }
+    }
+
+    // ----- Taylor-series arithmetic: [c0..c4] means c0 + c1 h + ... + c4 h^4 -----
+    var N = 4, NAN5 = [NaN, NaN, NaN, NaN, NaN];
+    var jc = function (c) { return [c, 0, 0, 0, 0]; };
+    function jadd(a, b) { var r = [], k; for (k = 0; k <= N; k++) r[k] = a[k] + b[k]; return r; }
+    function jsub(a, b) { var r = [], k; for (k = 0; k <= N; k++) r[k] = a[k] - b[k]; return r; }
+    function jneg(a) { var r = [], k; for (k = 0; k <= N; k++) r[k] = -a[k]; return r; }
+    function jmul(a, b) {
+      var r = [], k, i, s;
+      for (k = 0; k <= N; k++) { s = 0; for (i = 0; i <= k; i++) s += a[i] * b[k - i]; r[k] = s; }
+      return r;
+    }
+    function jdiv(a, b) {
+      var r = [], k, i, s;
+      for (k = 0; k <= N; k++) { s = a[k]; for (i = 1; i <= k; i++) s -= b[i] * r[k - i]; r[k] = s / b[0]; }
+      return r;
+    }
+    function jexp(a) {
+      var r = [Math.exp(a[0])], k, j, s;
+      for (k = 1; k <= N; k++) { s = 0; for (j = 1; j <= k; j++) s += j * a[j] * r[k - j]; r[k] = s / k; }
+      return r;
+    }
+    function jlog(a) {
+      if (!(a[0] > 0)) return NAN5;
+      var r = [Math.log(a[0])], k, j, s;
+      for (k = 1; k <= N; k++) { s = k * a[k]; for (j = 1; j < k; j++) s -= j * r[j] * a[k - j]; r[k] = s / (k * a[0]); }
+      return r;
+    }
+    function jsincos(a, hyper) {
+      var s = [hyper ? Math.sinh(a[0]) : Math.sin(a[0])], c = [hyper ? Math.cosh(a[0]) : Math.cos(a[0])], k, j, ss, cc;
+      for (k = 1; k <= N; k++) {
+        ss = 0; cc = 0;
+        for (j = 1; j <= k; j++) { ss += j * a[j] * c[k - j]; cc += j * a[j] * s[k - j]; }
+        s[k] = ss / k; c[k] = (hyper ? cc : -cc) / k;
+      }
+      return { s: s, c: c };
+    }
+    function jsqrt(a) {
+      if (!(a[0] > 0)) return NAN5;
+      var r = [Math.sqrt(a[0])], k, i, s;
+      for (k = 1; k <= N; k++) { s = a[k]; for (i = 1; i < k; i++) s -= r[i] * r[k - i]; r[k] = s / (2 * r[0]); }
+      return r;
+    }
+    function jderiv(a) { return [a[1], 2 * a[2], 3 * a[3], 4 * a[4], 0]; }
+    function jantideriv(q, v0) { return [v0, q[0], q[1] / 2, q[2] / 3, q[3] / 4]; }
+    function jpowInt(a, p) {              // a^p for a non-negative integer p, by repeated squaring
+      var r = jc(1), base = a;
+      while (p > 0) { if (p & 1) r = jmul(r, base); p = Math.floor(p / 2); if (p) base = jmul(base, base); }
+      return r;
+    }
+    function jpow(a, b) {
+      var constExp = b[1] === 0 && b[2] === 0 && b[3] === 0 && b[4] === 0;
+      if (constExp && Number.isInteger(b[0]) && Math.abs(b[0]) <= 64) {
+        var r = jpowInt(a, Math.abs(b[0]));
+        return b[0] < 0 ? jdiv(jc(1), r) : r;
+      }
+      if (!(a[0] > 0)) return NAN5;
+      return jexp(jmul(b, jlog(a)));
+    }
+    var JF = {
+      sin: function (a) { return jsincos(a, false).s; },
+      cos: function (a) { return jsincos(a, false).c; },
+      tan: function (a) { var t = jsincos(a, false); return jdiv(t.s, t.c); },
+      sec: function (a) { return jdiv(jc(1), jsincos(a, false).c); },
+      csc: function (a) { return jdiv(jc(1), jsincos(a, false).s); },
+      cot: function (a) { var t = jsincos(a, false); return jdiv(t.c, t.s); },
+      sinh: function (a) { return jsincos(a, true).s; },
+      cosh: function (a) { return jsincos(a, true).c; },
+      tanh: function (a) { var t = jsincos(a, true); return jdiv(t.s, t.c); },
+      exp: jexp, ln: jlog, log: jlog,
+      log10: function (a) { return jmul(jlog(a), jc(1 / Math.LN10)); },
+      log2: function (a) { return jmul(jlog(a), jc(1 / Math.LN2)); },
+      sqrt: jsqrt,
+      cbrt: function (a) {
+        if (a[0] > 0) return jpow(a, jc(1 / 3));
+        if (a[0] < 0) return jneg(jpow(jneg(a), jc(1 / 3)));
+        return NAN5;
+      },
+      atan: function (a) { return jantideriv(jdiv(jderiv(a), jadd(jc(1), jmul(a, a))), Math.atan(a[0])); },
+      asin: function (a) { return jantideriv(jdiv(jderiv(a), jsqrt(jsub(jc(1), jmul(a, a)))), Math.asin(a[0])); },
+      acos: function (a) { return jantideriv(jneg(jdiv(jderiv(a), jsqrt(jsub(jc(1), jmul(a, a))))), Math.acos(a[0])); },
+      abs: function (a) { return a[0] < 0 ? jneg(a) : a; },
+      sign: function (a) { return jc(Math.sign(a[0])); },
+      floor: function (a) { return jc(Math.floor(a[0])); },
+      ceil: function (a) { return jc(Math.ceil(a[0])); },
+      round: function (a) { return jc(Math.round(a[0])); }
+    };
+    function cj(n) {
+      var a, b, f, v;
+      switch (n.t) {
+        case 'num': v = jc(n.v); return function () { return v; };
+        case 'x': return function (x) { return [x, 1, 0, 0, 0]; };
+        case 'neg': a = cj(n.a); return function (x) { return jneg(a(x)); };
+        case 'add': a = cj(n.a); b = cj(n.b); return function (x) { return jadd(a(x), b(x)); };
+        case 'sub': a = cj(n.a); b = cj(n.b); return function (x) { return jsub(a(x), b(x)); };
+        case 'mul': a = cj(n.a); b = cj(n.b); return function (x) { return jmul(a(x), b(x)); };
+        case 'div': a = cj(n.a); b = cj(n.b); return function (x) { return jdiv(a(x), b(x)); };
+        case 'pow': a = cj(n.a); b = cj(n.b); return function (x) { return jpow(a(x), b(x)); };
+        default: f = JF[n.name]; a = cj(n.a); return function (x) { return f(a(x)); };
+      }
+    }
+
+    // Public API
+    function compile(src) {
+      var r = parse(src, true);
+      var f = cs(r.ast), jet = cj(r.ast);
+      return { f: function (x) { return f(x); }, jet: jet, corner: r.corner };
+    }
+    function evalConst(src) {
+      var r = parse(src, false);
+      return cs(r.ast)(0);
+    }
+    // Estimate max |f''| and max |f''''| on [a, b]: exact derivatives at many sample points,
+    // then a golden-section refinement around the largest sample.
+    function estimateK(jet, a, b) {
+      var G = 1000, out = {}, orders = [[2, 2, 2], [4, 4, 24]], oi;
+      for (oi = 0; oi < orders.length; oi++) {
+        var idx = orders[oi][1], fact = orders[oi][2];
+        var g = function (x) { return Math.abs(fact * jet(x)[idx]); };
+        var best = -1, bi = 0, v, q;
+        for (q = 0; q <= G; q++) {
+          v = g(a + (b - a) * q / G);
+          if (!isFinite(v)) { best = NaN; break; }
+          if (v > best) { best = v; bi = q; }
+        }
+        if (isNaN(best)) { out[orders[oi][0]] = { ok: false }; continue; }
+        var lo = a + (b - a) * Math.max(bi - 1, 0) / G, hi = a + (b - a) * Math.min(bi + 1, G) / G;
+        var phi = (Math.sqrt(5) - 1) / 2;
+        var x1 = hi - phi * (hi - lo), x2 = lo + phi * (hi - lo), f1 = g(x1), f2 = g(x2);
+        for (q = 0; q < 60; q++) {
+          if (f1 < f2) { lo = x1; x1 = x2; f1 = f2; x2 = lo + phi * (hi - lo); f2 = g(x2); }
+          else { hi = x2; x2 = x1; f2 = f1; x1 = hi - phi * (hi - lo); f1 = g(x1); }
+        }
+        var r = best;
+        if (isFinite(f1)) r = Math.max(r, f1);
+        if (isFinite(f2)) r = Math.max(r, f2);
+        out[orders[oi][0]] = { ok: true, v: r };
+      }
+      return out;
+    }
+    return { compile: compile, evalConst: evalConst, estimateK: estimateK };
+  })();
+  // ==== /expr ====
 
   var METHODS = {
     left:    { name: 'Left endpoint', label: 'Left endpoint rule', sym: 'Lₙ', formula: 'Lₙ = Δx · [ f(x₀) + f(x₁) + … + f(xₙ₋₁) ]' },
@@ -409,86 +716,38 @@
   function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
   // ---------- model ----------
-  function toReal(v, what) {
-    if (typeof v !== 'number' || !isFinite(v)) throw new Error(what + ' must be a real number.');
-    return v;
-  }
-
   function buildModel() {
-    var errs = [], node = null, a = NaN, b = NaN;
-    var scope = { x: 0, ln: Math.log };
+    var errs = [], cf = null, a = NaN, b = NaN;
 
-    try { node = math.compile(el.fx.value); }
+    try { cf = Expr.compile(el.fx.value); }
     catch (e) { errs.push('f(x): ' + e.message); }
-    try { a = toReal(math.evaluate(el.a.value), 'The left endpoint'); }
-    catch (e) { errs.push(e.message); }
-    try { b = toReal(math.evaluate(el.b.value), 'The right endpoint'); }
-    catch (e) { errs.push(e.message); }
+    try { a = Expr.evalConst(el.a.value); if (!isFinite(a)) throw new Error('The left endpoint must be a real number.'); }
+    catch (e) { errs.push('Left endpoint a: ' + e.message); }
+    try { b = Expr.evalConst(el.b.value); if (!isFinite(b)) throw new Error('The right endpoint must be a real number.'); }
+    catch (e) { errs.push('Right endpoint b: ' + e.message); }
     if (errs.length === 0 && !(a < b)) errs.push('The left endpoint a must be less than the right endpoint b.');
-
-    var f = null;
-    if (errs.length === 0) {
-      f = function (x) {
-        scope.x = x;
-        var v = node.evaluate(scope);
-        return typeof v === 'number' ? v : NaN;
-      };
-      try { f((a + b) / 2); }
-      catch (e) { errs.push('f(x): ' + e.message); }
-    }
     if (errs.length) return { ok: false, errs: errs };
+
+    var f = cf.f;
 
     // sample the curve
     var S = 800, xs = new Array(S + 1), ys = new Array(S + 1), bad = false, lo = 0, hi = 0, k;
     for (k = 0; k <= S; k++) {
       xs[k] = a + (b - a) * k / S;
-      var y;
-      try { y = f(xs[k]); } catch (e) { y = NaN; }
+      var y = f(xs[k]);
       ys[k] = y;
       if (!isFinite(y)) bad = true;
       else { if (y < lo) lo = y; if (y > hi) hi = y; }
     }
-    var ref;
-    try { ref = rule(f, a, b, REF_N, 'simpson'); } catch (e) { ref = NaN; }
+    var ref = rule(f, a, b, REF_N, 'simpson');
 
-    // K estimates are filled in right after the first render (see scheduleK) so typing stays responsive
-    var K = bad ? { 2: { ok: false, why: 'undefined' }, 4: { ok: false, why: 'undefined' } }
-                : { 2: { ok: false, pending: true }, 4: { ok: false, pending: true } };
+    // error-bound constants K2 and K4 (exact derivatives at many sample points)
+    var K;
+    if (bad) K = { 2: { ok: false, why: 'undefined' }, 4: { ok: false, why: 'undefined' } };
+    else if (cf.corner) K = { 2: { ok: false, why: 'corner' }, 4: { ok: false, why: 'corner' } };
+    else K = Expr.estimateK(cf.jet, a, b);
 
-    return { ok: true, f: f, a: a, b: b, xs: xs, ys: ys, bad: bad, ymin: lo, ymax: hi, ref: ref, K: K, fstr: el.fx.value };
-  }
-
-  // Estimate max |f^(order)| on [a, b]: differentiate symbolically, scan a fine grid,
-  // then refine around the largest grid value by golden-section search.
-  function estimateK(fstr, order, a, b) {
-    if (/\b(abs|sign|floor|ceil|round|fix|max|min)\s*\(/.test(fstr)) return { ok: false, why: 'corner' };
-    try {
-      var node = math.parse(fstr.replace(/\bln\s*\(/g, 'log('));
-      for (var i = 0; i < order; i++) node = math.derivative(node, 'x');
-      var code = node.compile(), sc = { x: 0 };
-      var g = function (x) {
-        sc.x = x;
-        var v = code.evaluate(sc);
-        return typeof v === 'number' ? Math.abs(v) : NaN;
-      };
-      var G = 2000, best = -1, bi = 0, v, q;
-      for (q = 0; q <= G; q++) {
-        v = g(a + (b - a) * q / G);
-        if (!isFinite(v)) return { ok: false };
-        if (v > best) { best = v; bi = q; }
-      }
-      var lo = a + (b - a) * Math.max(bi - 1, 0) / G, hi = a + (b - a) * Math.min(bi + 1, G) / G;
-      var phi = (Math.sqrt(5) - 1) / 2;
-      var x1 = hi - phi * (hi - lo), x2 = lo + phi * (hi - lo), f1 = g(x1), f2 = g(x2);
-      for (q = 0; q < 60; q++) {
-        if (f1 < f2) { lo = x1; x1 = x2; f1 = f2; x2 = lo + phi * (hi - lo); f2 = g(x2); }
-        else { hi = x2; x2 = x1; f2 = f1; x1 = hi - phi * (hi - lo); f1 = g(x1); }
-      }
-      var r = best;
-      if (isFinite(f1)) r = Math.max(r, f1);
-      if (isFinite(f2)) r = Math.max(r, f2);
-      return { ok: true, v: r };
-    } catch (e) { return { ok: false }; }
+    return { ok: true, f: f, a: a, b: b, xs: xs, ys: ys, bad: bad, ymin: lo, ymax: hi, ref: ref, K: K };
   }
 
   function safeEval(f, x) { try { return f(x); } catch (e) { return NaN; } }
@@ -769,8 +1028,8 @@
     var txt = input.value.trim();
     if (txt !== '') {
       try {
-        var v = math.evaluate(txt);
-        if (typeof v === 'number' && isFinite(v) && v >= 0) return { v: v, src: 'your value' };
+        var v = Expr.evalConst(txt);
+        if (isFinite(v) && v >= 0) return { v: v, src: 'your value' };
       } catch (e) { /* fall through to automatic */ }
       return { invalid: true };
     }
@@ -792,7 +1051,6 @@
       if (!model.ok) { h.textContent = ''; return; }
       if (k && k.invalid) h.textContent = 'Enter a number that is 0 or larger, or leave this empty.';
       else if (model.bad) h.textContent = 'f(x) is not defined everywhere on [a, b], so no estimate is available.';
-      else if (model.K[p[0]].pending) h.textContent = 'Estimating…';
       else if (model.K[p[0]].ok) h.textContent = 'Estimated maximum on [a, b]: ' + fmtK(model.K[p[0]].v);
       else if (model.K[p[0]].why === 'corner') h.textContent = 'This function has corners, so these error bounds do not apply. If you enter a K anyway, it is your responsibility to justify it.';
       else h.textContent = 'This derivative could not be estimated automatically. Enter K yourself.';
@@ -831,7 +1089,7 @@
 
     // how many subintervals are needed?
     var eps = NaN;
-    try { var ev = math.evaluate(el.tol.value); if (typeof ev === 'number') eps = ev; } catch (e) { /* invalid */ }
+    try { eps = Expr.evalConst(el.tol.value); } catch (e) { /* invalid */ }
     if (!(eps > 0) || !isFinite(eps)) { el.needNote.textContent = 'Enter a tolerance greater than 0, such as 0.001 or 1e-6.'; return; }
     var anyNeed = false;
     ERR_ROWS.forEach(function (r) {
@@ -898,15 +1156,7 @@
     if (m === 'simpson' && state.n % 2 !== 0) { state.n += 1; el.num.value = state.n; }
     renderAll(false);
   }
-  function scheduleK(m) {
-    if (!m.ok || m.bad) return;
-    setTimeout(function () {
-      if (m !== model) return;
-      m.K = { 2: estimateK(m.fstr, 2, m.a, m.b), 4: estimateK(m.fstr, 4, m.a, m.b) };
-      renderBounds();
-    }, 20);
-  }
-  function rebuild() { model = buildModel(); renderAll(true); scheduleK(model); }
+  function rebuild() { model = buildModel(); renderAll(true); }
 
   var timer = null;
   function schedule() { clearTimeout(timer); timer = setTimeout(rebuild, 180); }
@@ -954,11 +1204,6 @@
   }
   new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-  if (typeof math === 'undefined') {
-    el.err.hidden = false;
-    el.err.textContent = 'The math library could not be loaded. Check your internet connection and reload the page.';
-    return;
-  }
   rebuild();
 })();
 </script>
