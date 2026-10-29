@@ -33,6 +33,16 @@ const PRESETS = [
   { name: "arctan x", formula: "(-1)**k/(2*k+1)", a: 2, l: 1, xr: [-2, 2], yr: [-2, 2], desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1), |x|≤1" },
 ];
 
+/* ── localStorage helpers ── */
+const STORAGE_KEY = "powerSeriesExplorer_savedSeries";
+const loadSaved = () => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+};
+const persistSaved = (list) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+};
+
 /* ── main component ── */
 export default function PowerSeriesExplorer() {
   const [formula, setFormula] = useState("1/factorial(k)");
@@ -49,30 +59,60 @@ export default function PowerSeriesExplorer() {
   const [statusText, setStatusText] = useState("Click on the plot to begin.");
   const [presetIdx, setPresetIdx] = useState(0);
   const [sideOpen, setSideOpen] = useState(true);
+  const [batchCount, setBatchCount] = useState(30);
+  const [savedSeries, setSavedSeries] = useState(loadSaved);
+  const [saveName, setSaveName] = useState("");
+  const [selectedSaved, setSelectedSaved] = useState(-1);
+
+  const saveCurrent = () => {
+    const name = saveName.trim();
+    if (!name) { setStatusText("Enter a name to save the series."); return; }
+    const entry = { name, formula, a, l, xr: [xMin, xMax], yr: [yMin, yMax] };
+    /* overwrite if same name exists */
+    const updated = savedSeries.filter(s => s.name !== name).concat(entry);
+    updated.sort((a, b) => a.name.localeCompare(b.name));
+    setSavedSeries(updated);
+    persistSaved(updated);
+    setSaveName("");
+    setStatusText(`Saved "${name}".`);
+  };
+
+  const loadSavedSeries = (idx) => {
+    const s = savedSeries[idx];
+    if (!s) return;
+    setSelectedSaved(idx);
+    setFormula(s.formula);
+    setA(s.a);
+    setL(s.l);
+    setXMin(s.xr[0]); setXMax(s.xr[1]);
+    setYMin(s.yr[0]); setYMax(s.yr[1]);
+    setStatusText(`Loaded "${s.name}".`);
+  };
+
+  const deleteSaved = () => {
+    if (selectedSaved < 0 || selectedSaved >= savedSeries.length) return;
+    const name = savedSeries[selectedSaved].name;
+    const updated = savedSeries.filter((_, i) => i !== selectedSaved);
+    setSavedSeries(updated);
+    persistSaved(updated);
+    setSelectedSaved(-1);
+    setStatusText(`Deleted "${name}".`);
+  };
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const animRef = useRef({ active: false, timer: null });
+  const batchRef = useRef({ active: false, timer: null, dots: [] });
   const paramsRef = useRef({ formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms });
   const redPointsRef = useRef(redPoints);
   const showGraphRef = useRef(showGraph);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
-  // track animating yellow dot for render
-  const [yellowDot, setYellowDot] = useState(null); // {px, py}
 
   useEffect(() => { paramsRef.current = { formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms }; }, [formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms]);
   useEffect(() => { redPointsRef.current = redPoints; }, [redPoints]);
   useEffect(() => { showGraphRef.current = showGraph; }, [showGraph]);
 
   /* ── coordinate transforms ── */
-  const xToP = useCallback((x) => {
-    const { xMin, xMax } = paramsRef.current;
-    return ((x - xMin) / (xMax - xMin)) * canvasSize.w;
-  }, [canvasSize.w]);
-  const yToP = useCallback((y) => {
-    const { yMin, yMax } = paramsRef.current;
-    return canvasSize.h - ((y - yMin) / (yMax - yMin)) * canvasSize.h;
-  }, [canvasSize.h]);
   const pToX = useCallback((px) => {
     const { xMin, xMax } = paramsRef.current;
     return xMin + (px / canvasSize.w) * (xMax - xMin);
@@ -81,9 +121,7 @@ export default function PowerSeriesExplorer() {
   /* ── compute sum for a given x ── */
   const computeSum = useCallback((x, maxN = 500, requireConvergence = false) => {
     const { formula, a, l } = paramsRef.current;
-    let s = 0;
-    let prevS = 0;
-    let converged = false;
+    let s = 0, prevS = 0, converged = false;
     for (let k = 0; k <= maxN; k++) {
       const bk = evalCoeff(formula, k);
       if (isNaN(bk)) break;
@@ -93,22 +131,38 @@ export default function PowerSeriesExplorer() {
       prevS = s;
       s += term;
       if (!Number.isFinite(s)) return NaN;
-      if (k >= 2 && Math.abs(s - prevS) < 1e-12 * (Math.abs(s) + 1e-15)) {
-        converged = true;
-        break;
-      }
+      if (k >= 2 && Math.abs(s - prevS) < 1e-12 * (Math.abs(s) + 1e-15)) { converged = true; break; }
     }
     if (requireConvergence && !converged) return NaN;
     return Number.isFinite(s) ? s : NaN;
   }, []);
 
+  /* ── find interval of convergence by sampling ── */
+  const findConvergenceInterval = useCallback(() => {
+    const { xMin: xMn, xMax: xMx } = paramsRef.current;
+    const samples = 200;
+    let lo = null, hi = null;
+    for (let i = 0; i <= samples; i++) {
+      const x = xMn + (i / samples) * (xMx - xMn);
+      const y = computeSum(x, 300, true);
+      if (!isNaN(y) && Number.isFinite(y)) {
+        if (lo === null) lo = x;
+        hi = x;
+      }
+    }
+    if (lo === null) return null;
+    /* shrink slightly inward to avoid boundary issues */
+    const margin = (hi - lo) * 0.02;
+    return [lo + margin, hi - margin];
+  }, [computeSum]);
+
   /* ── drawing ── */
-  const draw = useCallback((yellowPx = null, yellowPy = null) => {
+  const draw = useCallback((yellowDots = null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const W = canvasSize.w, H = canvasSize.h;
-    const { xMin: xMn, xMax: xMx, yMin: yMn, yMax: yMx, formula: fm, a: aa, l: ll } = paramsRef.current;
+    const { xMin: xMn, xMax: xMx, yMin: yMn, yMax: yMx } = paramsRef.current;
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = W * dpr;
@@ -119,7 +173,6 @@ export default function PowerSeriesExplorer() {
     ctx.fillStyle = "#0b0f1a";
     ctx.fillRect(0, 0, W, H);
 
-    /* helper local transforms */
     const x2p = (x) => ((x - xMn) / (xMx - xMn)) * W;
     const y2p = (y) => H - ((y - yMn) / (yMx - yMn)) * H;
 
@@ -184,7 +237,7 @@ export default function PowerSeriesExplorer() {
       ctx.stroke();
     }
 
-    /* red dots */
+    /* red dots (converged points) */
     const pts = redPointsRef.current;
     for (const pt of pts) {
       const px = x2p(pt.x), py = y2p(pt.y);
@@ -199,44 +252,43 @@ export default function PowerSeriesExplorer() {
       ctx.restore();
     }
 
-    /* yellow animated dot */
-    if (yellowPx !== null && yellowPy !== null) {
-      const pxC = Math.max(-20, Math.min(W + 20, yellowPx));
-      const pyC = Math.max(-20, Math.min(H + 20, yellowPy));
-      ctx.save();
-      ctx.shadowColor = "#ffd700";
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = "#ffd700";
-      ctx.beginPath();
-      ctx.arc(pxC, pyC, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      /* outer ring */
-      ctx.strokeStyle = "rgba(255,215,0,0.4)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(pxC, pyC, 11, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    /* yellow animated dots — single or batch */
+    if (yellowDots && yellowDots.length > 0) {
+      const isBatch = yellowDots.length > 1;
+      for (const dot of yellowDots) {
+        const px = Math.max(-20, Math.min(W + 20, x2p(dot.x)));
+        const py = Math.max(-20, Math.min(H + 20, y2p(dot.y)));
+        ctx.save();
+        ctx.shadowColor = "#ffd700";
+        ctx.shadowBlur = isBatch ? 10 : 18;
+        ctx.fillStyle = "#ffd700";
+        ctx.beginPath();
+        ctx.arc(px, py, isBatch ? 4 : 6, 0, Math.PI * 2);
+        ctx.fill();
+        if (!isBatch) {
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = "rgba(255,215,0,0.4)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px, py, 11, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
   }, [canvasSize, computeSum]);
 
-  /* ── animation ── */
+  /* ── single-point animation (click) ── */
   const startAnimation = useCallback((xClick) => {
-    /* cancel existing */
-    if (animRef.current.timer) { clearTimeout(animRef.current.timer); }
+    if (animRef.current.timer) clearTimeout(animRef.current.timer);
+    if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
     animRef.current.active = true;
+    batchRef.current.active = false;
 
-    let sum = 0;
-    let k = 0;
-    let prevSum = null;
-
-    const { formula: fm, a: aa, l: ll, yMin: yMn, yMax: yMx, speed: spd, maxTerms: maxN } = paramsRef.current;
+    let sum = 0, k = 0, prevSum = null;
+    const { yMin: yMn, yMax: yMx } = paramsRef.current;
     const H = canvasSize.h;
     const pixelSize = (yMx - yMn) / H;
-
-    const x2p = (x) => ((x - paramsRef.current.xMin) / (paramsRef.current.xMax - paramsRef.current.xMin)) * canvasSize.w;
-    const y2p = (y) => H - ((y - yMn) / (yMx - yMn)) * H;
 
     const step = () => {
       if (!animRef.current.active) return;
@@ -245,59 +297,123 @@ export default function PowerSeriesExplorer() {
       if (isNaN(bk)) {
         animRef.current.active = false;
         setStatusText(`b(${k}) is undefined. Stopped.`);
-        setYellowDot(null);
         draw();
         return;
       }
       const exp = p.a * k + p.l;
       let term = bk * Math.pow(xClick, exp);
-      if (!Number.isFinite(term)) term = 0; // x=0 with exp>0 gives 0
+      if (!Number.isFinite(term)) term = 0;
       prevSum = sum;
       sum += term;
 
       if (!Number.isFinite(sum)) {
         animRef.current.active = false;
         setStatusText(`Series diverges at x = ${fmtNum(xClick)} (overflow at k=${k}).`);
-        setYellowDot(null);
         draw();
         return;
       }
 
-      const px = x2p(xClick), py = y2p(sum);
-      setYellowDot({ px, py });
       setStatusText(`x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}`);
-      draw(px, py);
+      draw([{ x: xClick, y: sum }]);
 
-      /* check convergence (after at least 3 terms) */
       const converged = k >= 2 && Math.abs(sum - prevSum) < pixelSize;
       if (converged || k >= p.maxTerms) {
         animRef.current.active = false;
         const newPt = { x: xClick, y: sum, terms: k + 1 };
         setRedPoints((prev) => [...prev, newPt]);
         redPointsRef.current = [...redPointsRef.current, newPt];
-        setYellowDot(null);
-        if (converged) {
-          setStatusText(`Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(sum, 6)}  (${k + 1} terms)`);
-        } else {
-          setStatusText(`Max terms (${p.maxTerms}) reached at x = ${fmtNum(xClick, 4)}  →  Sₖ ≈ ${fmtNum(sum, 6)}`);
-        }
+        setStatusText(converged
+          ? `Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(sum, 6)}  (${k + 1} terms)`
+          : `Max terms (${p.maxTerms}) reached at x = ${fmtNum(xClick, 4)}  →  Sₖ ≈ ${fmtNum(sum, 6)}`);
         setTimeout(() => draw(), 20);
         return;
       }
-
       k++;
       animRef.current.timer = setTimeout(step, p.speed);
     };
-
     step();
   }, [canvasSize, draw]);
+
+  /* ── batch animation (dance) ── */
+  const startBatchAnimation = useCallback(() => {
+    if (animRef.current.timer) clearTimeout(animRef.current.timer);
+    if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
+    animRef.current.active = false;
+    batchRef.current.active = true;
+
+    const interval = findConvergenceInterval();
+    if (!interval) {
+      setStatusText("Could not detect an interval of convergence in the visible x range.");
+      return;
+    }
+
+    const [lo, hi] = interval;
+    const n = Math.max(1, Math.min(200, batchCount));
+    const { yMin: yMn, yMax: yMx } = paramsRef.current;
+    const H = canvasSize.h;
+    const pixelSize = (yMx - yMn) / H;
+
+    /* initialize dots at random x values */
+    const dots = [];
+    for (let i = 0; i < n; i++) {
+      dots.push({ x: lo + Math.random() * (hi - lo), sum: 0, k: 0, prevSum: 0, done: false });
+    }
+    batchRef.current.dots = dots;
+    let stepCount = 0;
+
+    setStatusText(`Dancing ${n} points in [${fmtNum(lo, 3)}, ${fmtNum(hi, 3)}] …`);
+
+    const step = () => {
+      if (!batchRef.current.active) return;
+      const p = paramsRef.current;
+      const justFinished = [];
+
+      for (const dot of dots) {
+        if (dot.done) continue;
+        const bk = evalCoeff(p.formula, dot.k);
+        if (isNaN(bk)) { dot.done = true; continue; }
+        const exp = p.a * dot.k + p.l;
+        let term = bk * Math.pow(dot.x, exp);
+        if (!Number.isFinite(term)) term = 0;
+        dot.prevSum = dot.sum;
+        dot.sum += term;
+        if (!Number.isFinite(dot.sum)) { dot.done = true; continue; }
+        const converged = dot.k >= 2 && Math.abs(dot.sum - dot.prevSum) < pixelSize;
+        if (converged || dot.k >= p.maxTerms) {
+          dot.done = true;
+          justFinished.push({ x: dot.x, y: dot.sum, terms: dot.k + 1 });
+        }
+        dot.k++;
+      }
+
+      /* add converged dots as red points */
+      if (justFinished.length > 0) {
+        setRedPoints((prev) => [...prev, ...justFinished]);
+        redPointsRef.current = [...redPointsRef.current, ...justFinished];
+      }
+
+      const yellowDots = dots.filter(d => !d.done).map(d => ({ x: d.x, y: d.sum }));
+      stepCount++;
+      const doneCount = dots.filter(d => d.done).length;
+      setStatusText(`Dancing ${n} points  |  step ${stepCount}  |  ${doneCount}/${n} converged`);
+      draw(yellowDots);
+
+      if (yellowDots.length === 0) {
+        batchRef.current.active = false;
+        setStatusText(`All ${n} points converged in [${fmtNum(lo, 3)}, ${fmtNum(hi, 3)}].`);
+        setTimeout(() => draw(), 20);
+        return;
+      }
+      batchRef.current.timer = setTimeout(step, p.speed);
+    };
+    step();
+  }, [canvasSize, draw, batchCount, findConvergenceInterval]);
 
   /* ── handle click on canvas ── */
   const handleCanvasClick = useCallback((e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const px = e.clientX - rect.left;
-    const x = pToX(px);
-    startAnimation(x);
+    startAnimation(pToX(px));
   }, [pToX, startAnimation]);
 
   /* ── resize observer ── */
@@ -314,20 +430,19 @@ export default function PowerSeriesExplorer() {
     return () => ro.disconnect();
   }, []);
 
-  /* redraw when relevant state changes */
   useEffect(() => { draw(); }, [canvasSize, redPoints, showGraph, xMin, xMax, yMin, yMax, draw]);
 
-  /* clear points when series params change */
+  /* clear on param change */
   useEffect(() => {
     if (animRef.current.timer) clearTimeout(animRef.current.timer);
+    if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
     animRef.current.active = false;
+    batchRef.current.active = false;
     setRedPoints([]);
     redPointsRef.current = [];
-    setYellowDot(null);
     setStatusText("Click on the plot to begin.");
   }, [formula, a, l]);
 
-  /* ── preset loader ── */
   const loadPreset = (idx) => {
     const p = PRESETS[idx];
     if (!p) return;
@@ -339,7 +454,6 @@ export default function PowerSeriesExplorer() {
     setYMin(p.yr[0]); setYMax(p.yr[1]);
   };
 
-  /* ── build display formula ── */
   const displayFormula = (() => {
     let exp = "";
     if (a === 1 && l === 0) exp = "k";
@@ -349,10 +463,11 @@ export default function PowerSeriesExplorer() {
     return `Σ  b(k) · x^(${exp})    k = 0, 1, 2, …`;
   })();
 
-  const stopAnim = () => {
+  const stopAll = () => {
     if (animRef.current.timer) clearTimeout(animRef.current.timer);
+    if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
     animRef.current.active = false;
-    setYellowDot(null);
+    batchRef.current.active = false;
     setStatusText("Animation stopped.");
     draw();
   };
@@ -367,24 +482,50 @@ export default function PowerSeriesExplorer() {
         overflow: "hidden", display: "flex", flexDirection: "column"
       }}>
         <div style={{ padding: "14px 16px", overflowY: "auto", flex: 1 }}>
-          {/* title */}
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 0.5, marginBottom: 2, color: "#e8edf5" }}>Power Series Explorer</div>
           <div style={{ fontFamily: "monospace", fontSize: 13, color: "#7b8faa", marginBottom: 14 }}>{displayFormula}</div>
 
-          {/* presets */}
           <Label>Preset</Label>
           <select value={presetIdx} onChange={(e) => loadPreset(+e.target.value)} style={selStyle}>
             {PRESETS.map((p, i) => <option key={i} value={i}>{p.name} — {p.desc}</option>)}
           </select>
 
-          {/* b(k) */}
+          {/* ── saved series ── */}
+          <div style={{ borderTop: "1px solid #1c2640", paddingTop: 10, marginBottom: 10 }}>
+            <Label>My saved series</Label>
+            {savedSeries.length > 0 ? (
+              <>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  <select value={selectedSaved} onChange={(e) => loadSavedSeries(+e.target.value)}
+                    style={{ ...selStyle, marginBottom: 0, flex: 1 }}>
+                    <option value={-1}>— select —</option>
+                    {savedSeries.map((s, i) => <option key={i} value={i}>{s.name}</option>)}
+                  </select>
+                  <button onClick={deleteSaved} disabled={selectedSaved < 0}
+                    style={{ ...btnStyle, flex: "0 0 auto", padding: "5px 8px", fontSize: 11, opacity: selectedSaved < 0 ? 0.3 : 1, background: "#2a1a1a", borderColor: "#5a2020", color: "#cc7777" }}>
+                    Del
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: "#4e6280", marginBottom: 6 }}>No saved series yet.</div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Name…"
+                onKeyDown={(e) => { if (e.key === "Enter") saveCurrent(); }}
+                style={{ ...inputStyle, flex: 1, fontSize: 12 }} />
+              <button onClick={saveCurrent} style={{ ...btnStyle, flex: "0 0 auto", padding: "5px 10px", fontSize: 11, background: "#0f1f2e", borderColor: "#1e3a5a", color: "#6baadd" }}>
+                Save
+              </button>
+            </div>
+          </div>
+
           <Label>b(k) — coefficient formula in terms of k</Label>
           <input value={formula} onChange={(e) => setFormula(e.target.value)} style={inputStyle} spellCheck={false} />
           <div style={{ fontSize: 10, color: "#4e6280", marginTop: 2, marginBottom: 8 }}>
             Available: factorial(n), C(n,r), pow, sqrt, abs, log, sin, cos, PI, E
           </div>
 
-          {/* a and l */}
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <Label>a (exponent multiplier)</Label>
@@ -396,7 +537,6 @@ export default function PowerSeriesExplorer() {
             </div>
           </div>
 
-          {/* ranges */}
           <Label>x range</Label>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input type="number" value={xMin} onChange={(e) => setXMin(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
@@ -410,29 +550,44 @@ export default function PowerSeriesExplorer() {
             <input type="number" value={yMax} onChange={(e) => setYMax(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
           </div>
 
-          {/* speed */}
           <Label>Animation delay: {speed} ms</Label>
           <input type="range" min={20} max={800} value={speed} onChange={(e) => setSpeed(+e.target.value)}
             style={{ width: "100%", accentColor: "#5b8dd9", marginBottom: 12 }} />
 
-          {/* max terms */}
           <Label>Max terms</Label>
           <input type="number" value={maxTerms} onChange={(e) => setMaxTerms(Math.max(10, +e.target.value))} style={{ ...inputStyle, marginBottom: 12 }} min={10} max={5000} />
 
-          {/* show graph */}
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
             <input type="checkbox" checked={showGraph} onChange={(e) => setShowGraph(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
             Reveal full graph
           </label>
 
-          {/* buttons */}
+          {/* ── batch dance section ── */}
+          <div style={{ borderTop: "1px solid #1c2640", paddingTop: 12, marginTop: 4, marginBottom: 12 }}>
+            <Label>Batch animate (dance)</Label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+              <input type="number" value={batchCount} onChange={(e) => setBatchCount(Math.max(1, Math.min(200, +e.target.value)))}
+                style={{ ...inputStyle, flex: "0 0 60px", textAlign: "center" }} min={1} max={200} />
+              <span style={{ fontSize: 12, color: "#6b8ab0", whiteSpace: "nowrap" }}>points</span>
+              <button onClick={startBatchAnimation} style={{
+                ...btnStyle, flex: "1 1 auto",
+                background: "linear-gradient(135deg, #1a2a10, #1a3318)", borderColor: "#2d5a1e",
+                color: "#8dcc6a", letterSpacing: 0.5
+              }}>
+                Dance!
+              </button>
+            </div>
+            <div style={{ fontSize: 10, color: "#4e6280", marginTop: 4 }}>
+              Picks random x values in the interval of convergence and animates all partial sums simultaneously.
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setRedPoints([]); redPointsRef.current = []; stopAnim(); setStatusText("Cleared."); setTimeout(() => draw(), 20); }} style={btnStyle}>Clear Points</button>
-            <button onClick={stopAnim} style={{ ...btnStyle, background: "#2a1a1a", borderColor: "#5a2020" }}>Stop</button>
+            <button onClick={() => { setRedPoints([]); redPointsRef.current = []; stopAll(); setStatusText("Cleared."); setTimeout(() => draw(), 20); }} style={btnStyle}>Clear Points</button>
+            <button onClick={stopAll} style={{ ...btnStyle, background: "#2a1a1a", borderColor: "#5a2020" }}>Stop</button>
           </div>
         </div>
 
-        {/* status bar */}
         <div style={{ padding: "10px 16px", background: "#0a0e18", borderTop: "1px solid #1c2640", fontSize: 12, fontFamily: "monospace", color: "#88a0be", minHeight: 38, lineHeight: 1.5 }}>
           {statusText}
         </div>
@@ -451,7 +606,6 @@ export default function PowerSeriesExplorer() {
       <div ref={containerRef} style={{ flex: 1, position: "relative", cursor: "crosshair" }}>
         <canvas ref={canvasRef} onClick={handleCanvasClick}
           style={{ width: canvasSize.w, height: canvasSize.h, display: "block" }} />
-        {/* point count badge */}
         {redPoints.length > 0 && (
           <div style={{
             position: "absolute", top: 10, right: 14, background: "rgba(255,68,68,0.15)",
@@ -466,12 +620,10 @@ export default function PowerSeriesExplorer() {
   );
 }
 
-/* ── small UI components ── */
 function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 600, color: "#7b8faa", marginBottom: 3, letterSpacing: 0.3, textTransform: "uppercase" }}>{children}</div>;
 }
 
-/* ── styles ── */
 const inputStyle = {
   width: "100%", boxSizing: "border-box",
   background: "#111827", border: "1px solid #1e2d44", borderRadius: 6,
@@ -485,7 +637,6 @@ const btnStyle = {
   fontWeight: 600, letterSpacing: 0.3
 };
 
-/* ── utils ── */
 function niceStep(range, targetPx) {
   const rough = range / (targetPx > 0 ? targetPx : 5);
   const mag = Math.pow(10, Math.floor(Math.log10(rough)));
