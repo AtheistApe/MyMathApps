@@ -1,4 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+
+/* ── LaTeX rendering component ── */
+function Tex({ children, display = false, style: sx }) {
+  const html = useMemo(() => {
+    try {
+      return katex.renderToString(children || "", { throwOnError: false, displayMode: display });
+    } catch { return children || ""; }
+  }, [children, display]);
+  return <span style={sx} dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 /* ── math helpers exposed to the b(k) formula ── */
 const _fCache = [1];
@@ -25,12 +37,24 @@ const evalCoeff = (formula, k) => {
 
 /* ── presets ── */
 const PRESETS = [
-  { name: "eˣ", formula: "1/factorial(k)", a: 1, l: 0, xr: [-4, 4], yr: [-2, 20], desc: "Σ xᵏ/k!" },
-  { name: "1/(1−x)", formula: "1", a: 1, l: 0, xr: [-1.5, 1.5], yr: [-5, 5], desc: "Σ xᵏ, |x|<1" },
-  { name: "sin x", formula: "(-1)**k/factorial(2*k+1)", a: 2, l: 1, xr: [-8, 8], yr: [-2, 2], desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1)!" },
-  { name: "cos x", formula: "(-1)**k/factorial(2*k)", a: 2, l: 0, xr: [-8, 8], yr: [-2, 2], desc: "Σ (−1)ᵏx²ᵏ/(2k)!" },
-  { name: "ln(1+x)", formula: "(-1)**k/(k+1)", a: 1, l: 1, xr: [-1.5, 1.5], yr: [-3, 2], desc: "Σ (−1)ᵏxᵏ⁺¹/(k+1), |x|≤1" },
-  { name: "arctan x", formula: "(-1)**k/(2*k+1)", a: 2, l: 1, xr: [-2, 2], yr: [-2, 2], desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1), |x|≤1" },
+  { name: "eˣ", formula: "1/factorial(k)", a: 1, l: 0, xr: [-4, 4], yr: [-2, 20],
+    desc: "Σ xᵏ/k!",
+    tex: "e^x = \\sum_{k=0}^{\\infty} \\frac{x^k}{k!}" },
+  { name: "1/(1−x)", formula: "1", a: 1, l: 0, xr: [-1.5, 1.5], yr: [-5, 5],
+    desc: "Σ xᵏ, |x|<1",
+    tex: "\\frac{1}{1-x} = \\sum_{k=0}^{\\infty} x^k, \\;|x|<1" },
+  { name: "sin x", formula: "(-1)**k/factorial(2*k+1)", a: 2, l: 1, xr: [-8, 8], yr: [-2, 2],
+    desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1)!",
+    tex: "\\sin x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{(2k+1)!}\\,x^{2k+1}" },
+  { name: "cos x", formula: "(-1)**k/factorial(2*k)", a: 2, l: 0, xr: [-8, 8], yr: [-2, 2],
+    desc: "Σ (−1)ᵏx²ᵏ/(2k)!",
+    tex: "\\cos x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{(2k)!}\\,x^{2k}" },
+  { name: "ln(1+x)", formula: "(-1)**k/(k+1)", a: 1, l: 1, xr: [-1.5, 1.5], yr: [-3, 2],
+    desc: "Σ (−1)ᵏxᵏ⁺¹/(k+1), |x|≤1",
+    tex: "\\ln(1+x) = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{k+1}\\,x^{k+1}, \\;|x|\\le 1" },
+  { name: "arctan x", formula: "(-1)**k/(2*k+1)", a: 2, l: 1, xr: [-2, 2], yr: [-2, 2],
+    desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1), |x|≤1",
+    tex: "\\arctan x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{2k+1}\\,x^{2k+1}, \\;|x|\\le 1" },
 ];
 
 /* ── localStorage helpers ── */
@@ -458,15 +482,15 @@ export default function PowerSeriesExplorer() {
     setYMin(p.yr[0]); setYMax(p.yr[1]);
   };
 
-  const displayFormula = (() => {
+  const displayFormulaTex = useMemo(() => {
     let exp = "";
     if (a === 1 && l === 0) exp = "k";
     else if (a === 1 && l !== 0) exp = `k+${l}`;
     else if (a !== 1 && l === 0) exp = `${a}k`;
     else exp = `${a}k+${l}`;
-    const xPart = c === 0 ? "x" : c > 0 ? `(x−${c})` : `(x+${-c})`;
-    return `Σ  b(k) · ${xPart}^(${exp})    k = 0, 1, 2, …`;
-  })();
+    const xPart = c === 0 ? "x" : c > 0 ? `(x-${c})` : `(x+${-c})`;
+    return `\\sum_{k=0}^{\\infty} b(k)\\,${xPart}^{${exp}}`;
+  }, [a, l, c]);
 
   const stopAll = () => {
     if (animRef.current.timer) clearTimeout(animRef.current.timer);
@@ -487,13 +511,20 @@ export default function PowerSeriesExplorer() {
         overflow: "hidden", display: "flex", flexDirection: "column"
       }}>
         <div style={{ padding: "14px 16px", overflowY: "auto", flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 0.5, marginBottom: 2, color: "#e8edf5" }}>Power Series Explorer</div>
-          <div style={{ fontFamily: "monospace", fontSize: 13, color: "#7b8faa", marginBottom: 14 }}>{displayFormula}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 0.5, marginBottom: 6, color: "#e8edf5" }}>Power Series Explorer</div>
+          <div style={{ marginBottom: 12, padding: "6px 0", borderBottom: "1px solid #1c2640" }}>
+            <Tex style={{ color: "#a0b8d0", fontSize: 14 }}>{displayFormulaTex}</Tex>
+          </div>
 
           <Label>Preset</Label>
           <select value={presetIdx} onChange={(e) => loadPreset(+e.target.value)} style={selStyle}>
             {PRESETS.map((p, i) => <option key={i} value={i}>{p.name} — {p.desc}</option>)}
           </select>
+          {PRESETS[presetIdx]?.tex && (
+            <div style={{ marginTop: -6, marginBottom: 10, padding: "5px 8px", background: "#0a0e18", borderRadius: 6, border: "1px solid #1c2640" }}>
+              <Tex style={{ color: "#c9d4e2", fontSize: 13 }}>{PRESETS[presetIdx].tex}</Tex>
+            </div>
+          )}
 
           {/* ── saved series ── */}
           <div style={{ borderTop: "1px solid #1c2640", paddingTop: 10, marginBottom: 10 }}>
