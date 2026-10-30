@@ -48,6 +48,7 @@ export default function PowerSeriesExplorer() {
   const [formula, setFormula] = useState("1/factorial(k)");
   const [a, setA] = useState(1);
   const [l, setL] = useState(0);
+  const [c, setC] = useState(0);
   const [xMin, setXMin] = useState(-4);
   const [xMax, setXMax] = useState(4);
   const [yMin, setYMin] = useState(-2);
@@ -67,7 +68,7 @@ export default function PowerSeriesExplorer() {
   const saveCurrent = () => {
     const name = saveName.trim();
     if (!name) { setStatusText("Enter a name to save the series."); return; }
-    const entry = { name, formula, a, l, xr: [xMin, xMax], yr: [yMin, yMax] };
+    const entry = { name, formula, a, l, c, xr: [xMin, xMax], yr: [yMin, yMax] };
     /* overwrite if same name exists */
     const updated = savedSeries.filter(s => s.name !== name).concat(entry);
     updated.sort((a, b) => a.name.localeCompare(b.name));
@@ -84,6 +85,7 @@ export default function PowerSeriesExplorer() {
     setFormula(s.formula);
     setA(s.a);
     setL(s.l);
+    setC(s.c || 0);
     setXMin(s.xr[0]); setXMax(s.xr[1]);
     setYMin(s.yr[0]); setYMax(s.yr[1]);
     setStatusText(`Loaded "${s.name}".`);
@@ -103,12 +105,12 @@ export default function PowerSeriesExplorer() {
   const containerRef = useRef(null);
   const animRef = useRef({ active: false, timer: null });
   const batchRef = useRef({ active: false, timer: null, dots: [] });
-  const paramsRef = useRef({ formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms });
+  const paramsRef = useRef({ formula, a, l, c, xMin, xMax, yMin, yMax, speed, maxTerms });
   const redPointsRef = useRef(redPoints);
   const showGraphRef = useRef(showGraph);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
 
-  useEffect(() => { paramsRef.current = { formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms }; }, [formula, a, l, xMin, xMax, yMin, yMax, speed, maxTerms]);
+  useEffect(() => { paramsRef.current = { formula, a, l, c, xMin, xMax, yMin, yMax, speed, maxTerms }; }, [formula, a, l, c, xMin, xMax, yMin, yMax, speed, maxTerms]);
   useEffect(() => { redPointsRef.current = redPoints; }, [redPoints]);
   useEffect(() => { showGraphRef.current = showGraph; }, [showGraph]);
 
@@ -120,13 +122,14 @@ export default function PowerSeriesExplorer() {
 
   /* ── compute sum for a given x ── */
   const computeSum = useCallback((x, maxN = 500, requireConvergence = false) => {
-    const { formula, a, l } = paramsRef.current;
+    const { formula, a, l, c } = paramsRef.current;
+    const u = x - c;
     let s = 0, prevS = 0, converged = false;
     for (let k = 0; k <= maxN; k++) {
       const bk = evalCoeff(formula, k);
       if (isNaN(bk)) break;
       const exp = a * k + l;
-      let term = bk * Math.pow(x, exp);
+      let term = bk * Math.pow(u, exp);
       if (!Number.isFinite(term)) break;
       prevS = s;
       s += term;
@@ -301,7 +304,7 @@ export default function PowerSeriesExplorer() {
         return;
       }
       const exp = p.a * k + p.l;
-      let term = bk * Math.pow(xClick, exp);
+      let term = bk * Math.pow(xClick - p.c, exp);
       if (!Number.isFinite(term)) term = 0;
       prevSum = sum;
       sum += term;
@@ -373,7 +376,7 @@ export default function PowerSeriesExplorer() {
         const bk = evalCoeff(p.formula, dot.k);
         if (isNaN(bk)) { dot.done = true; continue; }
         const exp = p.a * dot.k + p.l;
-        let term = bk * Math.pow(dot.x, exp);
+        let term = bk * Math.pow(dot.x - p.c, exp);
         if (!Number.isFinite(term)) term = 0;
         dot.prevSum = dot.sum;
         dot.sum += term;
@@ -441,7 +444,7 @@ export default function PowerSeriesExplorer() {
     setRedPoints([]);
     redPointsRef.current = [];
     setStatusText("Click on the plot to begin.");
-  }, [formula, a, l]);
+  }, [formula, a, l, c]);
 
   const loadPreset = (idx) => {
     const p = PRESETS[idx];
@@ -450,6 +453,7 @@ export default function PowerSeriesExplorer() {
     setFormula(p.formula);
     setA(p.a);
     setL(p.l);
+    setC(p.c || 0);
     setXMin(p.xr[0]); setXMax(p.xr[1]);
     setYMin(p.yr[0]); setYMax(p.yr[1]);
   };
@@ -460,7 +464,8 @@ export default function PowerSeriesExplorer() {
     else if (a === 1 && l !== 0) exp = `k+${l}`;
     else if (a !== 1 && l === 0) exp = `${a}k`;
     else exp = `${a}k+${l}`;
-    return `Σ  b(k) · x^(${exp})    k = 0, 1, 2, …`;
+    const xPart = c === 0 ? "x" : c > 0 ? `(x−${c})` : `(x+${-c})`;
+    return `Σ  b(k) · ${xPart}^(${exp})    k = 0, 1, 2, …`;
   })();
 
   const stopAll = () => {
@@ -529,25 +534,29 @@ export default function PowerSeriesExplorer() {
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <Label>a (exponent multiplier)</Label>
-              <input type="number" value={a} onChange={(e) => setA(+e.target.value)} style={inputStyle} step={1} />
+              <NumInput value={a} onChange={setA} style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
               <Label>l (exponent shift)</Label>
-              <input type="number" value={l} onChange={(e) => setL(+e.target.value)} style={inputStyle} step={1} />
+              <NumInput value={l} onChange={setL} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Label>c (center)</Label>
+              <NumInput value={c} onChange={setC} style={inputStyle} />
             </div>
           </div>
 
           <Label>x range</Label>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input type="number" value={xMin} onChange={(e) => setXMin(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
+            <NumInput value={xMin} onChange={setXMin} style={{ ...inputStyle, flex: 1 }} />
             <span style={{ color: "#4e6280", alignSelf: "center" }}>to</span>
-            <input type="number" value={xMax} onChange={(e) => setXMax(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
+            <NumInput value={xMax} onChange={setXMax} style={{ ...inputStyle, flex: 1 }} />
           </div>
           <Label>y range</Label>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <input type="number" value={yMin} onChange={(e) => setYMin(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
+            <NumInput value={yMin} onChange={setYMin} style={{ ...inputStyle, flex: 1 }} />
             <span style={{ color: "#4e6280", alignSelf: "center" }}>to</span>
-            <input type="number" value={yMax} onChange={(e) => setYMax(+e.target.value)} style={{ ...inputStyle, flex: 1 }} step={0.5} />
+            <NumInput value={yMax} onChange={setYMax} style={{ ...inputStyle, flex: 1 }} />
           </div>
 
           <Label>Animation delay: {speed} ms</Label>
@@ -555,7 +564,7 @@ export default function PowerSeriesExplorer() {
             style={{ width: "100%", accentColor: "#5b8dd9", marginBottom: 12 }} />
 
           <Label>Max terms</Label>
-          <input type="number" value={maxTerms} onChange={(e) => setMaxTerms(Math.max(10, +e.target.value))} style={{ ...inputStyle, marginBottom: 12 }} min={10} max={5000} />
+          <NumInput value={maxTerms} onChange={(v) => setMaxTerms(Math.max(10, Math.round(v)))} style={{ ...inputStyle, marginBottom: 12 }} />
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
             <input type="checkbox" checked={showGraph} onChange={(e) => setShowGraph(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
@@ -566,8 +575,8 @@ export default function PowerSeriesExplorer() {
           <div style={{ borderTop: "1px solid #1c2640", paddingTop: 12, marginTop: 4, marginBottom: 12 }}>
             <Label>Batch animate (dance)</Label>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
-              <input type="number" value={batchCount} onChange={(e) => setBatchCount(Math.max(1, Math.min(200, +e.target.value)))}
-                style={{ ...inputStyle, flex: "0 0 60px", textAlign: "center" }} min={1} max={200} />
+              <NumInput value={batchCount} onChange={(v) => setBatchCount(Math.max(1, Math.min(200, Math.round(v))))}
+                style={{ ...inputStyle, flex: "0 0 60px", textAlign: "center" }} />
               <span style={{ fontSize: 12, color: "#6b8ab0", whiteSpace: "nowrap" }}>points</span>
               <button onClick={startBatchAnimation} style={{
                 ...btnStyle, flex: "1 1 auto",
@@ -622,6 +631,29 @@ export default function PowerSeriesExplorer() {
 
 function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 600, color: "#7b8faa", marginBottom: 3, letterSpacing: 0.3, textTransform: "uppercase" }}>{children}</div>;
+}
+
+/* numeric input that lets you freely type, delete, use minus, etc. */
+function NumInput({ value, onChange, style: sx, step, ...rest }) {
+  const [text, setText] = useState(String(value));
+  const ref = useRef(null);
+  /* sync when value changes externally (preset load, etc.) */
+  useEffect(() => {
+    if (ref.current !== document.activeElement) setText(String(value));
+  }, [value]);
+  const handle = (e) => {
+    const raw = e.target.value;
+    setText(raw);
+    const n = Number(raw);
+    if (raw !== "" && raw !== "-" && raw !== "." && raw !== "-." && Number.isFinite(n)) onChange(n);
+  };
+  const onBlur = () => {
+    const n = Number(text);
+    if (!Number.isFinite(n)) { setText(String(value)); return; }
+    onChange(n);
+    setText(String(n));
+  };
+  return <input ref={ref} value={text} onChange={handle} onBlur={onBlur} style={sx} inputMode="decimal" {...rest} />;
 }
 
 const inputStyle = {
