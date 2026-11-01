@@ -1022,7 +1022,7 @@ export default function PowerSeriesExplorer() {
               {partialSumInfo.accel != null && !partialSumInfo.converged && (
                 <div style={{ marginTop: 4 }}>
                   <Tex style={{ fontSize: 18, color: "#00e5ff" }}>
-                    {`\\hat{S}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.accel, 6)}`}
+                    {`\\hat{S}_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.accel, 6)}`}
                   </Tex>
                 </div>
               )}
