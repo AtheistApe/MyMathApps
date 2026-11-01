@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LaTeX to Unicode</title>
+<style>
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --ink: #14213d;
+  --muted: #5b6579;
+  --line: #d3d9e4;
+  --accent: #2b59c3;
+  --accent-ink: #ffffff;
+  --chip: #e1e7f2;
+  --chip-ink: #14213d;
+  --warn-bg: #fff3cd;
+  --warn-ink: #6b4b00;
+  --board: #1b2b27;
+  --board-ink: #f1f4ea;
+  --board-muted: #9fb3a9;
+  --board-line: #35504a;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1424;
+    --surface: #161e33;
+    --ink: #e8ecf6;
+    --muted: #97a1b8;
+    --line: #2a3553;
+    --accent: #7fa2f5;
+    --accent-ink: #0e1424;
+    --chip: #222c47;
+    --chip-ink: #e8ecf6;
+    --warn-bg: #3b2f0b;
+    --warn-ink: #f3d98b;
+    --board: #101d1a;
+    --board-ink: #f1f4ea;
+    --board-muted: #8aa196;
+    --board-line: #2b423c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1424;
+  --surface: #161e33;
+  --ink: #e8ecf6;
+  --muted: #97a1b8;
+  --line: #2a3553;
+  --accent: #7fa2f5;
+  --accent-ink: #0e1424;
+  --chip: #222c47;
+  --chip-ink: #e8ecf6;
+  --warn-bg: #3b2f0b;
+  --warn-ink: #f3d98b;
+  --board: #101d1a;
+  --board-ink: #f1f4ea;
+  --board-muted: #8aa196;
+  --board-line: #2b423c;
+  color-scheme: dark;
+}
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  line-height: 1.5;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
+h1 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.sub { color: var(--muted); margin: 0 0 24px; max-width: 60ch; }
+.panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.pane { border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.pane.in { background: var(--surface); border: 1px solid var(--line); }
+.pane.out { background: var(--board); border: 1px solid var(--board-line); color: var(--board-ink); }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; font-size: 0.9rem; font-weight: 600; }
+.pane.in .pane-head { border-bottom: 1px solid var(--line); }
+.pane.out .pane-head { border-bottom: 1px solid var(--board-line); color: var(--board-muted); }
+textarea {
+  width: 100%;
+  min-height: 220px;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  padding: 14px;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+#in { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-size: 0.95rem; }
+#out {
+  font-family: "STIX Two Math", "Cambria Math", "Noto Sans Math", "DejaVu Sans Mono", "Segoe UI Symbol", ui-monospace, monospace;
+  font-size: 1.2rem;
+  color: var(--board-ink);
+}
+.pane.in:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+}
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-copy { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn-copy:hover { filter: brightness(1.08); }
+.btn-ghost { background: transparent; color: var(--muted); border-color: var(--line); font-size: 0.85rem; padding: 4px 10px; }
+.btn-ghost:hover { color: var(--ink); }
+.foot { padding: 8px 14px; font-size: 0.82rem; color: var(--board-muted); border-top: 1px solid var(--board-line); min-height: 34px; }
+.opts { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin: 18px 0 6px; font-size: 0.92rem; }
+.opts label { display: inline-flex; align-items: center; gap: 7px; }
+select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 8px 12px; margin-top: 12px; font-size: 0.9rem; }
+.warn[hidden] { display: none; }
+.examples { margin-top: 22px; }
+.examples h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--chip); color: var(--chip-ink); border-radius: 999px; padding: 6px 14px; font-size: 0.88rem; }
+.chip:hover { border-color: var(--accent); }
+.note { margin-top: 26px; color: var(--muted); font-size: 0.85rem; max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LaTeX to Unicode</h1>
+  <p class="sub">Type or paste LaTeX math and get plain text you can drop into an email, a Canvas post, a slide or a commit message. Conversion happens as you type.</p>
+
+  <div class="panes">
+    <section class="pane in" aria-label="LaTeX input">
+      <div class="pane-head"><span>LaTeX</span><button class="btn-ghost" id="clear" type="button">Clear</button></div>
+      <textarea id="in" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}"></textarea>
+    </section>
+    <section class="pane out" aria-label="Unicode output">
+      <div class="pane-head"><span>Unicode</span><button class="btn-copy" id="copy" type="button">Copy</button></div>
+      <textarea id="out" readonly spellcheck="false" aria-live="polite"></textarea>
+      <div class="foot" id="foot"></div>
+    </section>
+  </div>
+
+  <div class="opts">
+    <label>Fractions
+      <select id="frac">
+        <option value="auto">½ when possible, else a/b</option>
+        <option value="slash">Always a/b</option>
+        <option value="super">Raised and lowered (ⁿ⁄ₙ)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="scripts" checked> Unicode superscripts and subscripts</label>
+    <label><input type="checkbox" id="minus" checked> Use true minus sign (−)</label>
+    <label><input type="checkbox" id="italic"> Italicize variables (𝑥)</label>
+  </div>
+  <div class="warn" id="warn" hidden></div>
+
+  <div class="examples">
+    <h2>Try an example</h2>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <p class="note">Covers Greek letters, operators, relations, arrows, fractions, roots, superscripts and subscripts, accents, blackboard, script, fraktur and bold alphabets, and matrix or cases environments. Superscripts and subscripts fall back to ^(…) and _(…) when Unicode has no matching character. Multi-line matrices line up best in a monospaced font.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- data tables ---------- */
+  function parsePairs(str, sep) {
+    const o = {};
+    str.trim().split(/\s+/).forEach(function (tok) {
+      const k = tok.indexOf(sep);
+      if (k > 0) o[tok.slice(0, k)] = tok.slice(k + 1);
+    });
+    return o;
+  }
+
+  const SYM = parsePairs(String.raw`
+alpha:α beta:β gamma:γ delta:δ epsilon:ϵ varepsilon:ε zeta:ζ eta:η theta:θ vartheta:ϑ iota:ι kappa:κ varkappa:ϰ lambda:λ mu:μ nu:ν xi:ξ omicron:ο pi:π varpi:ϖ rho:ρ varrho:ϱ sigma:σ varsigma:ς tau:τ upsilon:υ phi:ϕ varphi:φ chi:χ psi:ψ omega:ω
+Gamma:Γ Delta:Δ Theta:Θ Lambda:Λ Xi:Ξ Pi:Π Sigma:Σ Upsilon:Υ Phi:Φ Psi:Ψ Omega:Ω digamma:ϝ
+pm:± mp:∓ times:× div:÷ cdot:· cdotp:· ast:∗ star:⋆ circ:∘ bullet:• oplus:⊕ ominus:⊖ otimes:⊗ oslash:⊘ odot:⊙ cap:∩ cup:∪ uplus:⊎ sqcap:⊓ sqcup:⊔ vee:∨ wedge:∧ lor:∨ land:∧ lnot:¬ neg:¬ setminus:∖ smallsetminus:∖ wr:≀ diamond:⋄ bigtriangleup:△ bigtriangledown:▽ triangle:△ triangledown:▽ triangleleft:◁ triangleright:▷ bigcirc:◯ dagger:† ddagger:‡ amalg:⨿
+cdots:⋯ ldots:… dots:… dotsb:⋯ dotsc:… dotsm:⋯ dotsi:⋯ vdots:⋮ ddots:⋱ mldr:…
+leq:≤ le:≤ geq:≥ ge:≥ leqslant:⩽ geqslant:⩾ neq:≠ ne:≠ approx:≈ equiv:≡ sim:∼ simeq:≃ cong:≅ propto:∝ varpropto:∝ ll:≪ gg:≫ lll:⋘ ggg:⋙ prec:≺ succ:≻ preceq:⪯ succeq:⪰
+subset:⊂ supset:⊃ subseteq:⊆ supseteq:⊇ subsetneq:⊊ supsetneq:⊋ sqsubset:⊏ sqsupset:⊐ sqsubseteq:⊑ sqsupseteq:⊒ in:∈ ni:∋ owns:∋ notin:∉
+perp:⊥ parallel:∥ nparallel:∦ mid:∣ nmid:∤ vdash:⊢ dashv:⊣ models:⊨ asymp:≍ doteq:≐ bowtie:⋈ smile:⌣ frown:⌢ nless:≮ ngtr:≯ nleq:≰ ngeq:≱ nsim:≁ ncong:≇ nsubseteq:⊈ nsupseteq:⊉ approxeq:≊ triangleq:≜ coloneqq:≔ eqqcolon:≕ lesssim:≲ gtrsim:≳ nequiv:≢ napprox:≉
+to:→ rightarrow:→ leftarrow:← gets:← leftrightarrow:↔ Rightarrow:⇒ Leftarrow:⇐ Leftrightarrow:⇔ iff:⟺ implies:⟹ impliedby:⟸ uparrow:↑ downarrow:↓ updownarrow:↕ Uparrow:⇑ Downarrow:⇓ Updownarrow:⇕ mapsto:↦ longmapsto:⟼ longrightarrow:⟶ longleftarrow:⟵ longleftrightarrow:⟷ Longrightarrow:⟹ Longleftarrow:⟸ Longleftrightarrow:⟺ hookrightarrow:↪ hookleftarrow:↩ nearrow:↗ searrow:↘ swarrow:↙ nwarrow:↖ rightharpoonup:⇀ rightharpoondown:⇁ leftharpoonup:↼ leftharpoondown:↽ rightleftharpoons:⇌ leadsto:⇝ rightsquigarrow:⇝ twoheadrightarrow:↠ nrightarrow:↛ nleftarrow:↚ nRightarrow:⇏ nLeftarrow:⇍ nleftrightarrow:↮ circlearrowleft:↺ circlearrowright:↻ curvearrowleft:↶ curvearrowright:↷ rightrightarrows:⇉ leftleftarrows:⇇ rightleftarrows:⇄ leftrightarrows:⇆
+infty:∞ partial:∂ nabla:∇ forall:∀ exists:∃ nexists:∄ emptyset:∅ varnothing:∅ hbar:ℏ hslash:ℏ ell:ℓ Re:ℜ Im:ℑ aleph:ℵ beth:ℶ gimel:ℷ daleth:ℸ wp:℘ angle:∠ measuredangle:∡ sphericalangle:∢ prime:′ backprime:‵ degree:° top:⊤ bot:⊥ surd:√ checkmark:✓ imath:ı jmath:ȷ complement:∁ therefore:∴ because:∵ square:□ Box:□ blacksquare:■ Diamond:◇ lozenge:◊ clubsuit:♣ diamondsuit:♢ heartsuit:♡ spadesuit:♠ flat:♭ natural:♮ sharp:♯
+copyright:© S:§ P:¶ pounds:£ euro:€ yen:¥ textdegree:° textregistered:® texttrademark:™ textendash:– textemdash:— dag:† ddag:‡ ldotp:. mho:℧ eth:ð Bbbk:𝕜
+lbrace:{ rbrace:} lbrack:[ rbrack:] vert:| lvert:| rvert:| Vert:‖ lVert:‖ rVert:‖ langle:⟨ rangle:⟩ lceil:⌈ rceil:⌉ lfloor:⌊ rfloor:⌋ llbracket:⟦ rrbracket:⟧ slash:/ colon:: lt:< gt:> textasciitilde:~ textunderscore:_
+ss:ß ae:æ AE:Æ o:ø O:Ø aa:å AA:Å l:ł L:Ł oe:œ OE:Œ i:ı j:ȷ
+boxplus:⊞ boxminus:⊟ boxtimes:⊠ boxdot:⊡ circledast:⊛ circledcirc:⊚ circleddash:⊝ ltimes:⋉ rtimes:⋊ leftthreetimes:⋋ rightthreetimes:⋌ Cup:⋓ Cap:⋒ doublecup:⋓ doublecap:⋒ veebar:⊻ barwedge:⊼ doublebarwedge:⩞ curlyvee:⋎ curlywedge:⋏ intercal:⊺ divideontimes:⋇ dotplus:∔ centerdot:⋅ smallint:∫
+Subset:⋐ Supset:⋑ lneq:⪇ gneq:⪈ lneqq:≨ gneqq:≩ lnsim:⋦ gnsim:⋧ lnapprox:⪉ gnapprox:⪊ precneqq:⪵ succneqq:⪶ precnsim:⋨ succnsim:⋩ precsim:≾ succsim:≿ precapprox:⪷ succapprox:⪸ curlyeqprec:⋞ curlyeqsucc:⋟ preccurlyeq:≼ succcurlyeq:≽ eqslantless:⪕ eqslantgtr:⪖ lessgtr:≶ gtrless:≷ lesseqgtr:⋚ gtreqless:⋛ lessapprox:⪅ gtrapprox:⪆ lessdot:⋖ gtrdot:⋗ leqq:≦ geqq:≧ eqcirc:≖ circeq:≗ bumpeq:≏ Bumpeq:≎ risingdotseq:≓ fallingdotseq:≒ doteqdot:≑ Doteq:≑ thicksim:∼ thickapprox:≈ backsim:∽ backsimeq:⋍ eqsim:≂ between:≬ pitchfork:⋔ shortmid:∣ shortparallel:∥ nshortmid:∤ nshortparallel:∦ Join:⋈
+ntriangleleft:⋪ ntriangleright:⋫ ntrianglelefteq:⋬ ntrianglerighteq:⋭ vartriangleleft:⊲ vartriangleright:⊳ trianglelefteq:⊴ trianglerighteq:⊵ vartriangle:△ nvdash:⊬ nvDash:⊭ nVdash:⊮ nVDash:⊯ vDash:⊨ Vdash:⊩ Vvdash:⊪ varsubsetneq:⊊ varsupsetneq:⊋ subsetneqq:⫋ supsetneqq:⫌ varsubsetneqq:⫋ varsupsetneqq:⫌ subseteqq:⫅ supseteqq:⫆ nsubseteqq:⊈ nsupseteqq:⊉ nleqq:≰ ngeqq:≱ nleqslant:≰ ngeqslant:≱ nprec:⊀ nsucc:⊁ npreceq:⋠ nsucceq:⋡ smallfrown:⌢ smallsmile:⌣
+twoheadleftarrow:↞ leftarrowtail:↢ rightarrowtail:↣ looparrowleft:↫ looparrowright:↬ leftrightsquigarrow:↭ upuparrows:⇈ downdownarrows:⇊ upharpoonleft:↿ upharpoonright:↾ downharpoonleft:⇃ downharpoonright:⇂ Lsh:↰ Rsh:↱ multimap:⊸ leftrightharpoons:⇋ Lleftarrow:⇚ Rrightarrow:⇛ dashrightarrow:⇢ dashleftarrow:⇠ nLeftrightarrow:⇎ restriction:↾
+bigstar:★ blacktriangle:▲ blacktriangledown:▼ blacktriangleleft:◀ blacktriangleright:▶ blacklozenge:⧫ backepsilon:϶ circledS:Ⓢ maltese:✠ diagup:╱ diagdown:╲ ulcorner:┌ urcorner:┐ llcorner:└ lrcorner:┘
+sum:∑ prod:∏ coprod:∐ int:∫ iint:∬ iiint:∭ iiiint:⨌ oint:∮ oiint:∯ oiiint:∰ bigcup:⋃ bigcap:⋂ bigvee:⋁ bigwedge:⋀ bigoplus:⨁ bigotimes:⨂ bigodot:⨀ biguplus:⨄ bigsqcup:⨆
+`, ":");
+  SYM.backslash = "\\";
+  SYM.textbackslash = "\\";
+  SYM.quad = "\u2003";
+  SYM.qquad = "\u2003\u2003";
+  SYM.enspace = "\u2002";
+  SYM.thinspace = "\u2009";
+  SYM.nonumber = SYM.notag = SYM.displaystyle = SYM.textstyle = SYM.scriptstyle = SYM.scriptscriptstyle = "";
+  SYM.limits = SYM.nolimits = SYM.relax = SYM.nobreak = SYM.allowbreak = SYM.hfill = SYM.centering = "";
+
+  const FUNCS = new Set("sin cos tan cot sec csc arcsin arccos arctan sinh cosh tanh coth sech csch log ln lg exp lim limsup liminf max min sup inf det dim ker deg gcd hom arg Pr sgn argmax argmin".split(" "));
+
+  function byFirstChar(str) {
+    const o = {};
+    str.trim().split(/\s+/).forEach(function (tok) { o[tok[0]] = tok.slice(1); });
+    return o;
+  }
+  const SPACED = new Set(("pm mp times div oplus ominus otimes oslash odot cup cap uplus sqcap sqcup vee wedge lor land setminus smallsetminus " +
+    "leq le geq ge leqslant geqslant neq ne approx equiv sim simeq cong propto varpropto ll gg lll ggg prec succ preceq succeq " +
+    "subset supset subseteq supseteq subsetneq supsetneq sqsubset sqsupset sqsubseteq sqsupseteq in ni owns notin perp parallel nparallel nmid " +
+    "vdash dashv models asymp doteq bowtie nless ngtr nleq ngeq nsim ncong nsubseteq nsupseteq approxeq triangleq coloneqq eqqcolon lesssim gtrsim nequiv napprox " +
+    "therefore because to gets iff implies impliedby mapsto longmapsto leadsto " +
+    "boxplus boxminus boxtimes boxdot circledast circledcirc circleddash ltimes rtimes leftthreetimes rightthreetimes Cup Cap doublecup doublecap veebar barwedge curlyvee curlywedge intercal divideontimes dotplus " +
+    "Subset Supset lneq gneq lneqq gneqq lnsim gnsim lnapprox gnapprox precneqq succneqq precnsim succnsim precsim succsim precapprox succapprox curlyeqprec curlyeqsucc preccurlyeq succcurlyeq " +
+    "eqslantless eqslantgtr lessgtr gtrless lesseqgtr gtreqless lessapprox gtrapprox lessdot gtrdot leqq geqq eqcirc circeq bumpeq Bumpeq risingdotseq fallingdotseq doteqdot Doteq thicksim thickapprox backsim backsimeq eqsim between pitchfork " +
+    "shortmid shortparallel nshortmid nshortparallel ntriangleleft ntriangleright ntrianglelefteq ntrianglerighteq vartriangleleft vartriangleright trianglelefteq trianglerighteq nvdash nvDash nVdash nVDash vDash Vdash Vvdash " +
+    "subsetneqq supsetneqq subseteqq supseteqq nsubseteqq nsupseteqq nleqq ngeqq nleqslant ngeqslant nprec nsucc npreceq nsucceq multimap Join Lsh Rsh").split(" "));
+  const SPACED_RE = /arrow|harpoon|squigarrow|arrows$/i;
+  const SUPMAP = byFirstChar("0⁰ 1¹ 2² 3³ 4⁴ 5⁵ 6⁶ 7⁷ 8⁸ 9⁹ +⁺ −⁻ -⁻ =⁼ (⁽ )⁾ aᵃ bᵇ cᶜ dᵈ eᵉ fᶠ gᵍ hʰ iⁱ jʲ kᵏ lˡ mᵐ nⁿ oᵒ pᵖ rʳ sˢ tᵗ uᵘ vᵛ wʷ xˣ yʸ zᶻ Aᴬ Bᴮ Dᴰ Eᴱ Gᴳ Hᴴ Iᴵ Jᴶ Kᴷ Lᴸ Mᴹ Nᴺ Oᴼ Pᴾ Rᴿ Tᵀ Uᵁ Vⱽ Wᵂ αᵅ βᵝ γᵞ δᵟ θᶿ φᵠ χᵡ ∘° ′′ ″″");
+  const SUBMAP = byFirstChar("0₀ 1₁ 2₂ 3₃ 4₄ 5₅ 6₆ 7₇ 8₈ 9₉ +₊ −₋ -₋ =₌ (₍ )₎ aₐ eₑ hₕ iᵢ jⱼ kₖ lₗ mₘ nₙ oₒ pₚ rᵣ sₛ tₜ uᵤ vᵥ xₓ βᵦ γᵧ ρᵨ φᵩ χᵪ");
+
+  const VULGAR = parsePairs("1/2:½ 1/3:⅓ 2/3:⅔ 1/4:¼ 3/4:¾ 1/5:⅕ 2/5:⅖ 3/5:⅗ 4/5:⅘ 1/6:⅙ 5/6:⅚ 1/7:⅐ 1/8:⅛ 3/8:⅜ 5/8:⅝ 7/8:⅞ 1/9:⅑ 1/10:⅒", ":");
+
+  const COMB = {
+    hat: "\u0302", widehat: "\u0302", check: "\u030C", tilde: "\u0303", widetilde: "\u0303",
+    acute: "\u0301", grave: "\u0300", dot: "\u0307", ddot: "\u0308", dddot: "\u20DB",
+    breve: "\u0306", bar: "\u0304", mathring: "\u030A", vec: "\u20D7", overrightarrow: "\u20D7",
+    overleftarrow: "\u20D6", overline: "\u0305", underline: "\u0332", cancel: "\u0338",
+    bcancel: "\u0338", xcancel: "\u0338"
+  };
+  const TEXT_ACCENTS = { "'": "\u0301", "`": "\u0300", "^": "\u0302", '"': "\u0308", "~": "\u0303", "=": "\u0304", ".": "\u0307" };
+
+  /* ---------- alphabets ---------- */
+  function styled(str, U, L, D, exc) {
+    let r = "";
+    for (const ch of str) {
+      if (exc && exc[ch]) { r += exc[ch]; continue; }
+      const c = ch.codePointAt(0);
+      if (U && c >= 65 && c <= 90) r += String.fromCodePoint(U + c - 65);
+      else if (L && c >= 97 && c <= 122) r += String.fromCodePoint(L + c - 97);
+      else if (D && c >= 48 && c <= 57) r += String.fromCodePoint(D + c - 48);
+      else r += ch;
+    }
+    return r;
+  }
+  const FONTS = {
+    bb:   function (x) { return styled(x, 0x1D538, 0x1D552, 0x1D7D8, { C: "ℂ", H: "ℍ", N: "ℕ", P: "ℙ", Q: "ℚ", R: "ℝ", Z: "ℤ" }); },
+    bf:   function (x) { return styled(x, 0x1D400, 0x1D41A, 0x1D7CE); },
+    it:   function (x) { return styled(x, 0x1D434, 0x1D44E, 0, { h: "ℎ" }); },
+    cal:  function (x) { return styled(x, 0x1D49C, 0x1D4B6, 0, { B: "ℬ", E: "ℰ", F: "ℱ", H: "ℋ", I: "ℐ", L: "ℒ", M: "ℳ", R: "ℛ", e: "ℯ", g: "ℊ", o: "ℴ" }); },
+    frak: function (x) { return styled(x, 0x1D504, 0x1D51E, 0, { C: "ℭ", H: "ℌ", I: "ℑ", R: "ℜ", Z: "ℨ" }); },
+    sf:   function (x) { return styled(x, 0x1D5A0, 0x1D5BA, 0x1D7E2); },
+    tt:   function (x) { return styled(x, 0x1D670, 0x1D68A, 0x1D7F6); }
+  };
+
+  /* ---------- state ---------- */
+  let opts = {};
+  let italicOn = false;
+  let unknown = new Set();
+
+  function withNoItalic(fn) {
+    const prev = italicOn;
+    italicOn = false;
+    try { return fn(); } finally { italicOn = prev; }
+  }
+  function isMark(ch) { return /\p{M}/u.test(ch); }
+  function cpLen(x) { return Array.from(x).filter(function (ch) { return !isMark(ch); }).length; }
+  function combine(str, comb) {
+    return Array.from(str).map(function (ch) { return /\s/.test(ch) || isMark(ch) ? ch : ch + comb; }).join("");
+  }
+  const SUPVALS = new Set(Object.keys(SUPMAP).map(function (k) { return SUPMAP[k]; }));
+  const SUBVALS = new Set(Object.keys(SUBMAP).map(function (k) { return SUBMAP[k]; }));
+  function mapAll(a, map) {
+    const same = map === SUPMAP ? SUPVALS : SUBVALS;
+    let r = "";
+    for (const ch of a) {
+      if (map[ch] !== undefined) r += map[ch];
+      else if (same.has(ch)) r += ch;
+      else return null;
+    }
+    return r;
+  }
+  function isWrapped(x) {
+    if (x[0] !== "(" || x[x.length - 1] !== ")") return false;
+    let d = 0;
+    for (let k = 0; k < x.length; k++) {
+      if (x[k] === "(") d++;
+      else if (x[k] === ")") { d--; if (d === 0) return k === x.length - 1; }
+    }
+    return false;
+  }
+  function wrapF(x) {
+    if (!x) return x;
+    return /^[\p{L}\p{N}\p{M}.′″∂∇√∛∜]+$/u.test(x) || isWrapped(x) ? x : "(" + x + ")";
+  }
+  function script(a, kind) {
+    a = a.replace(/\s+/g, "");
+    if (!a) return "";
+    if (opts.scripts) {
+      const m = mapAll(a, kind === "sup" ? SUPMAP : SUBMAP);
+      if (m !== null) return m;
+    }
+    const single = cpLen(a) === 1;
+    return (kind === "sup" ? "^" : "_") + (single || isWrapped(a) ? a : "(" + a + ")");
+  }
+  function fraction(a, b) {
+    a = a.trim(); b = b.trim();
+    if (opts.frac === "auto" && VULGAR[a + "/" + b]) return VULGAR[a + "/" + b];
+    if (opts.frac === "super") {
+      const ns = mapAll(a.replace(/\s+/g, ""), SUPMAP), ds = mapAll(b.replace(/\s+/g, ""), SUBMAP);
+      if (ns !== null && ds !== null) return ns + "\u2044" + ds;
+    }
+    return wrapF(a) + "/" + wrapF(b);
+  }
+  function radical(idx, x) {
+    let pre = "√";
+    if (idx !== null && idx.trim() !== "") {
+      const t = idx.trim();
+      if (t === "3") pre = "∛";
+      else if (t === "4") pre = "∜";
+      else if (t !== "2") pre = script(t, "sup") + "√";
+    }
+    const simple = /^[\p{N}.]+$/u.test(x) || cpLen(x) === 1 || isWrapped(x);
+    return pre + (simple ? x : "(" + x + ")");
+  }
+
+  /* ---------- environments ---------- */
+  function splitTop(str, mode) {
+    const parts = [];
+    let cur = "", depth = 0, env = 0;
+    for (let i = 0; i < str.length; i++) {
+      const c = str[i];
+      if (c === "\\") {
+        if (str[i + 1] === "\\") {
+          if (depth === 0 && env === 0 && mode === "row") { parts.push(cur); cur = ""; i++; continue; }
+          cur += "\\\\"; i++; continue;
+        }
+        if (str.startsWith("\\begin{", i)) env++;
+        else if (str.startsWith("\\end{", i)) env--;
+        cur += c;
+        if (i + 1 < str.length) { cur += str[i + 1]; i++; }
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") depth--;
+      if (c === "&" && mode === "cell" && depth === 0 && env === 0) { parts.push(cur); cur = ""; continue; }
+      cur += c;
+    }
+    parts.push(cur);
+    return parts;
+  }
+  function pad(str, w, align) {
+    const len = cpLen(str);
+    const gap = Math.max(0, w - len);
+    if (align === "left") return str + " ".repeat(gap);
+    const left = Math.floor(gap / 2);
+    return " ".repeat(left) + str + " ".repeat(gap - left);
+  }
+  function bracePieces(n, side) {
+    const t = side === "L" ? ["⎧", "⎨", "⎩", "⎪"] : ["⎫", "⎬", "⎭", "⎪"];
+    if (n === 1) return [side === "L" ? "{" : "}"];
+    const a = [];
+    for (let k = 0; k < n; k++) {
+      if (k === 0) a.push(t[0]);
+      else if (k === n - 1) a.push(t[2]);
+      else if (n % 2 === 1 && k === (n - 1) / 2) a.push(t[1]);
+      else a.push(t[3]);
+    }
+    return a;
+  }
+  function pieces(open, n, side) {
+    const sets = {
+      "(": { L: ["⎛", "⎜", "⎝"], R: ["⎞", "⎟", "⎠"] },
+      "[": { L: ["⎡", "⎢", "⎣"], R: ["⎤", "⎥", "⎦"] }
+    };
+    if (open === "{") return bracePieces(n, side);
+    if (sets[open]) {
+      const p = sets[open][side], a = [];
+      for (let k = 0; k < n; k++) a.push(k === 0 ? p[0] : k === n - 1 ? p[2] : p[1]);
+      return a;
+    }
+    const a = [];
+    for (let k = 0; k < n; k++) a.push(open);
+    return a;
+  }
+  function renderEnv(name, body) {
+    const rows = splitTop(body, "row")
+      .map(function (r) { return splitTop(r, "cell").map(function (c) { return conv(c.trim()); }); })
+      .filter(function (r) { return r.some(function (c) { return c !== ""; }); });
+    if (!rows.length) return "";
+    const BR = { pmatrix: ["(", ")"], bmatrix: ["[", "]"], Bmatrix: ["{", "}"], vmatrix: ["|", "|"], Vmatrix: ["‖", "‖"], matrix: ["", ""], smallmatrix: ["", ""], array: ["", ""] };
+    if (name === "cases" || BR[name]) {
+      const isCases = name === "cases";
+      const open = isCases ? "{" : BR[name][0], close = isCases ? "" : BR[name][1];
+      if (rows.length === 1) {
+        return (isCases ? "{ " : open) + rows[0].join(isCases ? "   " : "  ") + (isCases ? "" : close);
+      }
+      const cols = Math.max.apply(null, rows.map(function (r) { return r.length; }));
+      const widths = [];
+      for (let c = 0; c < cols; c++) widths.push(Math.max.apply(null, rows.map(function (r) { return cpLen(r[c] || ""); })));
+      const align = isCases ? "left" : "center";
+      const L = open ? pieces(open, rows.length, "L") : null;
+      const R = close ? pieces(open, rows.length, "R") : null;
+      return rows.map(function (r, k) {
+        let line = r.map(function (cell, c) { return pad(cell, widths[c], align); }).join(isCases ? "   " : "  ").replace(/\s+$/, "");
+        let full = (L ? L[k] + " " : "") + line;
+        if (R) full = full + " " + R[k];
+        return full.replace(/\s+$/, "");
+      }).join("\n");
+    }
+    return rows.map(function (r) { return r.join(" "); }).join("\n");
+  }
+
+  /* ---------- core converter ---------- */
+  function conv(s) {
+    let i = 0, out = "";
+    const n = s.length;
+    const cmdRe = /\\([a-zA-Z]+|[^a-zA-Z])/y;
+
+    function ws() { while (i < n && /\s/.test(s[i])) i++; }
+    function eatWs() { while (i < n && (s[i] === " " || s[i] === "\t")) i++; }
+
+    function rawGroup() {
+      let depth = 0;
+      const start = i + 1;
+      for (; i < n; i++) {
+        const ch = s[i];
+        if (ch === "\\") { i++; continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) { const r = s.slice(start, i); i++; return r; }
+        }
+      }
+      return s.slice(start);
+    }
+    function rawArg() {
+      ws();
+      if (i >= n) return "";
+      if (s[i] === "{") return rawGroup();
+      if (s[i] === "\\") {
+        cmdRe.lastIndex = i;
+        const m = cmdRe.exec(s);
+        if (m) { i += m[0].length; return m[0]; }
+      }
+      return s[i++];
+    }
+    function arg() { return conv(rawArg()); }
+    function optArg() {
+      ws();
+      if (s[i] === "[") {
+        const j = s.indexOf("]", i);
+        if (j > 0) { const r = s.slice(i + 1, j); i = j + 1; return r; }
+      }
+      return null;
+    }
+    function findEnd(name, from) {
+      const b = "\\begin{" + name + "}", e = "\\end{" + name + "}";
+      let depth = 1, p = from;
+      for (;;) {
+        const ne = s.indexOf(e, p);
+        if (ne < 0) return -1;
+        const nb = s.indexOf(b, p);
+        if (nb >= 0 && nb < ne) { depth++; p = nb + b.length; }
+        else { depth--; if (depth === 0) return ne; p = ne + e.length; }
+      }
+    }
+
+    const H = {};
+    H.frac = function () { const a = arg(), b = arg(); return fraction(a, b); };
+    ["dfrac", "tfrac", "cfrac"].forEach(function (k) { H[k] = H.frac; });
+    H.binom = function () { const a = arg(), b = arg(); return "C(" + a + ", " + b + ")"; };
+    ["dbinom", "tbinom"].forEach(function (k) { H[k] = H.binom; });
+    H.sqrt = function () { const idx = optArg(); const x = arg(); return radical(idx === null ? null : conv(idx), x); };
+    H.text = function () { return rawArg().replace(/\$/g, ""); };
+    ["textrm", "textnormal", "mbox", "hbox", "mathrm", "mathop", "mathbin", "mathrel", "mathord", "mathpunct", "mathopen", "mathclose"].forEach(function (k) {
+      H[k] = k.indexOf("math") === 0 ? function () { return withNoItalic(arg); } : H.text;
+    });
+    H.operatorname = function () { if (s[i] === "*") i++; return withNoItalic(arg); };
+    const fontMap = { mathbb: "bb", mathbf: "bf", boldsymbol: "bf", bm: "bf", mathit: "it", mathcal: "cal", mathscr: "cal", mathfrak: "frak", mathsf: "sf", mathtt: "tt" };
+    Object.keys(fontMap).forEach(function (k) {
+      H[k] = function () { return FONTS[fontMap[k]](withNoItalic(arg)); };
+    });
+    const textFont = { textbf: "bf", textit: "it", emph: "it", textsf: "sf", texttt: "tt" };
+    Object.keys(textFont).forEach(function (k) {
+      H[k] = function () { return FONTS[textFont[k]](rawArg().replace(/\$/g, "")); };
+    });
+    Object.keys(COMB).forEach(function (k) {
+      H[k] = function () { return combine(arg(), COMB[k]); };
+    });
+    ["underbrace", "overbrace", "mathstrut", "boldmath"].forEach(function (k) { H[k] = function () { return k === "mathstrut" ? "" : arg(); }; });
+    H.not = function () { return arg() + "\u0338"; };
+    H.pmod = function () { return " (mod " + arg() + ")"; };
+    H.bmod = function () { return " mod "; };
+    H.mod = H.bmod;
+    H.overset = function () { const a = withNoItalic(arg), b = arg(); return b + script(a, "sup"); };
+    H.stackrel = H.overset;
+    H.underset = function () { const a = withNoItalic(arg), b = arg(); return b + script(a, "sub"); };
+    H.xrightarrow = function () { optArg(); return "→" + script(withNoItalic(arg), "sup"); };
+    H.xleftarrow = function () { optArg(); return "←" + script(withNoItalic(arg), "sup"); };
+    H.boxed = function () { return "[" + arg() + "]"; };
+    ["phantom", "vphantom", "hphantom", "color", "label", "vspace", "hphantom"].forEach(function (k) { H[k] = function () { rawArg(); return ""; }; });
+    H.hspace = function () { rawArg(); return " "; };
+    H.textcolor = function () { rawArg(); return arg(); };
+    H.tag = function () { return "   (" + arg() + ")"; };
+    H.end = function () { rawArg(); return ""; };
+    H.begin = function () {
+      const name = rawArg();
+      if (name === "array" || name === "tabular" || name === "subarray") rawArg();
+      const end = "\\end{" + name + "}";
+      const j = findEnd(name, i);
+      let body;
+      if (j < 0) { body = s.slice(i); i = n; }
+      else { body = s.slice(i, j); i = j + end.length; }
+      return renderEnv(name.replace("*", ""), body);
+    };
+    function delim() { const t = rawArg(); return t === "." ? "" : conv(t); }
+    ["left", "right", "middle", "big", "Big", "bigg", "Bigg", "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr"].forEach(function (k) { H[k] = delim; });
+
+    function ctrl(name) {
+      const CS = { "\\": "\n", ",": "\u2009", ";": "\u2005", ":": "\u2005", ">": "\u2005", "!": "", " ": " ", "{": "{", "}": "}", "|": "‖", "%": "%", "$": "$", "#": "#", "&": "&", "_": "_", "/": "", "-": "", "@": "", "\n": " " };
+      if (Object.prototype.hasOwnProperty.call(CS, name)) return CS[name];
+      if (Object.prototype.hasOwnProperty.call(TEXT_ACCENTS, name)) {
+        const a = arg();
+        if (!a) return "";
+        const chars = Array.from(a);
+        return chars[0] + TEXT_ACCENTS[name] + chars.slice(1).join("");
+      }
+      return name;
+    }
+
+    function word(name) {
+      if (FUNCS.has(name)) return name + (i < n && (s[i] === "\\" || s[i] === "{") ? " " : "");
+      if (Object.prototype.hasOwnProperty.call(SYM, name)) {
+        eatWs();
+        if (SPACED.has(name) || SPACED_RE.test(name)) {
+          if (out && !/\s$/.test(out)) out += " ";
+          return SYM[name] + " ";
+        }
+        return SYM[name];
+      }
+      if (Object.prototype.hasOwnProperty.call(H, name)) { eatWs(); return H[name](); }
+      unknown.add("\\" + name);
+      return "\\" + name;
+    }
+
+    while (i < n) {
+      const c = s[i];
+      if (c === "\\") {
+        cmdRe.lastIndex = i;
+        const m = cmdRe.exec(s);
+        if (!m) { out += "\\"; i++; continue; }
+        i += m[0].length;
+        const name = m[1];
+        if (/^[a-zA-Z]+$/.test(name)) {
+          if (name === "over" || name === "atop" || name === "choose") {
+            const num = out.trim();
+            const den = conv(s.slice(i)).trim();
+            i = n;
+            out = name === "choose" ? "C(" + num + ", " + den + ")" : name === "atop" ? num + " " + den : fraction(num, den);
+            continue;
+          }
+          const w = word(name);
+          out += w;
+        } else {
+          out += ctrl(name);
+        }
+        continue;
+      }
+      if (c === "^" || c === "_") {
+        i++;
+        const kind = c === "^" ? "sup" : "sub";
+        const raw = rawArg();
+        let sc = script(withNoItalic(function () { return conv(raw); }), kind);
+        if (kind === "sup" && sc[0] === "^" && cpLen(sc.slice(1)) === 1) {
+          // Unicode has no raised form of this symbol (such as ∞). After a big operator, place it directly as the upper limit.
+          const chars = Array.from(out);
+          while (chars.length && SUBVALS.has(chars[chars.length - 1])) chars.pop();
+          if (chars.length && "∑∏∐∫∬∭∮∯∰⋃⋂⋁⋀⨁⨂⨀⨄⨆".indexOf(chars[chars.length - 1]) >= 0) sc = sc.slice(1);
+        }
+        out += sc;
+        continue;
+      }
+      if (c === "{") { out += conv(rawGroup()); continue; }
+      if (c === "}" || c === "$") { i++; continue; }
+      if (c === "%") { while (i < n && s[i] !== "\n") i++; continue; }
+      if (c === "~") { out += "\u00a0"; i++; continue; }
+      if (c === "&") { out += " "; i++; continue; }
+      if (c === "'") { out += "′"; i++; continue; }
+      if (c === "-") { out += opts.minus ? "−" : "-"; i++; continue; }
+      if (italicOn && /[A-Za-z]/.test(c)) { out += FONTS.it(c); i++; continue; }
+      out += c;
+      i++;
+    }
+    return out;
+  }
+
+  function convert(input, o) {
+    opts = o;
+    unknown = new Set();
+    italicOn = !!o.italic;
+    let text;
+    try { text = conv(input); }
+    catch (e) { text = "Could not convert this input: " + e.message; }
+    text = text.replace(/′′/g, "″").normalize("NFC");
+    return { text: text, unknown: Array.from(unknown) };
+  }
+
+  /* ---------- UI ---------- */
+  const $ = function (id) { return document.getElementById(id); };
+  const EXAMPLES = [
+    ["Quadratic formula", String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`],
+    ["Gaussian integral", String.raw`\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}`],
+    ["Sum of squares", String.raw`\sum_{k=1}^{n} k^2 = \frac{n(n+1)(2n+1)}{6}`],
+    ["Limit", String.raw`\lim_{x \to 0} \frac{\sin x}{x} = 1`],
+    ["Taylor series", String.raw`e^x = \sum_{n=0}^{\infty} \frac{x^n}{n!}`],
+    ["Gradient and curl", String.raw`\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}`],
+    ["Matrix", String.raw`A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}, \quad \det A = ad - bc`],
+    ["Piecewise", String.raw`|x| = \begin{cases} x & x \ge 0 \\ -x & x < 0 \end{cases}`],
+    ["Sets", String.raw`\mathbb{Q} \subset \mathbb{R} \subseteq \mathbb{C},\ \forall \varepsilon > 0\ \exists \delta > 0`]
+  ];
+
+  function run() {
+    const o = {
+      frac: $("frac").value,
+      scripts: $("scripts").checked,
+      minus: $("minus").checked,
+      italic: $("italic").checked
+    };
+    const r = convert($("in").value, o);
+    $("out").value = r.text;
+    const cnt = Array.from(r.text).length;
+    $("foot").textContent = r.text ? cnt + (cnt === 1 ? " character" : " characters") : "The Unicode result appears here.";
+    const w = $("warn");
+    if (r.unknown.length) {
+      w.hidden = false;
+      w.textContent = "Left as typed because there is no Unicode conversion for them: " + r.unknown.join(", ");
+    } else {
+      w.hidden = true;
+    }
+  }
+
+  function setInput(v) { $("in").value = v; run(); $("in").focus(); }
+
+  EXAMPLES.forEach(function (ex) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = ex[0];
+    b.addEventListener("click", function () { setInput(ex[1]); });
+    $("chips").appendChild(b);
+  });
+
+  ["in"].forEach(function (id) { $(id).addEventListener("input", run); });
+  ["frac", "scripts", "minus", "italic"].forEach(function (id) { $(id).addEventListener("change", run); });
+  $("clear").addEventListener("click", function () { setInput(""); });
+
+  $("copy").addEventListener("click", function () {
+    const btn = $("copy"), text = $("out").value;
+    function done(ok) {
+      btn.textContent = ok ? "Copied" : "Press Ctrl+C to copy";
+      setTimeout(function () { btn.textContent = "Copy"; }, 1600);
+    }
+    function fallback() {
+      try {
+        $("out").focus();
+        $("out").select();
+        done(document.execCommand("copy"));
+      } catch (e) { done(false); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  setInput(EXAMPLES[1][1]);
+  $("in").blur();
+})();
+</script>
+</body>
+</html>

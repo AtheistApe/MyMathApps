@@ -164,6 +164,11 @@ jobs:
           mkdir -p _site/vector-field-explorer
           cp -r vector-field-explorer/* _site/vector-field-explorer/
 
+      - name: Copy static app latex-to-unicode into combined site
+        run: |
+          mkdir -p _site/latex-to-unicode
+          cp -r latex-to-unicode/* _site/latex-to-unicode/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 
