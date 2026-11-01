@@ -316,6 +316,8 @@ export default function PowerSeriesExplorer() {
   const [batchCount, setBatchCount] = useState(30);
   const [cursor, setCursor] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
+  const [showPartialSum, setShowPartialSum] = useState(false);
+  const [partialSumInfo, setPartialSumInfo] = useState(null); /* { n, x, sum } */
 
   /* ── saved series ── */
   const [savedSeries, setSavedSeries] = useState(loadSaved);
@@ -506,14 +508,16 @@ export default function PowerSeriesExplorer() {
         return;
       }
 
+      const nTerms = k - p.k0 + 1;
+      setPartialSumInfo({ n: nTerms, x: xClick, sum });
       setStatusText(`x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}`);
       draw([{ x: xClick, y: sum }]);
 
-      const nTerms = k - p.k0 + 1;
       const converged = nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize;
       if (converged || nTerms >= p.maxTerms) {
         animRef.current.active = false;
         addRedPoints({ x: xClick, y: sum, terms: nTerms });
+        setPartialSumInfo({ n: nTerms, x: xClick, sum, converged: true });
         setStatusText(converged
           ? `Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(sum, 6)}  (${nTerms} terms)`
           : `Max terms (${p.maxTerms}) reached at x = ${fmtNum(xClick, 4)}  →  Sₖ ≈ ${fmtNum(sum, 6)}`);
@@ -829,9 +833,13 @@ export default function PowerSeriesExplorer() {
           <Label>Max terms</Label>
           <NumInput value={maxTerms} onChange={(v) => setMaxTerms(Math.max(10, Math.round(v)))} style={{ ...inputStyle, marginBottom: 12 }} />
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 8, fontSize: 13 }}>
             <input type="checkbox" checked={showGraph} onChange={(e) => setShowGraph(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
             Reveal full graph
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
+            <input type="checkbox" checked={showPartialSum} onChange={(e) => setShowPartialSum(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
+            Show partial sum overlay
           </label>
 
           {/* batch dance */}
@@ -874,6 +882,19 @@ export default function PowerSeriesExplorer() {
         {cursor && (
           <div style={{ ...cursorStyle, left: cursor.px + 14, top: cursor.py - 28 }}>
             {fmtNum(cursor.x, 3)}, {fmtNum(cursor.y, 3)}
+          </div>
+        )}
+        {showPartialSum && partialSumInfo && (
+          <div style={{
+            position: "absolute", bottom: 16, left: 16, pointerEvents: "none",
+            background: "rgba(10,14,24,0.92)", border: "1px solid #2a3a54",
+            borderRadius: 8, padding: "10px 16px",
+          }}>
+            <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700" }}>
+              {partialSumInfo.converged
+                ? `f(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`
+                : `S_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`}
+            </Tex>
           </div>
         )}
         {redPoints.length > 0 && (
