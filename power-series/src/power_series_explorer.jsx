@@ -182,29 +182,10 @@ function drawYellowDots(ctx, W, H, dots, x2p, y2p) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Presets
+   Presets — imported from separate file for independent editing
    ════════════════════════════════════════════════════════════════ */
 
-const PRESETS = [
-  { name: "eˣ", formula: "1/factorial(k)", a: 1, l: 0, xr: [-4, 4], yr: [-2, 20],
-    desc: "Σ xᵏ/k!",
-    tex: "e^x = \\sum_{k=0}^{\\infty} \\frac{x^k}{k!}" },
-  { name: "1/(1−x)", formula: "1", a: 1, l: 0, xr: [-1.5, 1.5], yr: [-5, 5],
-    desc: "Σ xᵏ, |x|<1",
-    tex: "\\frac{1}{1-x} = \\sum_{k=0}^{\\infty} x^k, \\;|x|<1" },
-  { name: "sin x", formula: "(-1)**k/factorial(2*k+1)", a: 2, l: 1, xr: [-8, 8], yr: [-2, 2],
-    desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1)!",
-    tex: "\\sin x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{(2k+1)!}\\,x^{2k+1}" },
-  { name: "cos x", formula: "(-1)**k/factorial(2*k)", a: 2, l: 0, xr: [-8, 8], yr: [-2, 2],
-    desc: "Σ (−1)ᵏx²ᵏ/(2k)!",
-    tex: "\\cos x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{(2k)!}\\,x^{2k}" },
-  { name: "ln(1+x)", formula: "(-1)**k/(k+1)", a: 1, l: 1, xr: [-1.5, 1.5], yr: [-3, 2],
-    desc: "Σ (−1)ᵏxᵏ⁺¹/(k+1), |x|≤1",
-    tex: "\\ln(1+x) = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{k+1}\\,x^{k+1}, \\;|x|\\le 1" },
-  { name: "arctan x", formula: "(-1)**k/(2*k+1)", a: 2, l: 1, xr: [-2, 2], yr: [-2, 2],
-    desc: "Σ (−1)ᵏx²ᵏ⁺¹/(2k+1), |x|≤1",
-    tex: "\\arctan x = \\sum_{k=0}^{\\infty} \\frac{(-1)^k}{2k+1}\\,x^{2k+1}, \\;|x|\\le 1" },
-];
+import PRESETS from "./presets";
 
 /* ════════════════════════════════════════════════════════════════
    localStorage helpers
