@@ -63,6 +63,7 @@ const computeTerm = (formula, k, x, a, l, c) => {
 };
 
 /* ── Aitken Δ² acceleration ── */
+const MIN_AITKEN_TERMS = 15; /* require this many terms before accepting Aitken convergence */
 const aitkenAccel = (s0, s1, s2) => {
   const denom = s2 - 2 * s1 + s0;
   if (Math.abs(denom) < 1e-30) return null;
@@ -525,9 +526,10 @@ export default function PowerSeriesExplorer() {
       const cyanDots = accel !== null ? [{ x: xClick, y: accel }] : null;
       draw([{ x: xClick, y: sum }], cyanDots);
 
-      /* convergence: Aitken only accepted if terms are actually shrinking */
+      /* convergence: Aitken only accepted if enough terms computed and terms shrinking */
       const aitkenConverged = accel !== null && prevAccel !== null
-        && termsDecreasing && Math.abs(accel - prevAccel) < pixelSize;
+        && nTerms >= MIN_AITKEN_TERMS && termsDecreasing
+        && Math.abs(accel - prevAccel) < pixelSize;
       const converged = aitkenConverged
         || (nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize);
       if (converged || nTerms >= p.maxTerms) {
@@ -608,7 +610,8 @@ export default function PowerSeriesExplorer() {
 
         const nTerms = dot.k - p.k0 + 1;
         const aitkenConverged = accel !== null && prevAccel !== null
-          && termsDecreasing && Math.abs(accel - prevAccel) < pixelSize;
+          && nTerms >= MIN_AITKEN_TERMS && termsDecreasing
+          && Math.abs(accel - prevAccel) < pixelSize;
         const converged = aitkenConverged
           || (nTerms >= 3 && Math.abs(dot.sum - dot.prevSum) < pixelSize);
         if (converged || nTerms >= p.maxTerms) {
