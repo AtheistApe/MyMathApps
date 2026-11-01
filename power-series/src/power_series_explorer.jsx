@@ -4,7 +4,7 @@ import "katex/dist/katex.min.css";
 import PRESETS from "./presets";
 
 /* ════════════════════════════════════════════════════════════════
-   Pure helpers — no React, no state, no refs
+   Shared components and pure helpers
    ════════════════════════════════════════════════════════════════ */
 
 /* ── LaTeX rendering component ── */
@@ -476,7 +476,7 @@ export default function PowerSeriesExplorer() {
     let sum = 0, k = paramsRef.current.k0, prevSum = null;
     /* ring buffer of last 3 partial sums for Aitken */
     const hist = [null, null, null];
-    let accel = null, prevAccel = null;
+    let accel = null, prevAccel = null, accelCount = 0;
     let prevTermAbs = null; /* track |term| to verify nth-term test */
     const { yMin: yMn, yMax: yMx } = paramsRef.current;
     const pixelSize = (yMx - yMn) / canvasSize.h;
@@ -513,9 +513,10 @@ export default function PowerSeriesExplorer() {
       prevAccel = accel;
       accel = (useAitken && hist[0] !== null) ? aitkenAccel(hist[0], hist[1], hist[2]) : null;
       if (accel !== null && !Number.isFinite(accel)) accel = null;
+      if (accel !== null) accelCount++;
 
       const nTerms = k - p.k0 + 1;
-      setPartialSumInfo({ n: nTerms, x: xClick, sum, accel });
+      setPartialSumInfo({ n: nTerms, x: xClick, sum, accel, accelN: accelCount });
       setStatusText(
         accel !== null
           ? `x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}  |  Aitken = ${fmtNum(accel, 6)}`
@@ -818,6 +819,7 @@ export default function PowerSeriesExplorer() {
   const clearAll = useCallback(() => {
     setRedPoints([]);
     redPointsRef.current = [];
+    setPartialSumInfo(null);
     stopAll();
     setStatusText("Cleared.");
     setTimeout(() => draw(), 20);
@@ -1022,7 +1024,7 @@ export default function PowerSeriesExplorer() {
               {partialSumInfo.accel != null && !partialSumInfo.converged && (
                 <div style={{ marginTop: 4 }}>
                   <Tex style={{ fontSize: 18, color: "#00e5ff" }}>
-                    {`\\hat{S}_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.accel, 6)}`}
+                    {`\\hat{S}_{${partialSumInfo.accelN}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.accel, 6)}`}
                   </Tex>
                 </div>
               )}
