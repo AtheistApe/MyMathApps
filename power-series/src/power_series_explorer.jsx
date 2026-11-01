@@ -154,7 +154,7 @@ function drawRedDots(ctx, W, H, pts, x2p, y2p) {
   ctx.shadowBlur = 0;
 }
 
-function drawYellowDots(ctx, W, dots, x2p, y2p) {
+function drawYellowDots(ctx, W, H, dots, x2p, y2p) {
   if (!dots || dots.length === 0) return;
   const isBatch = dots.length > 1;
   const radius = isBatch ? 4 : 6;
@@ -163,7 +163,7 @@ function drawYellowDots(ctx, W, dots, x2p, y2p) {
   ctx.fillStyle = "#ffd700";
   for (const dot of dots) {
     const px = Math.max(-20, Math.min(W + 20, x2p(dot.x)));
-    const py = Math.max(-20, Math.min(W + 20, y2p(dot.y)));
+    const py = Math.max(-20, Math.min(H + 20, y2p(dot.y)));
     ctx.beginPath();
     ctx.arc(px, py, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -173,7 +173,7 @@ function drawYellowDots(ctx, W, dots, x2p, y2p) {
     ctx.strokeStyle = "rgba(255,215,0,0.4)";
     ctx.lineWidth = 2;
     const px = Math.max(-20, Math.min(W + 20, x2p(dots[0].x)));
-    const py = Math.max(-20, Math.min(W + 20, y2p(dots[0].y)));
+    const py = Math.max(-20, Math.min(H + 20, y2p(dots[0].y)));
     ctx.beginPath();
     ctx.arc(px, py, 11, 0, Math.PI * 2);
     ctx.stroke();
@@ -318,6 +318,9 @@ export default function PowerSeriesExplorer() {
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [showPartialSum, setShowPartialSum] = useState(false);
   const [partialSumInfo, setPartialSumInfo] = useState(null); /* { n, x, sum } */
+  const [psPos, setPsPos] = useState({ x: 16, y: null }); /* overlay position; y=null means bottom-anchored */
+  const [psDragging, setPsDragging] = useState(false);
+  const psDragRef = useRef(null); /* { startX, startY, origX, origY } while dragging */
 
   /* ── saved series ── */
   const [savedSeries, setSavedSeries] = useState(loadSaved);
@@ -470,7 +473,7 @@ export default function PowerSeriesExplorer() {
     ctx.restore();
 
     ctx.save();
-    drawYellowDots(ctx, W, yellowDots, x2p, y2p);
+    drawYellowDots(ctx, W, H, yellowDots, x2p, y2p);
     ctx.restore();
   }, [canvasSize, getCurveCache]);
 
@@ -696,6 +699,7 @@ export default function PowerSeriesExplorer() {
     cancelAnimations();
     setRedPoints([]);
     redPointsRef.current = [];
+    setPartialSumInfo(null);
     setStatusText("Click on the plot to begin.");
   }, [formula, a, l, c, k0, cancelAnimations]);
 
@@ -885,12 +889,46 @@ export default function PowerSeriesExplorer() {
           </div>
         )}
         {showPartialSum && partialSumInfo && (
-          <div style={{
-            position: "absolute", bottom: 16, left: 16, pointerEvents: "none",
-            background: "rgba(10,14,24,0.92)", border: "1px solid #2a3a54",
-            borderRadius: 8, padding: "10px 16px",
-          }}>
-            <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700" }}>
+          <div
+            style={{
+              position: "absolute",
+              left: psPos.x,
+              ...(psPos.y === null ? { bottom: 16 } : { top: psPos.y }),
+              background: "rgba(10,14,24,0.92)", border: "1px solid #2a3a54",
+              borderRadius: 8, padding: "10px 16px",
+              cursor: psDragging ? "grabbing" : "grab", userSelect: "none",
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
+              psDragRef.current = {
+                startX: e.clientX, startY: e.clientY,
+                origX: rect.left - parentRect.left,
+                origY: rect.top - parentRect.top,
+              };
+              setPsDragging(true);
+
+              const onMove = (ev) => {
+                if (!psDragRef.current) return;
+                const dx = ev.clientX - psDragRef.current.startX;
+                const dy = ev.clientY - psDragRef.current.startY;
+                setPsPos({
+                  x: psDragRef.current.origX + dx,
+                  y: psDragRef.current.origY + dy,
+                });
+              };
+              const onUp = () => {
+                psDragRef.current = null;
+                setPsDragging(false);
+                document.removeEventListener("mousemove", onMove);
+                document.removeEventListener("mouseup", onUp);
+              };
+              document.addEventListener("mousemove", onMove);
+              document.addEventListener("mouseup", onUp);
+            }}
+          >
+            <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700", pointerEvents: "none" }}>
               {partialSumInfo.converged
                 ? `f(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`
                 : `S_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`}
