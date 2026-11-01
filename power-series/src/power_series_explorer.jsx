@@ -477,6 +477,7 @@ export default function PowerSeriesExplorer() {
     /* ring buffer of last 3 partial sums for Aitken */
     const hist = [null, null, null];
     let accel = null, prevAccel = null;
+    let prevTermAbs = null; /* track |term| to verify nth-term test */
     const { yMin: yMn, yMax: yMx } = paramsRef.current;
     const pixelSize = (yMx - yMn) / canvasSize.h;
 
@@ -491,6 +492,11 @@ export default function PowerSeriesExplorer() {
         draw();
         return;
       }
+
+      const termAbs = Math.abs(term);
+      /* nth-term test: are terms shrinking? (check after initial settling) */
+      const termsDecreasing = prevTermAbs === null || termAbs <= prevTermAbs * 1.01;
+      prevTermAbs = termAbs;
 
       prevSum = sum;
       sum += term;
@@ -518,10 +524,11 @@ export default function PowerSeriesExplorer() {
       const cyanDots = accel !== null ? [{ x: xClick, y: accel }] : null;
       draw([{ x: xClick, y: sum }], cyanDots);
 
-      /* convergence: compare consecutive Aitken estimates, or raw sums if Aitken off */
-      const converged = (accel !== null && prevAccel !== null)
-        ? Math.abs(accel - prevAccel) < pixelSize
-        : nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize;
+      /* convergence: Aitken only accepted if terms are actually shrinking */
+      const aitkenConverged = accel !== null && prevAccel !== null
+        && termsDecreasing && Math.abs(accel - prevAccel) < pixelSize;
+      const converged = aitkenConverged
+        || (nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize);
       if (converged || nTerms >= p.maxTerms) {
         animRef.current.active = false;
         const finalVal = accel !== null ? accel : sum;
@@ -560,7 +567,7 @@ export default function PowerSeriesExplorer() {
 
     const dots = [];
     for (let i = 0; i < n; i++) {
-      dots.push({ x: lo + Math.random() * (hi - lo), sum: 0, k: startK, prevSum: 0, done: false, hist: [null, null, null], accel: null });
+      dots.push({ x: lo + Math.random() * (hi - lo), sum: 0, k: startK, prevSum: 0, done: false, hist: [null, null, null], accel: null, prevTermAbs: null });
     }
     let stepCount = 0;
 
@@ -580,6 +587,10 @@ export default function PowerSeriesExplorer() {
         const term = computeTerm(p.formula, dot.k, dot.x, p.a, p.l, p.c);
         if (isNaN(term)) { dot.done = true; continue; }
 
+        const termAbs = Math.abs(term);
+        const termsDecreasing = dot.prevTermAbs === null || termAbs <= dot.prevTermAbs * 1.01;
+        dot.prevTermAbs = termAbs;
+
         dot.prevSum = dot.sum;
         dot.sum += term;
         if (!Number.isFinite(dot.sum)) { dot.done = true; continue; }
@@ -595,9 +606,10 @@ export default function PowerSeriesExplorer() {
         dot.accel = accel;
 
         const nTerms = dot.k - p.k0 + 1;
-        const converged = (accel !== null && prevAccel !== null)
-          ? Math.abs(accel - prevAccel) < pixelSize
-          : nTerms >= 3 && Math.abs(dot.sum - dot.prevSum) < pixelSize;
+        const aitkenConverged = accel !== null && prevAccel !== null
+          && termsDecreasing && Math.abs(accel - prevAccel) < pixelSize;
+        const converged = aitkenConverged
+          || (nTerms >= 3 && Math.abs(dot.sum - dot.prevSum) < pixelSize);
         if (converged || nTerms >= p.maxTerms) {
           dot.done = true;
           const finalVal = accel !== null ? accel : dot.sum;
