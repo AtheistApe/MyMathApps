@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import PRESETS from "./presets";
 
 /* ════════════════════════════════════════════════════════════════
    Pure helpers — no React, no state, no refs
@@ -182,12 +183,6 @@ function drawYellowDots(ctx, W, H, dots, x2p, y2p) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Presets — imported from separate file for independent editing
-   ════════════════════════════════════════════════════════════════ */
-
-import PRESETS from "./presets";
-
-/* ════════════════════════════════════════════════════════════════
    localStorage helpers
    ════════════════════════════════════════════════════════════════ */
 
@@ -247,7 +242,7 @@ function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 600, color: "#7b8faa", marginBottom: 3, letterSpacing: 0.3, textTransform: "uppercase" }}>{children}</div>;
 }
 
-function NumInput({ value, onChange, style: sx, step, ...rest }) {
+function NumInput({ value, onChange, style: sx, ...rest }) {
   const [text, setText] = useState(String(value));
   const ref = useRef(null);
   useEffect(() => {
@@ -639,21 +634,11 @@ export default function PowerSeriesExplorer() {
     startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
   }, [canvasSize, startAnimation]);
 
-  /* tap on touch devices — start animation at tap location */
-  const handleCanvasTap = useCallback((e) => {
-    /* only handle single-finger taps */
+  /* touch: pencil down shows coordinates, pencil up starts animation */
+  const handleTouchStart = useCallback((e) => {
     if (e.touches.length !== 1) return;
     e.preventDefault();
-    const { clientX, clientY } = e.touches[0];
-    const rect = canvasRef.current.getBoundingClientRect();
-    const px = clientX - rect.left;
-    const { xMin, xMax } = paramsRef.current;
-    startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
-    updateCursor(clientX, clientY);
-  }, [canvasSize, startAnimation, updateCursor]);
-
-  const handleMouseMove = useCallback((e) => {
-    updateCursor(e.clientX, e.clientY);
+    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
   }, [updateCursor]);
 
   const handleTouchMove = useCallback((e) => {
@@ -662,8 +647,22 @@ export default function PowerSeriesExplorer() {
     updateCursor(e.touches[0].clientX, e.touches[0].clientY);
   }, [updateCursor]);
 
+  const handleTouchEnd = useCallback((e) => {
+    /* use the last known cursor position to start animation */
+    if (e.changedTouches.length !== 1) return;
+    e.preventDefault();
+    const { clientX } = e.changedTouches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const { xMin, xMax } = paramsRef.current;
+    startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
+  }, [canvasSize, startAnimation]);
+
+  const handleMouseMove = useCallback((e) => {
+    updateCursor(e.clientX, e.clientY);
+  }, [updateCursor]);
+
   const handleMouseLeave = useCallback(() => setCursor(null), []);
-  const handleTouchEnd = useCallback(() => setCursor(null), []);
 
   /* ════════════════════════════════════════════════════════════
      Save / load / delete custom series
@@ -746,9 +745,9 @@ export default function PowerSeriesExplorer() {
   const displayFormulaTex = useMemo(() => {
     let exp = "";
     if (a === 1 && l === 0) exp = "k";
-    else if (a === 1 && l !== 0) exp = `k+${l}`;
-    else if (a !== 1 && l === 0) exp = `${a}k`;
-    else exp = `${a}k+${l}`;
+    else if (a === 1) exp = l > 0 ? `k+${l}` : `k-${-l}`;
+    else if (l === 0) exp = `${a}k`;
+    else exp = l > 0 ? `${a}k+${l}` : `${a}k-${-l}`;
     const xPart = c === 0 ? "x" : c > 0 ? `(x-${c})` : `(x+${-c})`;
     return `\\sum_{k=${k0}}^{\\infty} b(k)\\,${xPart}^{${exp}}`;
   }, [a, l, c, k0]);
@@ -915,7 +914,7 @@ export default function PowerSeriesExplorer() {
       <div ref={containerRef} style={{ flex: 1, position: "relative", cursor: "crosshair", touchAction: "none" }}>
         <canvas ref={canvasRef} onClick={handleCanvasClick}
           onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
-          onTouchStart={handleCanvasTap} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+          onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
           style={{ width: canvasSize.w, height: canvasSize.h, display: "block" }} />
         {cursor && (
           <div style={{ ...cursorStyle, left: cursor.px + 14, top: cursor.py - 28 }}>
