@@ -62,6 +62,13 @@ const computeTerm = (formula, k, x, a, l, c) => {
   return Number.isFinite(term) ? term : NaN;
 };
 
+/* ── Aitken Δ² acceleration ── */
+const aitkenAccel = (s0, s1, s2) => {
+  const denom = s2 - 2 * s1 + s0;
+  if (Math.abs(denom) < 1e-30) return null;
+  return s0 - ((s1 - s0) ** 2) / denom;
+};
+
 /* ── formatting ── */
 function fmtNum(v, digits = 2) {
   if (Math.abs(v) < 1e-12) return "0";
@@ -155,13 +162,13 @@ function drawRedDots(ctx, W, H, pts, x2p, y2p) {
   ctx.shadowBlur = 0;
 }
 
-function drawYellowDots(ctx, W, H, dots, x2p, y2p) {
+function drawGlowDots(ctx, W, H, dots, x2p, y2p, fillColor, ringColor) {
   if (!dots || dots.length === 0) return;
   const isBatch = dots.length > 1;
   const radius = isBatch ? 4 : 6;
-  ctx.shadowColor = "#ffd700";
+  ctx.shadowColor = fillColor;
   ctx.shadowBlur = isBatch ? 10 : 18;
-  ctx.fillStyle = "#ffd700";
+  ctx.fillStyle = fillColor;
   for (const dot of dots) {
     const px = Math.max(-20, Math.min(W + 20, x2p(dot.x)));
     const py = Math.max(-20, Math.min(H + 20, y2p(dot.y)));
@@ -171,7 +178,7 @@ function drawYellowDots(ctx, W, H, dots, x2p, y2p) {
   }
   if (!isBatch && dots.length === 1) {
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(255,215,0,0.4)";
+    ctx.strokeStyle = ringColor;
     ctx.lineWidth = 2;
     const px = Math.max(-20, Math.min(W + 20, x2p(dots[0].x)));
     const py = Math.max(-20, Math.min(H + 20, y2p(dots[0].y)));
@@ -293,6 +300,7 @@ export default function PowerSeriesExplorer() {
   const [cursor, setCursor] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [showPartialSum, setShowPartialSum] = useState(false);
+  const [useAitken, setUseAitken] = useState(false);
   const [partialSumInfo, setPartialSumInfo] = useState(null); /* { n, x, sum } */
   const [psPos, setPsPos] = useState({ x: 16, y: null }); /* overlay position; y=null means bottom-anchored */
   const [psDragging, setPsDragging] = useState(false);
@@ -413,7 +421,7 @@ export default function PowerSeriesExplorer() {
      Drawing
      ════════════════════════════════════════════════════════════ */
 
-  const draw = useCallback((yellowDots = null) => {
+  const draw = useCallback((yellowDots = null, cyanDots = null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -449,7 +457,11 @@ export default function PowerSeriesExplorer() {
     ctx.restore();
 
     ctx.save();
-    drawYellowDots(ctx, W, H, yellowDots, x2p, y2p);
+    drawGlowDots(ctx, W, H, yellowDots, x2p, y2p, "#ffd700", "rgba(255,215,0,0.4)");
+    ctx.restore();
+
+    ctx.save();
+    drawGlowDots(ctx, W, H, cyanDots, x2p, y2p, "#00e5ff", "rgba(0,229,255,0.4)");
     ctx.restore();
   }, [canvasSize, getCurveCache]);
 
@@ -462,6 +474,9 @@ export default function PowerSeriesExplorer() {
     animRef.current.active = true;
 
     let sum = 0, k = paramsRef.current.k0, prevSum = null;
+    /* ring buffer of last 3 partial sums for Aitken */
+    const hist = [null, null, null];
+    let accel = null, prevAccel = null;
     const { yMin: yMn, yMax: yMx } = paramsRef.current;
     const pixelSize = (yMx - yMn) / canvasSize.h;
 
@@ -487,18 +502,33 @@ export default function PowerSeriesExplorer() {
         return;
       }
 
-      const nTerms = k - p.k0 + 1;
-      setPartialSumInfo({ n: nTerms, x: xClick, sum });
-      setStatusText(`x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}`);
-      draw([{ x: xClick, y: sum }]);
+      /* shift history and compute Aitken estimate */
+      hist[0] = hist[1]; hist[1] = hist[2]; hist[2] = sum;
+      prevAccel = accel;
+      accel = (useAitken && hist[0] !== null) ? aitkenAccel(hist[0], hist[1], hist[2]) : null;
+      if (accel !== null && !Number.isFinite(accel)) accel = null;
 
-      const converged = nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize;
+      const nTerms = k - p.k0 + 1;
+      setPartialSumInfo({ n: nTerms, x: xClick, sum, accel });
+      setStatusText(
+        accel !== null
+          ? `x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}  |  Aitken = ${fmtNum(accel, 6)}`
+          : `x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}`
+      );
+      const cyanDots = accel !== null ? [{ x: xClick, y: accel }] : null;
+      draw([{ x: xClick, y: sum }], cyanDots);
+
+      /* convergence: compare consecutive Aitken estimates, or raw sums if Aitken off */
+      const converged = (accel !== null && prevAccel !== null)
+        ? Math.abs(accel - prevAccel) < pixelSize
+        : nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize;
       if (converged || nTerms >= p.maxTerms) {
         animRef.current.active = false;
-        addRedPoints({ x: xClick, y: sum, terms: nTerms });
-        setPartialSumInfo({ n: nTerms, x: xClick, sum, converged: true });
+        const finalVal = accel !== null ? accel : sum;
+        addRedPoints({ x: xClick, y: finalVal, terms: nTerms });
+        setPartialSumInfo({ n: nTerms, x: xClick, sum: finalVal, converged: true });
         setStatusText(converged
-          ? `Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(sum, 6)}  (${nTerms} terms)`
+          ? `Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(finalVal, 6)}  (${nTerms} terms${accel !== null ? ", Aitken" : ""})`
           : `Max terms (${p.maxTerms}) reached at x = ${fmtNum(xClick, 4)}  →  Sₖ ≈ ${fmtNum(sum, 6)}`);
         setTimeout(() => draw(), 20);
         return;
@@ -507,7 +537,7 @@ export default function PowerSeriesExplorer() {
       animRef.current.timer = setTimeout(step, p.speed);
     };
     step();
-  }, [canvasSize, draw, cancelAnimations, addRedPoints]);
+  }, [canvasSize, draw, cancelAnimations, addRedPoints, useAitken]);
 
   /* ════════════════════════════════════════════════════════════
      Batch animation (dance)
@@ -530,7 +560,7 @@ export default function PowerSeriesExplorer() {
 
     const dots = [];
     for (let i = 0; i < n; i++) {
-      dots.push({ x: lo + Math.random() * (hi - lo), sum: 0, k: startK, prevSum: 0, done: false });
+      dots.push({ x: lo + Math.random() * (hi - lo), sum: 0, k: startK, prevSum: 0, done: false, hist: [null, null, null], accel: null });
     }
     let stepCount = 0;
 
@@ -541,6 +571,7 @@ export default function PowerSeriesExplorer() {
       const p = paramsRef.current;
       const justFinished = [];
       const yellowDots = [];
+      const cyanDots = [];
       let activeCount = 0;
 
       for (const dot of dots) {
@@ -553,13 +584,27 @@ export default function PowerSeriesExplorer() {
         dot.sum += term;
         if (!Number.isFinite(dot.sum)) { dot.done = true; continue; }
 
+        /* Aitken */
+        dot.hist[0] = dot.hist[1]; dot.hist[1] = dot.hist[2]; dot.hist[2] = dot.sum;
+        const prevAccel = dot.accel;
+        let accel = null;
+        if (useAitken && dot.hist[0] !== null) {
+          accel = aitkenAccel(dot.hist[0], dot.hist[1], dot.hist[2]);
+          if (accel !== null && !Number.isFinite(accel)) accel = null;
+        }
+        dot.accel = accel;
+
         const nTerms = dot.k - p.k0 + 1;
-        const converged = nTerms >= 3 && Math.abs(dot.sum - dot.prevSum) < pixelSize;
+        const converged = (accel !== null && prevAccel !== null)
+          ? Math.abs(accel - prevAccel) < pixelSize
+          : nTerms >= 3 && Math.abs(dot.sum - dot.prevSum) < pixelSize;
         if (converged || nTerms >= p.maxTerms) {
           dot.done = true;
-          justFinished.push({ x: dot.x, y: dot.sum, terms: nTerms });
+          const finalVal = accel !== null ? accel : dot.sum;
+          justFinished.push({ x: dot.x, y: finalVal, terms: nTerms });
         } else {
           yellowDots.push({ x: dot.x, y: dot.sum });
+          if (accel !== null) cyanDots.push({ x: dot.x, y: accel });
           activeCount++;
         }
         dot.k++;
@@ -570,7 +615,7 @@ export default function PowerSeriesExplorer() {
       stepCount++;
       const doneCount = n - activeCount;
       setStatusText(`Dancing ${n} points  |  step ${stepCount}  |  ${doneCount}/${n} converged`);
-      draw(yellowDots);
+      draw(yellowDots, cyanDots.length > 0 ? cyanDots : null);
 
       if (activeCount === 0) {
         batchRef.current.active = false;
@@ -581,7 +626,7 @@ export default function PowerSeriesExplorer() {
       batchRef.current.timer = setTimeout(step, p.speed);
     };
     step();
-  }, [canvasSize, draw, batchCount, findConvergenceInterval, cancelAnimations, addRedPoints]);
+  }, [canvasSize, draw, batchCount, findConvergenceInterval, cancelAnimations, addRedPoints, useAitken]);
 
   /* ════════════════════════════════════════════════════════════
      Overlay drag helpers (shared by mouse + touch)
@@ -873,9 +918,13 @@ export default function PowerSeriesExplorer() {
             <input type="checkbox" checked={showGraph} onChange={(e) => setShowGraph(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
             Reveal full graph
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 8, fontSize: 13 }}>
             <input type="checkbox" checked={showPartialSum} onChange={(e) => setShowPartialSum(e.target.checked)} style={{ accentColor: "#5b8dd9" }} />
             Show partial sum overlay
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
+            <input type="checkbox" checked={useAitken} onChange={(e) => setUseAitken(e.target.checked)} style={{ accentColor: "#00e5ff" }} />
+            Aitken Δ² acceleration
           </label>
 
           {/* batch dance */}
@@ -950,11 +999,20 @@ export default function PowerSeriesExplorer() {
               document.addEventListener("touchend", onEnd);
             }}
           >
-            <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700", pointerEvents: "none" }}>
-              {partialSumInfo.converged
-                ? `f(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`
-                : `S_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`}
-            </Tex>
+            <div style={{ pointerEvents: "none" }}>
+              <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700" }}>
+                {partialSumInfo.converged
+                  ? `f(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`
+                  : `S_{${partialSumInfo.n}}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.sum, 6)}`}
+              </Tex>
+              {partialSumInfo.accel != null && !partialSumInfo.converged && (
+                <div style={{ marginTop: 4 }}>
+                  <Tex style={{ fontSize: 18, color: "#00e5ff" }}>
+                    {`\\hat{S}(${fmtNum(partialSumInfo.x, 4)}) = ${fmtNum(partialSumInfo.accel, 6)}`}
+                  </Tex>
+                </div>
+              )}
+            </div>
           </div>
         )}
         {redPoints.length > 0 && (
