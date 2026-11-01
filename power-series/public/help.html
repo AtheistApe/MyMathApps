@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Series Explorer — Guide</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --surface: #111827;
+    --border: #1e2d44;
+    --text: #c9d4e2;
+    --text-dim: #7b8faa;
+    --heading: #e8edf5;
+    --accent: #5b8dd9;
+    --yellow: #ffd700;
+    --cyan: #00e5ff;
+    --red: #ff4444;
+    --code-bg: #0d1220;
+    --max-w: 780px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.7; padding: 40px 24px 80px;
+  }
+  .wrap { max-width: var(--max-w); margin: 0 auto; }
+
+  h1 { font-size: 2rem; color: var(--heading); margin-bottom: 8px; }
+  h2 { font-size: 1.45rem; color: var(--accent); margin: 48px 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 1.15rem; color: var(--heading); margin: 32px 0 10px; }
+  p { margin-bottom: 14px; }
+
+  .subtitle { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 32px; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code {
+    font-family: 'Source Code Pro', 'Consolas', monospace;
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 6px; font-size: 0.9em;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+    font-family: 'Source Code Pro', 'Consolas', monospace;
+    font-size: 0.88rem; line-height: 1.5; margin: 12px 0 18px;
+  }
+
+  .key { display: inline-block; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 8px; font-size: 0.85em; color: var(--heading); }
+
+  .note {
+    background: rgba(91,141,217,0.08); border-left: 3px solid var(--accent);
+    padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0;
+  }
+  .note-warn {
+    background: rgba(255,215,0,0.06); border-left: 3px solid var(--yellow);
+    padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0;
+  }
+
+  ul { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 6px; }
+
+  .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
+  .dot-yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .dot-cyan { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+  .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 18px 24px; margin: 24px 0 36px; }
+  .toc-title { font-weight: 700; color: var(--heading); margin-bottom: 8px; }
+  .toc ul { margin: 0; list-style: none; padding-left: 0; }
+  .toc li { margin-bottom: 4px; padding-left: 12px; }
+  .toc li::before { content: "›"; color: var(--accent); margin-right: 6px; }
+
+  .fig {
+    margin: 24px auto; text-align: center;
+  }
+  .fig svg { max-width: 100%; height: auto; }
+  .fig-caption { font-size: 0.88rem; color: var(--text-dim); margin-top: 8px; font-style: italic; }
+
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; font-size: 0.92rem; }
+  th { background: var(--surface); color: var(--heading); font-weight: 600; }
+
+  .example-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px; margin: 20px 0;
+  }
+  .example-title { font-weight: 700; color: var(--yellow); margin-bottom: 8px; font-size: 0.95rem; }
+
+  @media (max-width: 600px) {
+    body { padding: 20px 14px 60px; }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Power Series Explorer</h1>
+<p class="subtitle">A guide to using the app and understanding Aitken's Δ² acceleration</p>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#series-form">The Series Form</a></li>
+    <li><a href="#clicking">Clicking &amp; Touch</a></li>
+    <li><a href="#dance">Batch Animation (Dance)</a></li>
+    <li><a href="#controls">Controls Reference</a></li>
+    <li><a href="#presets">Presets &amp; Saving</a></li>
+    <li><a href="#aitken">Aitken's Δ² Acceleration</a></li>
+    <li><a href="#aitken-idea">— The Core Idea</a></li>
+    <li><a href="#aitken-formula">— Deriving the Formula</a></li>
+    <li><a href="#aitken-example">— Worked Example</a></li>
+    <li><a href="#aitken-limits">— When It Doesn't Work</a></li>
+    <li><a href="#tips">Classroom Tips</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="overview">Overview</h2>
+
+<p>The Power Series Explorer visualizes how a power series defines a function. Instead of plotting a function all at once, it builds the graph <em>point by point</em>: you choose an \(x\)-value, and the app shows each partial sum converging to the function's value at that point. The result is an intuitive picture of convergence, interval of convergence, and the relationship between a series and the function it represents.</p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="series-form">The Series Form</h2>
+
+<p>The app evaluates series of the general form:</p>
+
+$$\sum_{k=k_0}^{\infty} b(k)\,(x - c)^{ak+l}$$
+
+<p>where:</p>
+<ul>
+  <li>\(b(k)\) is the coefficient formula — any expression in \(k\) using standard math functions</li>
+  <li>\(a\) is the exponent multiplier (controls the power spacing: 1 for every power, 2 for even/odd powers)</li>
+  <li>\(l\) is the exponent shift</li>
+  <li>\(c\) is the center of the series</li>
+  <li>\(k_0\) is the starting index</li>
+</ul>
+
+<div class="note">
+  <strong>Example:</strong> The Maclaurin series for \(\sin x\) has \(b(k) = \frac{(-1)^k}{(2k+1)!}\), \(a = 2\), \(l = 1\), \(c = 0\), and \(k_0 = 0\), giving
+  \(\displaystyle\sum_{k=0}^{\infty} \frac{(-1)^k}{(2k+1)!}\,x^{2k+1}\).
+</div>
+
+<p>The <code>b(k)</code> field accepts JavaScript expressions. Available functions:</p>
+
+<table>
+  <tr><th>Function</th><th>Description</th><th>Example</th></tr>
+  <tr><td><code>factorial(n)</code></td><td>\(n!\)</td><td><code>factorial(k)</code> → \(k!\)</td></tr>
+  <tr><td><code>C(n, r)</code></td><td>Binomial coefficient \(\binom{n}{r}\)</td><td><code>C(2*k, k)</code></td></tr>
+  <tr><td><code>pow(a, b)</code></td><td>\(a^b\)</td><td><code>pow(-1, k)</code> → \((-1)^k\)</td></tr>
+  <tr><td><code>sqrt(x)</code></td><td>\(\sqrt{x}\)</td><td><code>1/sqrt(k+1)</code></td></tr>
+  <tr><td><code>abs(x)</code></td><td>\(|x|\)</td><td></td></tr>
+  <tr><td><code>log(x)</code></td><td>\(\ln x\)</td><td></td></tr>
+  <tr><td><code>sin(x)</code>, <code>cos(x)</code></td><td>Trig functions</td><td></td></tr>
+  <tr><td><code>PI</code>, <code>E</code></td><td>\(\pi\) and \(e\)</td><td><code>pow(E, 2)</code> → \(e^2\)</td></tr>
+</table>
+
+<p>You can also use <code>**</code> for exponentiation: <code>(-1)**k</code> is equivalent to <code>pow(-1, k)</code>.</p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="clicking">Clicking &amp; Touch</h2>
+
+<p>The core interaction:</p>
+<ul>
+  <li><strong>Mouse (desktop):</strong> Click anywhere on the plot to start animating partial sums at that \(x\)-coordinate.</li>
+  <li><strong>Apple Pencil / touch (iPad):</strong> Touch down to see coordinates, drag to find the exact point you want, then lift to start the animation.</li>
+</ul>
+
+<p>During the animation:</p>
+<ul>
+  <li><span class="color-dot dot-yellow"></span> <strong>Yellow dot</strong> — the current partial sum \(S_n(x)\), jumping to each successive value as terms are added.</li>
+  <li><span class="color-dot dot-cyan"></span> <strong>Cyan dot</strong> — the Aitken-accelerated estimate (when enabled). See <a href="#aitken">below</a>.</li>
+  <li><span class="color-dot dot-red"></span> <strong>Red dot</strong> — placed when the partial sums converge (successive values within one pixel of each other). This is the app's estimate of \(f(x)\).</li>
+</ul>
+
+<p>Click additional points to build up the graph of \(f\) one red dot at a time.</p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="dance">Batch Animation (Dance)</h2>
+
+<p>Enter a number (1–200) and click <strong>Dance!</strong> to animate many points simultaneously. The app:</p>
+<ol>
+  <li>Detects the interval of convergence within the visible \(x\)-range</li>
+  <li>Picks that many random \(x\)-values inside the interval</li>
+  <li>Advances all their partial sums in parallel, one term per step</li>
+</ol>
+
+<p>Points near the center of convergence lock in (turn red) first, while points near the boundary keep dancing longer — a vivid illustration of how convergence speed varies across the interval.</p>
+
+<div class="note">
+  Try the <code>1/(1−x)</code> preset with 50 points and a 60 ms delay. Points near \(x = 0\) converge almost instantly; points near \(x = \pm 0.99\) keep bouncing for hundreds of steps.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="controls">Controls Reference</h2>
+
+<table>
+  <tr><th>Control</th><th>What it does</th></tr>
+  <tr><td><strong>Preset</strong> dropdown</td><td>Load a built-in series with appropriate axis ranges</td></tr>
+  <tr><td><strong>b(k)</strong></td><td>Coefficient formula in terms of \(k\)</td></tr>
+  <tr><td><strong>a, l, c, k₀</strong></td><td>Exponent multiplier, shift, center, and starting index</td></tr>
+  <tr><td><strong>x range</strong>, <strong>y range</strong></td><td>Visible axis bounds</td></tr>
+  <tr><td><strong>Animation delay</strong></td><td>Milliseconds between steps (20–800 ms)</td></tr>
+  <tr><td><strong>Max terms</strong></td><td>Upper limit on partial sums before stopping</td></tr>
+  <tr><td><strong>Reveal full graph</strong></td><td>Overlay the complete function curve in blue</td></tr>
+  <tr><td><strong>Show partial sum overlay</strong></td><td>Display a draggable LaTeX readout of \(S_n(x)\) on the plot</td></tr>
+  <tr><td><strong>Aitken Δ² acceleration</strong></td><td>Enable convergence acceleration (see <a href="#aitken">below</a>)</td></tr>
+  <tr><td><strong>Clear Points</strong></td><td>Remove all red dots</td></tr>
+  <tr><td><strong>Stop</strong></td><td>Halt the current animation</td></tr>
+  <tr><td><strong>◂ / ▸</strong> button</td><td>Collapse/expand the sidebar (useful when projecting)</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="presets">Presets &amp; Saving</h2>
+
+<p><strong>Built-in presets</strong> are defined in <code>presets.js</code>. Each one sets the formula, parameters, and axis ranges. To add your own permanently, edit that file and redeploy.</p>
+
+<p><strong>My Saved Series</strong> lets you save and reload custom series configurations from the browser. These are stored in your browser's local storage, so they persist between sessions but are specific to each browser/device.</p>
+
+<div class="note-warn">
+  Saved series are per-browser. A series saved on your laptop won't appear on your iPad. For series you need everywhere, add them to <code>presets.js</code>.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="aitken">Aitken's Δ² Acceleration</h2>
+
+<p>Some series converge painfully slowly. The geometric series \(\sum x^k\) at \(x = -0.998\), for example, needs thousands of terms before the partial sums settle down. Aitken's Δ² method is a technique for estimating where a sequence is heading, long before it gets there.</p>
+
+<!-- ─────── The idea ─────── -->
+<h3 id="aitken-idea">The Core Idea</h3>
+
+<p>Suppose you have a sequence of partial sums \(S_0, S_1, S_2, \ldots\) converging to some limit \(L\). At each step, the "error" is \(S_n - L\). For many sequences, consecutive errors have an approximately constant ratio:</p>
+
+$$\frac{S_{n+1} - L}{S_n - L} \approx r \quad \text{for some } |r| < 1$$
+
+<p>This is called <strong>linear convergence</strong> — each step removes a fixed fraction of the remaining error. The geometric series is the prototype: the errors literally form a geometric sequence with ratio \(r = x\).</p>
+
+<p>Aitken's insight: if we <em>know</em> the errors behave geometrically, we can solve for \(L\) using just three consecutive partial sums. We don't need to know \(r\) in advance — it cancels out.</p>
+
+<!-- ─────── Derivation ─────── -->
+<h3 id="aitken-formula">Deriving the Formula</h3>
+
+<p>Start with the assumption that the errors decay geometrically:</p>
+
+$$S_n - L \approx C \cdot r^n$$
+
+<p>for some constants \(C\) and \(r\). Writing this for three consecutive terms:</p>
+
+$$S_n - L = C r^n, \quad S_{n+1} - L = C r^{n+1}, \quad S_{n+2} - L = C r^{n+2}$$
+
+<p>Take the ratio of consecutive errors:</p>
+
+$$\frac{S_{n+1} - L}{S_n - L} = r = \frac{S_{n+2} - L}{S_{n+1} - L}$$
+
+<p>Cross-multiply:</p>
+
+$$(S_{n+1} - L)^2 = (S_n - L)(S_{n+2} - L)$$
+
+<p>Expand both sides and solve for \(L\). After some algebra, you get:</p>
+
+<div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 18px 20px; margin: 20px 0; text-align: center;">
+$$\boxed{\hat{S}_n = S_n - \frac{(\Delta S_n)^2}{\Delta^2 S_n}}$$
+<p style="margin-top: 10px; margin-bottom: 0;">where \(\Delta S_n = S_{n+1} - S_n\) and \(\Delta^2 S_n = S_{n+2} - 2S_{n+1} + S_n\)</p>
+</div>
+
+<p>This is equivalent to:</p>
+
+$$\hat{S}_n = S_n - \frac{(S_{n+1} - S_n)^2}{S_{n+2} - 2 S_{n+1} + S_n}$$
+
+<p>The quantity \(\hat{S}_n\) is the <strong>Aitken estimate</strong> — our best guess for \(L\) using only \(S_n, S_{n+1}, S_{n+2}\).</p>
+
+<div class="note">
+  The name "Δ²" comes from the denominator \(\Delta^2 S_n\), which is the <strong>second forward difference</strong> of the sequence. It measures how the rate of change itself is changing — analogous to the second derivative.
+</div>
+
+<!-- ─────── Illustration ─────── -->
+<div class="fig">
+<svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" style="max-width: 650px;">
+  <!-- background -->
+  <rect width="700" height="320" fill="#0b0f1a" rx="8"/>
+
+  <!-- grid -->
+  <line x1="80" y1="260" x2="660" y2="260" stroke="#1e2d44" stroke-width="1"/>
+  <line x1="80" y1="30" x2="80" y2="260" stroke="#1e2d44" stroke-width="1"/>
+
+  <!-- axis labels -->
+  <text x="370" y="290" fill="#7b8faa" font-size="13" text-anchor="middle" font-family="'Segoe UI',sans-serif">n (number of terms)</text>
+  <text x="30" y="150" fill="#7b8faa" font-size="13" text-anchor="middle" font-family="'Segoe UI',sans-serif" transform="rotate(-90,30,150)">value</text>
+
+  <!-- limit line -->
+  <line x1="80" y1="145" x2="660" y2="145" stroke="#5b8dd9" stroke-width="1.5" stroke-dasharray="8,6"/>
+  <text x="668" y="149" fill="#5b8dd9" font-size="12" font-family="'Segoe UI',sans-serif">L</text>
+
+  <!-- partial sums (alternating, slowly converging) -->
+  <!-- S0=30, S1=250, S2=70, S3=220, S4=90, S5=200, S6=105, S7=185, S8=115, S9=175 -->
+  <polyline points="120,50 180,240 240,80 300,210 360,100 420,190 480,115 540,175 600,125 640,163"
+    fill="none" stroke="rgba(255,215,0,0.3)" stroke-width="1.5"/>
+
+  <!-- yellow dots for partial sums -->
+  <circle cx="120" cy="50"  r="5" fill="#ffd700"/>
+  <circle cx="180" cy="240" r="5" fill="#ffd700"/>
+  <circle cx="240" cy="80"  r="5" fill="#ffd700"/>
+  <circle cx="300" cy="210" r="5" fill="#ffd700"/>
+  <circle cx="360" cy="100" r="5" fill="#ffd700"/>
+  <circle cx="420" cy="190" r="5" fill="#ffd700"/>
+  <circle cx="480" cy="115" r="5" fill="#ffd700"/>
+  <circle cx="540" cy="175" r="5" fill="#ffd700"/>
+  <circle cx="600" cy="125" r="5" fill="#ffd700"/>
+  <circle cx="640" cy="163" r="5" fill="#ffd700"/>
+
+  <!-- Aitken estimates (converge quickly) -->
+  <circle cx="240" cy="140" r="5" fill="#00e5ff"/>
+  <circle cx="300" cy="143" r="5" fill="#00e5ff"/>
+  <circle cx="360" cy="144" r="5" fill="#00e5ff"/>
+  <circle cx="420" cy="145" r="5" fill="#00e5ff"/>
+  <circle cx="480" cy="145" r="5" fill="#00e5ff"/>
+  <circle cx="540" cy="145" r="5" fill="#00e5ff"/>
+  <circle cx="600" cy="145" r="5" fill="#00e5ff"/>
+
+  <!-- labels -->
+  <text x="125" y="40" fill="#ffd700" font-size="11" font-family="'Segoe UI',sans-serif">S₀</text>
+  <text x="185" y="254" fill="#ffd700" font-size="11" font-family="'Segoe UI',sans-serif">S₁</text>
+  <text x="245" y="73" fill="#ffd700" font-size="11" font-family="'Segoe UI',sans-serif">S₂</text>
+
+  <text x="250" y="133" fill="#00e5ff" font-size="11" font-family="'Segoe UI',sans-serif">Ŝ₀</text>
+  <text x="310" y="156" fill="#00e5ff" font-size="11" font-family="'Segoe UI',sans-serif">Ŝ₁</text>
+
+  <!-- legend -->
+  <circle cx="110" cy="305" r="5" fill="#ffd700"/>
+  <text x="120" y="309" fill="#c9d4e2" font-size="11" font-family="'Segoe UI',sans-serif">Raw partial sums (oscillating slowly toward L)</text>
+
+  <circle cx="430" cy="305" r="5" fill="#00e5ff"/>
+  <text x="440" y="309" fill="#c9d4e2" font-size="11" font-family="'Segoe UI',sans-serif">Aitken estimates (reach L quickly)</text>
+</svg>
+<div class="fig-caption">An alternating series with slow convergence. Yellow dots (raw partial sums) oscillate widely, while cyan dots (Aitken estimates) lock onto the limit L almost immediately.</div>
+</div>
+
+<!-- ─────── Worked example ─────── -->
+<h3 id="aitken-example">Worked Example</h3>
+
+<div class="example-box">
+<div class="example-title">Example: Geometric series at x = −0.998</div>
+
+<p>Consider \(\displaystyle \frac{1}{1-x} = \sum_{k=0}^{\infty} x^k\) evaluated at \(x = -0.998\).</p>
+
+<p>The true value is \(\frac{1}{1-(-0.998)} = \frac{1}{1.998} \approx 0.50050\).</p>
+
+<p>The first few partial sums are:</p>
+
+$$S_0 = 1, \quad S_1 = 1 + (-0.998) = 0.002, \quad S_2 = 0.002 + 0.996004 = 0.998004$$
+
+<p>Already we see the problem: the partial sums are bouncing between near 0 and near 1, converging extremely slowly toward 0.50050.</p>
+
+<p>Now apply Aitken's formula with \(S_0 = 1\), \(S_1 = 0.002\), \(S_2 = 0.998004\):</p>
+
+$$\Delta S_0 = S_1 - S_0 = 0.002 - 1 = -0.998$$
+$$\Delta^2 S_0 = S_2 - 2S_1 + S_0 = 0.998004 - 0.004 + 1 = 1.994004$$
+
+$$\hat{S}_0 = 1 - \frac{(-0.998)^2}{1.994004} = 1 - \frac{0.996004}{1.994004} \approx 1 - 0.49950 = 0.50050$$
+
+<p>From just three partial sums that ranged from 0.002 to 1.0, Aitken's formula extracted the limit <strong>0.50050</strong> — accurate to five decimal places!</p>
+</div>
+
+<p><strong>Why does it work so well here?</strong> Because the geometric series has <em>exactly</em> geometrically decaying errors — the assumption behind Aitken's method is perfectly satisfied. For other series, the errors are only <em>approximately</em> geometric, so Aitken improves convergence but doesn't nail the limit in one shot. Still, the acceleration can be dramatic.</p>
+
+<!-- ─────── How the app uses it ─────── -->
+<h3>How the App Uses Aitken</h3>
+
+<p>When you check <strong>Aitken Δ² acceleration</strong>:</p>
+<ul>
+  <li>After the first three partial sums are computed, the app calculates \(\hat{S}_n\) at each step</li>
+  <li>The <span class="color-dot dot-yellow"></span> yellow dot still shows the raw partial sum — so you can see how slowly it's converging</li>
+  <li>A <span class="color-dot dot-cyan"></span> cyan dot shows the Aitken estimate — typically much closer to the limit</li>
+  <li>The convergence check uses consecutive Aitken estimates: when \(|\hat{S}_n - \hat{S}_{n-1}|\) is less than one pixel, the app places the <span class="color-dot dot-red"></span> red dot at the Aitken value</li>
+  <li>The partial sum overlay shows both values: \(S_n(x)\) in gold and \(\hat{S}(x)\) in cyan</li>
+</ul>
+
+<!-- ─────── Limitations ─────── -->
+<h3 id="aitken-limits">When It Doesn't Work</h3>
+
+<p>Aitken's method has an important limitation that the app enforces:</p>
+
+<div class="note-warn">
+  <strong>Aitken cannot make a divergent series converge.</strong> If the terms \(b(k)(x-c)^{ak+l}\) are not going to zero, the series diverges — period. No extrapolation trick changes that.
+</div>
+
+<p>Mathematically, Aitken's formula can produce a finite answer even for divergent series (for the geometric series at \(x = 2\), it gives \(-1\), which is the "analytic continuation" \(\frac{1}{1-2}\)). But this is not convergence of the series — it's a coincidental algebraic artifact.</p>
+
+<p>The app guards against this: it checks that the absolute values of the terms are actually decreasing before accepting an Aitken-based convergence. If \(|b(k)(x-c)^{ak+l}|\) is growing, the nth-term test for divergence fails, and the app reports "max terms reached" regardless of what Aitken says.</p>
+
+<p>Aitken also works best on <strong>linearly converging</strong> sequences. For sequences that converge faster (like Newton's method, which converges quadratically), the geometric-decay assumption is poor and Aitken may not improve things. For sequences that converge slower than geometric (logarithmic convergence), Aitken helps but doesn't perform miracles.</p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="tips">Classroom Tips</h2>
+
+<ul>
+  <li><strong>Start simple.</strong> Load the \(e^x\) preset and click a few points. It converges fast everywhere — good for showing the basic point-by-point idea without long waits.</li>
+  <li><strong>Show the interval of convergence.</strong> Switch to \(1/(1-x)\) and click at \(x = 0.5\) (converges quickly), then \(x = 0.9\) (slower), then \(x = 1.1\) (diverges). The contrast is immediate.</li>
+  <li><strong>Use Dance! for the big picture.</strong> 50 points at 60 ms makes the shape of the function emerge in a wave from center outward. Toggle "Reveal full graph" afterward to confirm the points landed on the curve.</li>
+  <li><strong>Demonstrate Aitken.</strong> Use \(1/(1-x)\) at \(x = -0.998\). First show it without Aitken — the yellow dot bounces between 0 and 1 for hundreds of steps. Then check Aitken and repeat — the cyan dot snaps to ~0.5 almost immediately while the yellow dot keeps bouncing.</li>
+  <li><strong>Collapse the sidebar</strong> (click ◂) before projecting to give the plot maximum screen space.</li>
+  <li><strong>Slow the animation</strong> to 400–600 ms when explaining what partial sums are. Speed it up to 20–60 ms for building the graph quickly.</li>
+</ul>
+
+</div>
+
+<script>
+  renderMathInElement(document.body, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "\\(", right: "\\)", display: false },
+    ],
+    throwOnError: false,
+  });
+</script>
+</body>
+</html>

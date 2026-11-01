@@ -956,6 +956,8 @@ export default function PowerSeriesExplorer() {
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={clearAll} style={btnStyle}>Clear Points</button>
             <button onClick={stopAll} style={dangerBtnStyle}>Stop</button>
+            <button onClick={() => window.open("help.html", "_blank")}
+              style={{ ...btnStyle, flex: "0 0 auto", padding: "7px 10px", background: "#0f1f2e", borderColor: "#1e3a5a", color: "#6baadd" }}>?</button>
           </div>
         </div>
 
