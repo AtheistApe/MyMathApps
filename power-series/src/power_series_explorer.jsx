@@ -608,20 +608,41 @@ export default function PowerSeriesExplorer() {
   }, [canvasSize, draw, batchCount, findConvergenceInterval, cancelAnimations, addRedPoints]);
 
   /* ════════════════════════════════════════════════════════════
-     Event handlers
+     Overlay drag helpers (shared by mouse + touch)
      ════════════════════════════════════════════════════════════ */
 
-  const handleCanvasClick = useCallback((e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const { xMin, xMax } = paramsRef.current;
-    startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
-  }, [canvasSize, startAnimation]);
+  const startOverlayDrag = useCallback((clientX, clientY, el) => {
+    const rect = el.getBoundingClientRect();
+    const parentRect = el.parentElement.getBoundingClientRect();
+    psDragRef.current = {
+      startX: clientX, startY: clientY,
+      origX: rect.left - parentRect.left,
+      origY: rect.top - parentRect.top,
+    };
+    setPsDragging(true);
+  }, []);
 
-  const handleMouseMove = useCallback((e) => {
+  const applyOverlayDrag = useCallback((clientX, clientY) => {
+    if (!psDragRef.current) return;
+    setPsPos({
+      x: psDragRef.current.origX + (clientX - psDragRef.current.startX),
+      y: psDragRef.current.origY + (clientY - psDragRef.current.startY),
+    });
+  }, []);
+
+  const endOverlayDrag = useCallback(() => {
+    psDragRef.current = null;
+    setPsDragging(false);
+  }, []);
+
+  /* ════════════════════════════════════════════════════════════
+     Event handlers (mouse + touch)
+     ════════════════════════════════════════════════════════════ */
+
+  const updateCursor = useCallback((clientX, clientY) => {
     const rect = canvasRef.current.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
     const { xMin, xMax, yMin, yMax } = paramsRef.current;
     setCursor({
       px, py,
@@ -630,7 +651,38 @@ export default function PowerSeriesExplorer() {
     });
   }, [canvasSize]);
 
+  const handleCanvasClick = useCallback((e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const { xMin, xMax } = paramsRef.current;
+    startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
+  }, [canvasSize, startAnimation]);
+
+  /* tap on touch devices — start animation at tap location */
+  const handleCanvasTap = useCallback((e) => {
+    /* only handle single-finger taps */
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    const { clientX, clientY } = e.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const { xMin, xMax } = paramsRef.current;
+    startAnimation(xMin + (px / canvasSize.w) * (xMax - xMin));
+    updateCursor(clientX, clientY);
+  }, [canvasSize, startAnimation, updateCursor]);
+
+  const handleMouseMove = useCallback((e) => {
+    updateCursor(e.clientX, e.clientY);
+  }, [updateCursor]);
+
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
+  }, [updateCursor]);
+
   const handleMouseLeave = useCallback(() => setCursor(null), []);
+  const handleTouchEnd = useCallback(() => setCursor(null), []);
 
   /* ════════════════════════════════════════════════════════════
      Save / load / delete custom series
@@ -641,7 +693,7 @@ export default function PowerSeriesExplorer() {
     if (!name) { setStatusText("Enter a name to save the series."); return; }
     const entry = { name, formula, a, l, c, k0, xr: [xMin, xMax], yr: [yMin, yMax] };
     const updated = savedSeries.filter(s => s.name !== name).concat(entry);
-    updated.sort((a, b) => a.name.localeCompare(b.name));
+    updated.sort((s1, s2) => s1.name.localeCompare(s2.name));
     setSavedSeries(updated);
     persistSaved(updated);
     setSaveName("");
@@ -879,9 +931,10 @@ export default function PowerSeriesExplorer() {
       }}>{sideOpen ? "◂" : "▸"}</button>
 
       {/* ── canvas area ── */}
-      <div ref={containerRef} style={{ flex: 1, position: "relative", cursor: "crosshair" }}>
+      <div ref={containerRef} style={{ flex: 1, position: "relative", cursor: "crosshair", touchAction: "none" }}>
         <canvas ref={canvasRef} onClick={handleCanvasClick}
           onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
+          onTouchStart={handleCanvasTap} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
           style={{ width: canvasSize.w, height: canvasSize.h, display: "block" }} />
         {cursor && (
           <div style={{ ...cursorStyle, left: cursor.px + 14, top: cursor.py - 28 }}>
@@ -895,37 +948,26 @@ export default function PowerSeriesExplorer() {
               left: psPos.x,
               ...(psPos.y === null ? { bottom: 16 } : { top: psPos.y }),
               background: "rgba(10,14,24,0.92)", border: "1px solid #2a3a54",
-              borderRadius: 8, padding: "10px 16px",
+              borderRadius: 8, padding: "10px 16px", touchAction: "none",
               cursor: psDragging ? "grabbing" : "grab", userSelect: "none",
             }}
             onMouseDown={(e) => {
               e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
-              psDragRef.current = {
-                startX: e.clientX, startY: e.clientY,
-                origX: rect.left - parentRect.left,
-                origY: rect.top - parentRect.top,
-              };
-              setPsDragging(true);
-
-              const onMove = (ev) => {
-                if (!psDragRef.current) return;
-                const dx = ev.clientX - psDragRef.current.startX;
-                const dy = ev.clientY - psDragRef.current.startY;
-                setPsPos({
-                  x: psDragRef.current.origX + dx,
-                  y: psDragRef.current.origY + dy,
-                });
-              };
-              const onUp = () => {
-                psDragRef.current = null;
-                setPsDragging(false);
-                document.removeEventListener("mousemove", onMove);
-                document.removeEventListener("mouseup", onUp);
-              };
+              startOverlayDrag(e.clientX, e.clientY, e.currentTarget);
+              const onMove = (ev) => applyOverlayDrag(ev.clientX, ev.clientY);
+              const onUp = () => { endOverlayDrag(); document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
               document.addEventListener("mousemove", onMove);
               document.addEventListener("mouseup", onUp);
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              if (e.touches.length !== 1) return;
+              startOverlayDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget);
+              const onMove = (ev) => { if (ev.touches.length === 1) applyOverlayDrag(ev.touches[0].clientX, ev.touches[0].clientY); };
+              const onEnd = () => { endOverlayDrag(); document.removeEventListener("touchmove", onMove); document.removeEventListener("touchend", onEnd); };
+              document.addEventListener("touchmove", onMove, { passive: false });
+              document.addEventListener("touchend", onEnd);
             }}
           >
             <Tex style={{ fontSize: 18, color: partialSumInfo.converged ? "#ff6666" : "#ffd700", pointerEvents: "none" }}>
