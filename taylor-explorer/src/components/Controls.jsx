@@ -179,7 +179,11 @@ export function TestPointControl() {
         id={inputId}
         className="num"
         type="text"
-        inputMode="decimal"
+        inputMode="text" /* the iPad's "decimal" keypad has no minus sign, and x₀ is often negative */
+        enterKeyHint="done"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}

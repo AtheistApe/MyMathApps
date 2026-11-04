@@ -11,7 +11,7 @@ import { COL } from '../theme.js';
 import { drawDot, drawLine, drawTestPoint } from '../plot/draw.js';
 import { coeffsOK, horner, partialSums } from '../math/taylor.js';
 import { analyzeConvergence } from '../math/convergence.js';
-import { fmtNum, MINUS, sub } from '../math/numfmt.js';
+import { fmtNum, MINUS, sub, sup } from '../math/numfmt.js';
 
 const TAB = 'convergence';
 
@@ -69,7 +69,8 @@ export default function Convergence() {
   const coeffs = useMemo(() => fn.coeffs(a, N), [fn, a, N]);
   const ok = coeffsOK(coeffs, N);
   const info = analyzeConvergence({ fn, a, x0, coeffs, N, ok });
-  const { R, isExact, exactR, rows: estimates, verdict } = info;
+  const { R, isExact, exactR, rows: estimates, step, verdict } = info;
+  const judgedEntire = !isExact && info.entire;
 
   // ---- main plot ------------------------------------------------------------------
   const drawMain = (ctx, H) => {
@@ -110,7 +111,7 @@ export default function Convergence() {
 
   // how the readout shows R, the interval, and |x0 − a| / R
   const known = ok && !Number.isNaN(R);
-  const approx = isExact || info.terminates || !known ? '' : '≈ ';
+  const approx = isExact || info.terminates || judgedEntire || !known ? '' : '≈ ';
   const radiusText = !known ? '—' : R === Infinity ? '∞' : `${approx}${fmtNum(R, 5)}`;
   const ratioText = !known ? '—' : R === Infinity ? '0' : R > 0 ? fmtNum(info.dist / R, 4) : '—';
 
@@ -168,19 +169,20 @@ export default function Convergence() {
             <div><dt>|x₀ {MINUS} a| / R</dt><dd>{ratioText}</dd></div>
           </dl>
           <p className={`verdict ${verdict.cls}`}>{verdict.text}</p>
-          {!isExact && !info.terminates && <p className="hint">R is estimated from the coefficients, and the endpoints can’t be classified automatically.</p>}
+          {!isExact && !info.terminates && !judgedEntire && <p className="hint">R is estimated from the coefficients, and the endpoints can’t be classified automatically.</p>}
+          {judgedEntire && <p className="hint">The estimates keep growing as k grows, which is what happens when the series converges for every x. This is judged from the coefficients, not proved.</p>}
         </section>
 
         <section className="panel table-panel" aria-label="Estimating the radius from the coefficients">
           <div className="panel-head"><h2>Reading R from the coefficients</h2></div>
           <p className="hint">
-            The ratio test says R = lim |c{sub('k')} / c{sub('k+1')}|. Because many series skip every other term, this table
-            uses |c{sub('k')} / c{sub('k+2')}|<sup>1/2</sup>, which has the same limit.
+            The ratio test says R = lim |c{sub('k')} / c{sub('k+1')}|. Many series skip terms (sin x has every other coefficient
+            zero), so this table compares coefficients {step} places apart, |c{sub('k')} / c{sub(`k+${step}`)}|{sup(`1/${step}`)}, which has the same limit.
           </p>
           {estimates.length ? (
             <div className="table-scroll short">
               <table className="coef-table">
-                <thead><tr><th>k</th><th>|c{sub('k')} / c{sub('k+2')}|<sup>1/2</sup></th></tr></thead>
+                <thead><tr><th>k</th><th>|c{sub('k')} / c{sub(`k+${step}`)}|{sup(`1/${step}`)}</th></tr></thead>
                 <tbody>
                   {estimates.map((r) => (
                     <tr key={r.k}><td className="k">{r.k}</td><td>{fmtNum(r.est, 6)}</td></tr>

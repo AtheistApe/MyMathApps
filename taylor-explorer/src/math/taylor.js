@@ -68,22 +68,35 @@ export function coeffsOK(c, n) {
   return true;
 }
 
+// Gaps g tried when comparing coefficients: |c_k / c_{k+g}|^{1/g}. Series that skip terms need g > 1:
+// sin x skips every other term (g = 2), 1/(1 − x³) has a term only every third place (g = 3), and so on.
+const RADIUS_GAPS = [2, 3, 4, 5, 6, 8, 10, 12];
+
 /**
- * Radius of convergence estimated from the coefficients: |c_k / c_{k+2}|^{1/2}.
- * (A two-step ratio, so series with every other coefficient zero — sin, cos, arctan — still work.)
- * Returns { R, rows: [{k, est}] (the last `count` valid estimates), terminates }.
- * A series whose last four coefficients are exactly 0 is a polynomial: R = ∞.
+ * Radius of convergence estimated from the coefficients (the ratio / root test idea):
+ * R ≈ |c_k / c_{k+g}|^{1/g} for large k, using the smallest gap g for which the coefficients can be compared.
+ *
+ * Returns { R, rows: [{k, est}] (the last few estimates), step: g, terminates, entire }.
+ *  - terminates: the last four coefficients are exactly 0, so this is a polynomial and R = ∞.
+ *  - entire: the estimates keep growing with k (they do for e^x, sin x, e^(x²), …; for a finite radius they
+ *    settle down), so the series appears to converge everywhere and R = ∞. This one is a judgement from
+ *    the coefficients, not a proof.
  */
 export function estimateRadius(c, N, count = 6) {
   if (N >= 4 && c[N] === 0 && c[N - 1] === 0 && c[N - 2] === 0 && c[N - 3] === 0) {
-    return { R: Infinity, rows: [], terminates: true };
+    return { R: Infinity, rows: [], step: 2, terminates: true, entire: false };
   }
-  const rows = [];
-  for (let k = N - 2; k >= 0 && rows.length < count; k--) {
-    const a = Math.abs(c[k]);
-    const b = Math.abs(c[k + 2]);
-    if (a > 0 && b > 0 && Number.isFinite(a) && Number.isFinite(b)) rows.push({ k, est: Math.sqrt(a / b) });
+  for (const g of RADIUS_GAPS) {
+    const rows = [];
+    for (let k = N - g; k >= 0 && rows.length < count; k--) {
+      const a = Math.abs(c[k]);
+      const b = Math.abs(c[k + g]);
+      if (a > 0 && b > 0 && Number.isFinite(a) && Number.isFinite(b)) rows.push({ k, est: Math.pow(a / b, 1 / g) });
+    }
+    if (rows.length < Math.min(3, count)) continue; // too few comparable pairs at this gap: try a larger one
+    rows.reverse();
+    const entire = rows[rows.length - 1].est > 1.1 * rows[0].est;
+    return { R: entire ? Infinity : rows[rows.length - 1].est, rows, step: g, terminates: false, entire };
   }
-  rows.reverse();
-  return { R: rows.length ? rows[rows.length - 1].est : NaN, rows, terminates: false };
+  return { R: NaN, rows: [], step: 2, terminates: false, entire: false };
 }

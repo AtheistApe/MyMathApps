@@ -10,7 +10,7 @@ import { useFn, useStore, useTabView } from '../store.js';
 import { COL } from '../theme.js';
 import { clampPx, drawDot, drawLine, drawTestPoint } from '../plot/draw.js';
 import { coeffsOK, errorInfo, horner, partialSumsGrid } from '../math/taylor.js';
-import { describeCoef, fmtNum, sub, MINUS } from '../math/numfmt.js';
+import { describeAll, fmtNum, sub, MINUS } from '../math/numfmt.js';
 
 const TAB = 'explore';
 const MAX_EXPLORE_DEGREE = 30;
@@ -33,8 +33,10 @@ export default function Explore() {
   const coeffs = useMemo(() => fn.coeffs(a, fn.maxDegree), [fn, a]);
   const ok = coeffsOK(coeffs, n);
   const T = useCallback((x) => horner(coeffs, n, x - a), [coeffs, n, a]);
-  // Are exact fractions possible for these coefficients at all? (Not when, say, e^x is expanded about a = 0.5.)
-  const fractionsPossible = ok && coeffs.slice(0, n + 1).some((c, k) => c !== 0 && describeCoef(c, k).kind === 'frac');
+  // How each coefficient is shown (fraction / decimal / zero), computed once and shared by the table and the T(x) line
+  const descs = useMemo(() => (ok ? describeAll(coeffs, n, decimals) : []), [ok, coeffs, n, decimals]);
+  // Are exact fractions possible at all? (Not when, say, e^x is expanded about a = 0.5.) Only used when decimals are off.
+  const fractionsPossible = descs.some((d) => d.kind === 'frac');
   // |f − Tn| at x, with the round-off floor (see errorInfo)
   const errAt = useCallback((x) => errorInfo(fn.f(x), coeffs, n, x - a), [fn, coeffs, n, a]);
 
@@ -184,7 +186,7 @@ export default function Explore() {
             </p>
           )}
           {ok ? (
-            <CoefficientTable coeffs={coeffs} a={a} n={n} x0={x0} showEval={showEval} decimal={decimals} />
+            <CoefficientTable coeffs={coeffs} descs={descs} a={a} n={n} x0={x0} showEval={showEval} decimal={decimals} />
           ) : (
             <p className="msg error">
               f or one of its derivatives is undefined at a = {fmtNum(a, 4)}, so there is no Taylor polynomial here. Move the center.

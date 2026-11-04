@@ -5,6 +5,7 @@
 
 import { autoView } from './functions.js';
 import { EXTRA_TERMS, cleanNoise, evalSeries, validate } from './tps.js';
+import { memoize1 } from './util.js';
 
 let parserPromise = null;
 const loadParser = () =>
@@ -27,10 +28,10 @@ export async function buildCustom(expr) {
 
   // Fast path first; only if that is undefined, retry with spare terms, which fills in the value of a
   // removable singularity (sin(x)/x at x = 0 is 1).
-  const f = (x) => {
+  const f = memoize1((x) => {
     const v = evalSeries(node, x, 0)[0];
     return Number.isNaN(v) ? evalSeries(node, x, 0, EXTRA_TERMS)[0] : v;
-  };
+  });
   if (![0.5, 1.5, -0.5, 2.5, 0.1].some((x) => Number.isFinite(f(x)))) {
     throw new Error('That function has no real values near the origin. Check the formula.');
   }

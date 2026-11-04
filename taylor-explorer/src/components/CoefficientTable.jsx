@@ -1,13 +1,14 @@
 // The live coefficient table: for each k shows f^(k)(a), k!, c_k = f^(k)(a)/k!, and the term.
 // Optionally adds the term value and running total at the test point x0.
+// `descs` is describeAll(coeffs, n, decimal), computed by the parent so it is not repeated here.
 
 import { useEffect, useRef } from 'react';
-import { derivText, describeCoef, factorialBig, fmtNum, factorial, polynomialText, powerText, sub, sup, termText } from '../math/numfmt.js';
+import { derivText, factorialBig, fmtNum, factorial, polynomialText, powerText, sub, sup, termText } from '../math/numfmt.js';
 import { partialSums } from '../math/taylor.js';
 
 const factText = (k) => (k <= 20 ? String(factorialBig(k)) : fmtNum(factorial(k), 4));
 
-export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal = false }) {
+export default function CoefficientTable({ coeffs, descs, a, n, x0, showEval, decimal = false }) {
   const box = useRef(null);
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
@@ -20,7 +21,7 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal =
   const rows = [];
   for (let k = 0; k <= n; k++) {
     const c = coeffs[k];
-    const co = describeCoef(c, k, decimal);
+    const co = descs[k];
     const d = c * factorial(k);
     rows.push(
       <tr key={k} className={k === n ? 'newest' : undefined}>
@@ -38,19 +39,19 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal =
   return (
     <div className="coef-block">
       <p className="poly-line">
-        <span className="lhs">T{sub(n)}(x) =</span> {polynomialText(coeffs, a, n, decimal)}
+        <span className="lhs">T{sub(n)}(x) =</span> {polynomialText(coeffs, a, n, decimal, descs)}
       </p>
       <div className="table-scroll" ref={box}>
         <table className="coef-table">
           <thead>
             <tr>
-              <th>k</th>
-              <th>f{sup('(k)')}({aText})</th>
-              <th>k!</th>
-              <th>c{sub('k')} = f{sup('(k)')}({aText}) / k!</th>
-              <th>c{sub('k')}{powerText(a, 1)}{sup('k')}</th>
-              {showEval && <th>term at x{sub(0)}</th>}
-              {showEval && <th>T{sub('k')}(x{sub(0)})</th>}
+              <th scope="col">k</th>
+              <th scope="col">f{sup('(k)')}({aText})</th>
+              <th scope="col">k!</th>
+              <th scope="col">c{sub('k')} = f{sup('(k)')}({aText}) / k!</th>
+              <th scope="col">c{sub('k')}{powerText(a, 1)}{sup('k')}</th>
+              {showEval && <th scope="col">term at x{sub(0)}</th>}
+              {showEval && <th scope="col">T{sub('k')}(x{sub(0)})</th>}
             </tr>
           </thead>
           <tbody>{rows}</tbody>

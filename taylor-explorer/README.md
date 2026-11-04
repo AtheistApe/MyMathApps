@@ -32,6 +32,10 @@ Removable gaps such as `sin(x)/x`, `(e^x − 1)/x` or `x/(e^x − 1)` at the cen
 and bottom of a quotient both vanish, the common factor (x − a) is cancelled (see `div` in `tps.js`),
 and f itself is defined there by its limit. Genuine poles (`1/x`, `sin(x)/x^2`) are still reported as undefined.
 
+For a typed function the radius of convergence is estimated from the coefficients, comparing terms `g` places apart
+(g = 2 for sin x, 3 for 1/(1 − x³), 4 for 1/(1 + x⁴) or sin(x²), …). If the estimates keep growing with k, as they do for
+eˣ or sin x, the series is reported as converging everywhere (R = ∞); that is a judgement from the coefficients, not a proof.
+
 Keyboard: click the plot (or Tab to it), then arrows pan, + / − zoom, 0 resets.
 
 Touch / mouse: drag to pan; scroll-wheel or pinch to zoom; double-click (or *Reset view*) to reset.

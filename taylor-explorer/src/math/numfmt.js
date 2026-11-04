@@ -150,13 +150,17 @@ export function termText(co, a, k) {
   return `${sign}${co.mag === '1' ? '' : co.mag}${v}`;
 }
 
-/** "T₃(x) = x − x³/6 + …" — shows all nonzero terms for small n, otherwise a abbreviated form. */
-export function polynomialText(coeffs, a, n, decimal = false) {
+/** describeCoef for c_0 … c_n. Compute this once per render and share it (the table and the polynomial line both need it). */
+export function describeAll(coeffs, n, decimal = false) {
+  return Array.from({ length: n + 1 }, (_, k) => describeCoef(coeffs[k], k, decimal));
+}
+
+/** "T₃(x) = x − x³/6 + …": all nonzero terms for small n, otherwise an abbreviated form. */
+export function polynomialText(coeffs, a, n, decimal = false, descs = describeAll(coeffs, n, decimal)) {
   const terms = [];
-  for (let k = 0; k <= n; k++) {
-    const co = describeCoef(coeffs[k], k, decimal);
+  descs.forEach((co, k) => {
     if (co.kind !== 'zero') terms.push({ k, co });
-  }
+  });
   if (terms.length === 0) return '0';
   const show = terms.length <= 7 ? terms : [...terms.slice(0, 5), null, terms[terms.length - 1]];
   let out = '';

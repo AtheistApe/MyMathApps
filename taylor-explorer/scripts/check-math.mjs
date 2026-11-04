@@ -209,5 +209,52 @@ for (const a of [0, 0.5, -0.4]) {
   /^[0-9.]+$/.test(deriv(irr, 3)) || fail(`e^0.5 derivative should be a decimal, got ${deriv(irr, 3)}`);
 }
 
+
+// ---- review 2: radius estimates for typed functions (series with gaps, and series that converge everywhere) ----
+{
+  const { analyzeConvergence } = await import('../src/math/convergence.js');
+  const radiusOf = async (expr) => {
+    const fn = await buildCustom(expr);
+    const coeffs = fn.coeffs(0, 40);
+    return analyzeConvergence({ fn, a: 0, x0: 0.5, coeffs, N: 40, ok: coeffs.every(Number.isFinite) });
+  };
+  for (const e of ['exp(x)', 'sin(x)', 'exp(x^2)', 'sin(x^2)', 'exp(-x^2)', 'cos(x)*exp(x)', 'cosh(x)*sin(x)', 'exp(x^4)']) {
+    const info = await radiusOf(e);
+    (info.R === Infinity && info.entire) || fail(`${e}: should be judged R = ∞, got ${info.R}`);
+    /for every x/.test(info.verdict.text) || fail(`${e}: verdict text`);
+    info.interval === '(−∞, ∞)' || fail(`${e}: interval ${info.interval}`);
+  }
+  for (const [e, R, tol] of [['1/(1-x^3)', 1, 1e-6], ['1/(1+x^4)', 1, 1e-6], ['atan(x^3)', 1, 0.05], ['x^2/(1-x^2)', 1, 1e-6],
+    ['1/(2-x)', 2, 1e-6], ['log(1+x)', 1, 0.05], ['1/(1-x)^5', 1, 0.1], ['1/(4-x^2)', 2, 1e-6], ['1/(1-x/10)', 10, 1e-6]]) {
+    const info = await radiusOf(e);
+    (Math.abs(info.R - R) <= tol * R && !info.entire) || fail(`${e}: radius should be about ${R}, got ${info.R}`);
+  }
+  const gap3 = await radiusOf('1/(1-x^3)');
+  gap3.step === 3 || fail(`1/(1-x^3) should compare coefficients 3 places apart, got ${gap3.step}`);
+  (await radiusOf('sin(x^2)')).step === 4 || fail('sin(x^2) should use gap 4');
+  (await radiusOf('x^3 + 2x')).terminates || fail('polynomial should terminate');
+}
+
+// ---- review 2: memoize1, and typed functions stay correct when cached ----
+{
+  const { memoize1 } = await import('../src/math/util.js');
+  let calls = 0;
+  const g = memoize1((x) => { calls++; return x * 2; });
+  g(1); g(1); g(2); calls === 2 || fail('memoize1 should evaluate each x once');
+  const nan = memoize1(() => { calls++; return NaN; });
+  const before = calls; nan(5); nan(5); calls - before === 1 || fail('memoize1 should cache NaN too');
+  const f = (await buildCustom('sin(x)/x')).f;
+  f(0) === 1 && f(0) === 1 && f(2) === Math.sin(2) / 2 || fail('cached sinc');
+}
+
+// ---- review 2: describeAll agrees with describeCoef ----
+{
+  const { describeAll } = await import('../src/math/numfmt.js');
+  const cs = PRESETS.find((q) => q.id === 'tan').coeffs(0, 12);
+  const all = describeAll(cs, 12, false);
+  cs.forEach((c, k) => all[k].text === describeCoef(c, k, false).text || fail(`describeAll mismatch at k=${k}`));
+  polynomialText(cs, 0, 12, false, all) === polynomialText(cs, 0, 12, false) || fail('polynomialText with shared descs');
+}
+
 console.log(bad ? `\n${bad} problem(s)` : 'All math checks passed.');
 process.exit(bad ? 1 : 0);

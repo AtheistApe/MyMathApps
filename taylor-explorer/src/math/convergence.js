@@ -5,9 +5,10 @@ import { estimateRadius } from './taylor.js';
 import { intervalText, MINUS } from './numfmt.js';
 
 /** Plain-language statement about convergence at x0. Returns { cls: 'in'|'out'|'edge'|'none', text }. */
-export function verdictAt({ ok, R, dist, x0, a, ends, terminates }) {
+export function verdictAt({ ok, R, dist, x0, a, ends, terminates, entire }) {
   if (!ok || Number.isNaN(R)) return { cls: 'none', text: 'No Taylor series at this center.' };
   if (terminates) return { cls: 'in', text: 'This series has finitely many terms (a polynomial), so it converges for every x.' };
+  if (entire) return { cls: 'in', text: 'The estimates keep growing with k, so this series appears to converge for every x (R = ∞).' };
   if (R === Infinity) return { cls: 'in', text: 'The series converges for every x (R = ∞).' };
   const eps = 1e-9 * Math.max(1, R);
   if (dist < R - eps) return { cls: 'in', text: `|x₀ ${MINUS} a| < R: the series converges absolutely at x₀.` };
@@ -24,7 +25,7 @@ export function verdictAt({ ok, R, dist, x0, a, ends, terminates }) {
  */
 export function analyzeConvergence({ fn, a, x0, coeffs, N, ok }) {
   const exactR = fn.radius(a); // null when unknown (custom function)
-  const est = ok ? estimateRadius(coeffs, N) : { R: NaN, rows: [], terminates: false };
+  const est = ok ? estimateRadius(coeffs, N) : { R: NaN, rows: [], step: 2, terminates: false, entire: false };
   const isExact = exactR !== null;
   const R = isExact ? exactR : est.R;
   const ends = fn.endpoints(a); // { left, right } | null
@@ -37,12 +38,14 @@ export function analyzeConvergence({ fn, a, x0, coeffs, N, ok }) {
     isExact,
     exactR,
     rows: est.rows,
+    step: est.step,
     terminates: est.terminates,
+    entire: est.entire,
     ends,
     lo,
     hi,
     dist,
-    verdict: verdictAt({ ok, R, dist, x0, a, ends, terminates: est.terminates }),
+    verdict: verdictAt({ ok, R, dist, x0, a, ends, terminates: est.terminates, entire: est.entire && !isExact }),
     interval: hasInterval ? intervalText(lo, hi, ends?.left === 'converges', ends?.right === 'converges') : '—',
   };
 }
