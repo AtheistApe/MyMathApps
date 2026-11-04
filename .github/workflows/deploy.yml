@@ -134,6 +134,17 @@ jobs:
           mkdir -p _site/volume-of-revolution
           cp -r volume-of-revolution/dist/* _site/volume-of-revolution/
 
+      - name: Build taylor-explorer
+        working-directory: taylor-explorer
+        run: |
+          npm install
+          npm run build
+
+      - name: Copy taylor-explorer into combined site
+        run: |
+          mkdir -p _site/taylor-explorer
+          cp -r taylor-explorer/dist/* _site/taylor-explorer/
+
       - name: Copy static app electrostatic-potential-explorer into combined site
         run: |
           mkdir -p _site/electrostatic-potential-explorer
