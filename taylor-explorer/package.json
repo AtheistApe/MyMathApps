@@ -1,0 +1,23 @@
+{
+  "name": "taylor-explorer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive Taylor polynomial & Taylor series explorer for Math 252",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check-math.mjs"
+  },
+  "dependencies": {
+    "mathjs": "^15.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.5"
+  }
+}
