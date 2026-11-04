@@ -29,8 +29,11 @@ sinh, cosh, tanh, abs, ^, implicit multiplication). Its coefficients come from s
 (`src/math/tps.js`), so no symbolic differentiation is involved and degree 40 is instant. For a
 custom function the radius is *estimated* and endpoints are marked "?".
 
-Touch / mouse: drag to pan, pinch or scroll-wheel to zoom, double-click (or the ⟲ button) to reset,
-and the +/− buttons on the plot. Sliders and buttons are at least 44 px for fingers.
+Touch / mouse: drag to pan; scroll-wheel or pinch to zoom; double-click (or *Reset view*) to reset.
+To change the aspect ratio, drag along an axis (or scroll over it), use Shift+wheel (x only) or Alt+wheel
+(y only), or use the Horizontal / Vertical buttons under each plot. On a touchscreen, pinch with two fingers
+side by side to stretch x, one above the other to stretch y, or diagonally for both.
+Sliders and buttons are at least 44 px for fingers.
 
 ## Project layout
 

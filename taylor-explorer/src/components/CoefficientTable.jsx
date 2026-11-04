@@ -7,7 +7,7 @@ import { partialSums } from '../math/taylor.js';
 
 const factText = (k) => (k <= 20 ? String(factorialBig(k)) : fmtNum(factorial(k), 4));
 
-export default function CoefficientTable({ coeffs, a, n, x0, showEval }) {
+export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal = false }) {
   const box = useRef(null);
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
@@ -20,7 +20,7 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval }) {
   const rows = [];
   for (let k = 0; k <= n; k++) {
     const c = coeffs[k];
-    const co = describeCoef(c, k);
+    const co = describeCoef(c, k, decimal);
     const d = c * factorial(k);
     rows.push(
       <tr key={k} className={k === n ? 'newest' : undefined}>
@@ -38,7 +38,7 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval }) {
   return (
     <div className="coef-block">
       <p className="poly-line" aria-live="polite">
-        <span className="lhs">T{sub(n)}(x) =</span> {polynomialText(coeffs, a, n)}
+        <span className="lhs">T{sub(n)}(x) =</span> {polynomialText(coeffs, a, n, decimal)}
       </p>
       <div className="table-scroll" ref={box}>
         <table className="coef-table">

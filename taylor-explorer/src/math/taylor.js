@@ -7,6 +7,13 @@ export function horner(c, n, h) {
   return s;
 }
 
+/** Horner evaluation of sum |c_k| t^k (t >= 0): the size of the terms, used to estimate round-off. */
+export function hornerAbs(c, n, t) {
+  let s = 0;
+  for (let k = n; k >= 0; k--) s = s * t + Math.abs(c[k]);
+  return s;
+}
+
 /** All partial sums S_0..S_n at offset h = x − a. */
 export function partialSums(c, n, h) {
   const out = new Array(n + 1);

@@ -59,8 +59,12 @@ export function fmtDeriv(d) {
  * Returns { kind: 'zero'|'frac'|'dec', neg, num, den, text, mag }.
  * 'frac' means the derivative is an integer, so c_k is an exact fraction.
  */
-export function describeCoef(c, k) {
+export function describeCoef(c, k, decimal = false) {
   if (c === 0) return { kind: 'zero', neg: false, text: '0', mag: '0' };
+  if (decimal) {
+    const mag = fmtNum(Math.abs(c));
+    return { kind: 'dec', neg: c < 0, mag, text: (c < 0 ? MINUS : '') + mag };
+  }
   const d = c * factorial(k);
   const di = asInteger(d);
   if (di !== null && di !== 0n) {
@@ -118,14 +122,14 @@ export function termText(co, a, k) {
     const num = co.num === 1n ? '' : String(co.num);
     return co.den === 1n ? `${sign}${num}${v}` : `${sign}${num}${v}/${co.den}`;
   }
-  return `${sign}${co.mag}${v}`;
+  return `${sign}${co.mag === '1' ? '' : co.mag}${v}`;
 }
 
 /** "T₃(x) = x − x³/6 + …" — shows all nonzero terms for small n, otherwise a abbreviated form. */
-export function polynomialText(coeffs, a, n) {
+export function polynomialText(coeffs, a, n, decimal = false) {
   const terms = [];
   for (let k = 0; k <= n; k++) {
-    const co = describeCoef(coeffs[k], k);
+    const co = describeCoef(coeffs[k], k, decimal);
     if (co.kind !== 'zero') terms.push({ k, co });
   }
   if (terms.length === 0) return '0';

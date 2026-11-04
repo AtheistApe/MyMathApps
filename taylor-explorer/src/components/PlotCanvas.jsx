@@ -1,6 +1,9 @@
 // A small, dependency-free interactive plot.
 //  - mouse: drag to pan, wheel to zoom, double-click to reset
-//  - touch: one finger pans, two fingers pinch-zoom, double-tap resets
+//      drag along an axis (or scroll over it) to stretch just that axis; Shift+wheel = x only, Alt+wheel = y only
+//  - touch: one finger pans; two fingers pinch-zoom: side by side = stretch x, one above the other = stretch y,
+//      diagonal = both; dragging along an axis also works
+//  - toolbar buttons: zoom both axes, horizontal only, vertical only, reset
 //  - draggable "handles" (e.g. the center a and test point x0) that slide horizontally
 //  - on-screen + / − / reset buttons for people who prefer them
 // The component is controlled: the parent owns `view` and passes `onView`.
@@ -10,7 +13,7 @@ import { COL } from '../theme.js';
 import { niceTicks, tickLabel } from '../math/ticks.js';
 import { sup } from '../math/numfmt.js';
 
-const DEFAULT_MARGINS = { l: 56, r: 14, t: 12, b: 30 };
+const DEFAULT_MARGINS = { l: 56, r: 14, t: 12, b: 34 };
 const HIT_RADIUS = 26; // generous for fingers
 const MIN_SPAN = 1e-4;
 const MAX_SPAN = 1e5;
@@ -32,22 +35,31 @@ function geometry(view, w, h, m) {
   };
 }
 
-function zoomAbout(view, g, px, py, factor, lockY) {
+function zoomAxes(view, g, px, py, fx, fy, lockY) {
   const x = g.invX(px);
   const y = g.invY(py);
-  const nv = {
-    xmin: x - (x - view.xmin) * factor,
-    xmax: x + (view.xmax - x) * factor,
-    ymin: lockY ? view.ymin : y - (y - view.ymin) * factor,
-    ymax: lockY ? view.ymax : y + (view.ymax - y) * factor,
-  };
-  const sp = nv.xmax - nv.xmin;
-  if (sp < MIN_SPAN || sp > MAX_SPAN) return view;
-  if (!lockY) {
-    const sy = nv.ymax - nv.ymin;
-    if (sy < MIN_SPAN || sy > MAX_SPAN) return view;
+  let { xmin, xmax, ymin, ymax } = view;
+  if (fx !== 1) {
+    const a = x - (x - xmin) * fx;
+    const b = x + (xmax - x) * fx;
+    if (b - a > MIN_SPAN && b - a < MAX_SPAN) [xmin, xmax] = [a, b];
   }
-  return nv;
+  if (fy !== 1 && !lockY) {
+    const a = y - (y - ymin) * fy;
+    const b = y + (ymax - y) * fy;
+    if (b - a > MIN_SPAN && b - a < MAX_SPAN) [ymin, ymax] = [a, b];
+  }
+  return { xmin, xmax, ymin, ymax };
+}
+
+/** Which part of the canvas a point is in: the plot, the x-axis strip, the y-axis strip, or elsewhere. */
+function regionOf(p, g) {
+  const inX = p.x >= g.left && p.x <= g.left + g.plotW;
+  const inY = p.y >= g.top && p.y <= g.top + g.plotH;
+  if (inX && inY) return 'plot';
+  if (inX && p.y > g.top + g.plotH) return 'xaxis';
+  if (inY && p.x < g.left) return 'yaxis';
+  return 'corner';
 }
 
 function handlePixel(hd, g, h, m) {
@@ -77,7 +89,7 @@ export default function PlotCanvas({
   const canvasRef = useRef(null);
   const [w, setW] = useState(640);
   const [cursor, setCursor] = useState('grab');
-  const ptr = useRef({ pts: new Map(), mode: null, handleId: null, prevMid: null, prevDist: 0 });
+  const ptr = useRef({ pts: new Map(), mode: null, handleId: null, prevMid: null, prevDist: 0, prevDx: 0, prevDy: 0, anchor: null });
   const live = useRef({});
   live.current = { view, onView, onReset, handles, onHandleDrag, lockY, w, height, margins };
 
@@ -267,11 +279,20 @@ export default function PlotCanvas({
       s.pts.set(e.pointerId, p);
       if (s.pts.size === 1) {
         const hd = hit(p);
+        const region = regionOf(p, geo());
         if (hd) {
           s.mode = 'handle';
           s.handleId = hd.id;
           setCursor('grabbing');
           live.current.onHandleDrag?.(hd.id, geo().invX(p.x));
+        } else if (region === 'xaxis') {
+          s.mode = 'axisX';
+          s.anchor = p;
+          setCursor('ew-resize');
+        } else if (region === 'yaxis' && !live.current.lockY) {
+          s.mode = 'axisY';
+          s.anchor = p;
+          setCursor('ns-resize');
         } else {
           s.mode = 'pan';
           setCursor('grabbing');
@@ -281,6 +302,8 @@ export default function PlotCanvas({
         const [a, b] = [...s.pts.values()];
         s.prevMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         s.prevDist = Math.hypot(a.x - b.x, a.y - b.y);
+        s.prevDx = Math.abs(a.x - b.x);
+        s.prevDy = Math.abs(a.y - b.y);
       }
     };
 
@@ -288,7 +311,13 @@ export default function PlotCanvas({
       const s = ptr.current;
       const p = local(e);
       if (!s.pts.has(e.pointerId)) {
-        if (e.pointerType === 'mouse') setCursor(hit(p) ? 'ew-resize' : 'grab');
+        if (e.pointerType === 'mouse') {
+          const region = regionOf(p, geo());
+          if (hit(p)) setCursor('ew-resize');
+          else if (region === 'xaxis') setCursor('ew-resize');
+          else if (region === 'yaxis' && !live.current.lockY) setCursor('ns-resize');
+          else setCursor('grab');
+        }
         return;
       }
       const prev = s.pts.get(e.pointerId);
@@ -306,24 +335,45 @@ export default function PlotCanvas({
           ymin: lockY ? view.ymin : view.ymin + dy,
           ymax: lockY ? view.ymax : view.ymax + dy,
         });
+      } else if (s.mode === 'axisX') {
+        const f = Math.exp(-(p.x - prev.x) * 0.006); // drag right = zoom in
+        onView?.(zoomAxes(view, g, s.anchor.x, 0, f, 1, lockY));
+      } else if (s.mode === 'axisY') {
+        const f = Math.exp((p.y - prev.y) * 0.006); // drag up = zoom in
+        onView?.(zoomAxes(view, g, 0, s.anchor.y, 1, f, lockY));
       } else if (s.mode === 'pinch' && s.pts.size >= 2) {
         const [a, b] = [...s.pts.values()];
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
-        let nv = view;
-        if (s.prevDist > 5 && dist > 5) nv = zoomAbout(nv, g, mid.x, mid.y, s.prevDist / dist, lockY);
+        const dx = Math.abs(a.x - b.x);
+        const dy = Math.abs(a.y - b.y);
+        // fingers side by side -> stretch x only; one above the other -> y only; diagonal -> both
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+        let fx = 1;
+        let fy = 1;
+        if (angle < 28) {
+          if (dx > 8 && s.prevDx > 8) fx = s.prevDx / dx;
+        } else if (angle > 62) {
+          if (dy > 8 && s.prevDy > 8) fy = s.prevDy / dy;
+        } else if (dist > 8 && s.prevDist > 8) {
+          fx = s.prevDist / dist;
+          fy = fx;
+        }
+        const nv = zoomAxes(view, g, mid.x, mid.y, fx, fy, lockY);
         // follow the movement of the midpoint
         const g2 = geometry(nv, live.current.w, live.current.height, live.current.margins);
-        const dx = ((mid.x - s.prevMid.x) * (nv.xmax - nv.xmin)) / g2.plotW;
-        const dy = ((mid.y - s.prevMid.y) * (nv.ymax - nv.ymin)) / g2.plotH;
+        const mx = ((mid.x - s.prevMid.x) * (nv.xmax - nv.xmin)) / g2.plotW;
+        const my = ((mid.y - s.prevMid.y) * (nv.ymax - nv.ymin)) / g2.plotH;
         onView?.({
-          xmin: nv.xmin - dx,
-          xmax: nv.xmax - dx,
-          ymin: lockY ? nv.ymin : nv.ymin + dy,
-          ymax: lockY ? nv.ymax : nv.ymax + dy,
+          xmin: nv.xmin - mx,
+          xmax: nv.xmax - mx,
+          ymin: lockY ? nv.ymin : nv.ymin + my,
+          ymax: lockY ? nv.ymax : nv.ymax + my,
         });
         s.prevMid = mid;
         s.prevDist = dist;
+        s.prevDx = dx;
+        s.prevDy = dy;
       }
     };
 
@@ -344,10 +394,17 @@ export default function PlotCanvas({
       e.preventDefault();
       const { view, onView, lockY } = live.current;
       const p = local(e);
+      const g = geo();
       const unit = e.deltaMode === 1 ? 16 : 1;
+      const raw = (e.deltaY !== 0 ? e.deltaY : e.deltaX) * unit; // Shift+wheel may arrive as deltaX
       const k = e.ctrlKey ? 0.01 : 0.0016;
-      const factor = Math.exp(Math.max(-60, Math.min(60, e.deltaY * unit)) * k);
-      onView?.(zoomAbout(view, geo(), p.x, p.y, factor, lockY));
+      const factor = Math.exp(Math.max(-60, Math.min(60, raw)) * k);
+      const region = regionOf(p, g);
+      let fx = factor;
+      let fy = factor;
+      if (region === 'xaxis' || e.shiftKey) fy = 1;
+      else if (region === 'yaxis' || e.altKey) fx = 1;
+      onView?.(zoomAxes(view, g, p.x, p.y, fx, fy, lockY));
     };
 
     const dbl = () => live.current.onReset?.();
@@ -368,20 +425,42 @@ export default function PlotCanvas({
     };
   }, []);
 
-  const zoomButton = (factor) => () => {
+  const zoomBy = (fx, fy) => () => {
     const g = geometry(view, w, height, margins);
-    onView?.(zoomAbout(view, g, g.left + g.plotW / 2, g.top + g.plotH / 2, factor, lockY));
+    onView?.(zoomAxes(view, g, g.left + g.plotW / 2, g.top + g.plotH / 2, fx, fy, lockY));
   };
+  const IN = 0.75;
+  const OUT = 1 / 0.75;
 
   return (
-    <div className="plot-wrap" ref={wrapRef} style={{ height }}>
-      <canvas ref={canvasRef} role="img" aria-label={label} style={{ cursor, touchAction: 'none' }} />
+    <div className="plot-block">
+      <div className="plot-wrap" ref={wrapRef} style={{ height }}>
+        <canvas ref={canvasRef} role="img" aria-label={label} style={{ cursor, touchAction: 'none' }} />
+      </div>
       {buttons && (
-        <div className="plot-buttons">
-          <button type="button" onClick={zoomButton(0.75)} aria-label="Zoom in" title="Zoom in">+</button>
-          <button type="button" onClick={zoomButton(1 / 0.75)} aria-label="Zoom out" title="Zoom out">−</button>
+        <div className="plot-toolbar" role="group" aria-label="Zoom and stretch the plot">
+          <span className="tb-group">
+            <span className="tb-label">Zoom</span>
+            <button type="button" className="tb-btn" onClick={zoomBy(IN, IN)} aria-label="Zoom in" title="Zoom in">+</button>
+            <button type="button" className="tb-btn" onClick={zoomBy(OUT, OUT)} aria-label="Zoom out" title="Zoom out">−</button>
+          </span>
+          <span className="tb-group">
+            <span className="tb-label">Horizontal</span>
+            <button type="button" className="tb-btn" onClick={zoomBy(IN, 1)} aria-label="Stretch horizontally (zoom in on x)" title="Stretch horizontally">+</button>
+            <button type="button" className="tb-btn" onClick={zoomBy(OUT, 1)} aria-label="Squeeze horizontally (zoom out on x)" title="Squeeze horizontally">−</button>
+          </span>
+          {!lockY && (
+            <span className="tb-group">
+              <span className="tb-label">Vertical</span>
+              <button type="button" className="tb-btn" onClick={zoomBy(1, IN)} aria-label="Stretch vertically (zoom in on y)" title="Stretch vertically">+</button>
+              <button type="button" className="tb-btn" onClick={zoomBy(1, OUT)} aria-label="Squeeze vertically (zoom out on y)" title="Squeeze vertically">−</button>
+            </span>
+          )}
           {onReset && (
-            <button type="button" onClick={onReset} aria-label="Reset view" title="Reset view">⟲</button>
+            <>
+              <span className="tb-spacer" />
+              <button type="button" className="tb-btn text" onClick={onReset} title="Reset the view">Reset view</button>
+            </>
           )}
         </div>
       )}

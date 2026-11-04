@@ -7,12 +7,12 @@ import CoefficientTable from '../components/CoefficientTable.jsx';
 import { CenterControl, DegreeControl, FunctionPicker, TestPointControl, Toggle } from '../components/Controls.jsx';
 import { useFn, useStore, useTabView } from '../store.js';
 import { COL } from '../theme.js';
-import { coeffsOK, horner, partialSums } from '../math/taylor.js';
+import { coeffsOK, horner, hornerAbs, partialSums } from '../math/taylor.js';
 import { fmtNum, sub, MINUS } from '../math/numfmt.js';
 
 const TAB = 'explore';
 const MAX_EXPLORE_DEGREE = 30;
-const ERR_FLOOR = 1e-17;
+const EPS = 2.22e-16; // double-precision round-off
 
 export default function Explore() {
   const fn = useFn();
@@ -28,12 +28,26 @@ export default function Explore() {
   const [shade, setShade] = useState(true);
   const [logErr, setLogErr] = useState(true);
   const [showEval, setShowEval] = useState(false);
+  const [decimals, setDecimals] = useState(false);
 
   const coeffs = useMemo(() => fn.coeffs(a, fn.maxDegree), [fn, a]);
   const ok = coeffsOK(coeffs, n);
 
   const T = useCallback((x) => horner(coeffs, n, x - a), [coeffs, n, a]);
   const err = useCallback((x) => Math.abs(fn.f(x) - T(x)), [fn, T]);
+  // On the log plot, values smaller than the round-off in computing f − Tn are meaningless
+  // (they come out as 0 or random multiples of 1e-16 and make the curve jagged), so the curve
+  // is held at a smooth estimate of that round-off level instead.
+  const errLog = useCallback(
+    (x) => {
+      const fx = fn.f(x);
+      const e = Math.abs(fx - T(x));
+      if (!Number.isFinite(e)) return NaN;
+      const noise = EPS * (Math.abs(fx) + hornerAbs(coeffs, n, Math.abs(x - a)));
+      return Math.max(e, noise, 1e-300);
+    },
+    [fn, T, coeffs, n, a],
+  );
 
   // ---- main plot --------------------------------------------------------
   const fa = fn.f(a);
@@ -119,7 +133,7 @@ export default function Explore() {
     const ys = xs.map((x) => {
       const e = err(x);
       if (!Number.isFinite(e)) return NaN;
-      return logErr ? Math.log10(Math.max(e, ERR_FLOOR)) : e;
+      return logErr ? Math.log10(errLog(x)) : e;
     });
     H.stroke(xs, ys, { color: COL.err, width: 2.5 });
     // dotted marker at the center
@@ -132,9 +146,9 @@ export default function Explore() {
     ctx.lineTo(H.X(a), H.top + H.plotH);
     ctx.stroke();
     ctx.restore();
-    const e0 = err(x0);
+    const e0 = logErr ? errLog(x0) : err(x0);
     if (Number.isFinite(e0)) {
-      const y = logErr ? Math.log10(Math.max(e0, ERR_FLOOR)) : e0;
+      const y = logErr ? Math.log10(e0) : e0;
       ctx.beginPath();
       ctx.arc(H.X(x0), H.Y(y), 5.5, 0, Math.PI * 2);
       ctx.fillStyle = COL.err;
@@ -186,8 +200,12 @@ export default function Explore() {
           buttons={false}
           label="Graph of the absolute error"
         />
-        {logErr && <p className="hint tight">Error values below about 10⁻¹⁵ are limited by computer round-off.</p>}
-        <p className="hint tight">Drag the plot to pan, pinch or scroll to zoom. Drag <b className="c-center">a</b> to move the center and <b className="c-test">x₀</b> to move the test point.</p>
+        {logErr && <p className="hint tight">The flat part at the bottom is the computer’s round-off limit (about 10⁻¹⁶): the true error there is smaller than the computer can measure.</p>}
+        <p className="hint tight">
+          Drag the plot to pan; scroll or pinch to zoom. To stretch just one direction, drag along an axis (or scroll over it),
+          or pinch with your fingers side by side (horizontal) or one above the other (vertical).
+          Drag <b className="c-center">a</b> to move the center and <b className="c-test">x₀</b> to move the test point.
+        </p>
       </section>
 
       <aside className="side">
@@ -214,10 +232,13 @@ export default function Explore() {
         <section className="panel table-panel" aria-label="Coefficient table">
           <div className="panel-head">
             <h2>Where the coefficients come from</h2>
-            <Toggle checked={showEval} onChange={setShowEval}>Evaluate at x₀</Toggle>
+            <div className="toggles tight">
+              <Toggle checked={decimals} onChange={setDecimals}>Show decimals</Toggle>
+              <Toggle checked={showEval} onChange={setShowEval}>Evaluate at x₀</Toggle>
+            </div>
           </div>
           {ok ? (
-            <CoefficientTable coeffs={coeffs} a={a} n={n} x0={x0} showEval={showEval} />
+            <CoefficientTable coeffs={coeffs} a={a} n={n} x0={x0} showEval={showEval} decimal={decimals} />
           ) : (
             <p className="msg error">
               f or one of its derivatives is undefined at a = {fmtNum(a, 4)}, so there is no Taylor polynomial here. Move the center.
