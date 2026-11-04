@@ -56,7 +56,7 @@ export function FunctionPicker() {
       )}
       {showCustom && custom.status === 'error' && <p className="msg error">{custom.error}</p>}
       {showCustom && custom.status !== 'error' && (
-        <p className="hint">Use x, + − * / ^, and functions like sin, cos, exp, log, sqrt, atan. It must be defined (and smooth) at the center.</p>
+        <p className="hint">Use x, + − * / ^, and functions like sin, cos, exp, log, sqrt, atan. It must be smooth at the center; a removable gap such as sin(x)/x at 0 is fine.</p>
       )}
     </div>
   );

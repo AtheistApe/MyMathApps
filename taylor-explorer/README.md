@@ -28,6 +28,9 @@ exact coefficients about **any** center, an exact radius R(a), and known endpoin
 sinh, cosh, tanh, abs, ^, implicit multiplication). Its coefficients come from series arithmetic
 (`src/math/tps.js`), so no symbolic differentiation is involved and degree 40 is instant. For a
 custom function the radius is *estimated* and endpoints are marked "?".
+Removable gaps such as `sin(x)/x`, `(e^x − 1)/x` or `x/(e^x − 1)` at the center 0 work: when the top
+and bottom of a quotient both vanish, the common factor (x − a) is cancelled (see `div` in `tps.js`),
+and f itself is defined there by its limit. Genuine poles (`1/x`, `sin(x)/x^2`) are still reported as undefined.
 
 Keyboard: click the plot (or Tab to it), then arrows pan, + / − zoom, 0 resets.
 

@@ -30,7 +30,8 @@ export function mul(u, v) {
   return w;
 }
 
-export function div(u, v) {
+/** Plain series division; v must start with a nonzero coefficient. */
+function divPlain(u, v) {
   const N = u.length - 1;
   if (v[0] === 0 || Number.isNaN(v[0])) return nans(N);
   const q = zeros(N);
@@ -40,6 +41,24 @@ export function div(u, v) {
     q[k] = s / v[0];
   }
   return q;
+}
+
+/**
+ * u / v. If v starts with m zero coefficients (a zero of order m at the center), the quotient
+ * exists only when u has a zero of at least that order too (a removable singularity such as
+ * sin(x)/x at 0); the common factor (x − a)^m is then cancelled. Cancelling shifts both series
+ * down m places, which leaves the top m coefficients unknown: they are marked NaN. (Callers
+ * compute a few spare terms beyond the degree they need, so those never reach the user.)
+ */
+export function div(u, v) {
+  const N = u.length - 1;
+  let m = 0;
+  while (m <= N && v[m] === 0) m++;
+  if (m > N) return nans(N); // v is zero to working precision
+  if (m === 0) return divPlain(u, v);
+  for (let k = 0; k < m; k++) if (u[k] !== 0) return nans(N); // a genuine pole, e.g. 1/x
+  const unknown = new Array(m).fill(NaN);
+  return divPlain(u.slice(m).concat(unknown), v.slice(m).concat(unknown));
 }
 
 function powInt(u, m) {
@@ -227,22 +246,30 @@ export function validate(node) {
   }
 }
 
-/** Taylor coefficients [c_0..c_N] of the expression about x = a. */
-export function evalSeries(node, a, N) {
+/** Spare terms computed beyond the requested degree so cancelled factors (see div) cost nothing visible. */
+export const EXTRA_TERMS = 12;
+
+/**
+ * Taylor coefficients [c_0..c_N] of the expression about x = a.
+ * `extra` spare terms are computed internally and dropped; use EXTRA_TERMS when removable
+ * singularities should be handled (sin(x)/x at 0).
+ */
+export function evalSeries(node, a, N, extra = 0) {
+  const M = N + extra; // working length
   const go = (nd) => {
     switch (nd.type) {
       case 'ConstantNode':
-        return konst(nd.value, N);
+        return konst(nd.value, M);
       case 'ParenthesisNode':
         return go(nd.content);
       case 'SymbolNode': {
         if (nd.name === 'x') {
-          const s = zeros(N);
+          const s = zeros(M);
           s[0] = a;
-          if (N >= 1) s[1] = 1;
+          if (M >= 1) s[1] = 1;
           return s;
         }
-        return konst(CONSTANTS[nd.name], N);
+        return konst(CONSTANTS[nd.name], M);
       }
       case 'OperatorNode': {
         const [p, q] = nd.args.map(go);
@@ -262,8 +289,24 @@ export function evalSeries(node, a, N) {
         return ONE_ARG[name](go(nd.args[0]));
       }
       default:
-        return nans(N);
+        return nans(M);
     }
   };
-  return go(node);
+  return go(node).slice(0, N + 1);
+}
+
+/**
+ * Series arithmetic leaves round-off noise where a coefficient should be exactly 0
+ * (e.g. the odd coefficients of x/(e^x − 1) come out as ~1e-18). Zero any coefficient that is
+ * negligible next to its neighbours (within 3 places either side).
+ */
+export function cleanNoise(c) {
+  return c.map((v, k) => {
+    if (v === 0 || !Number.isFinite(v)) return v;
+    let big = 0;
+    for (let j = Math.max(0, k - 3); j <= Math.min(c.length - 1, k + 3); j++) {
+      if (j !== k && Number.isFinite(c[j])) big = Math.max(big, Math.abs(c[j]));
+    }
+    return Math.abs(v) <= 1e-14 * big ? 0 : v;
+  });
 }

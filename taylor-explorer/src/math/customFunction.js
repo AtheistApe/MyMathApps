@@ -4,7 +4,7 @@
 // uses the custom box, so everyone else never downloads it.
 
 import { autoView } from './functions.js';
-import { evalSeries, validate } from './tps.js';
+import { EXTRA_TERMS, cleanNoise, evalSeries, validate } from './tps.js';
 
 let parserPromise = null;
 const loadParser = () =>
@@ -25,7 +25,12 @@ export async function buildCustom(expr) {
   }
   validate(node);
 
-  const f = (x) => evalSeries(node, x, 0)[0];
+  // Fast path first; only if that is undefined, retry with spare terms, which fills in the value of a
+  // removable singularity (sin(x)/x at x = 0 is 1).
+  const f = (x) => {
+    const v = evalSeries(node, x, 0)[0];
+    return Number.isNaN(v) ? evalSeries(node, x, 0, EXTRA_TERMS)[0] : v;
+  };
   if (![0.5, 1.5, -0.5, 2.5, 0.1].some((x) => Number.isFinite(f(x)))) {
     throw new Error('That function has no real values near the origin. Check the formula.');
   }
@@ -36,7 +41,7 @@ export async function buildCustom(expr) {
     custom: true,
     f,
     maxDegree: MAX_DEGREE,
-    coeffs: (a, N) => evalSeries(node, a, N),
+    coeffs: (a, N) => cleanNoise(evalSeries(node, a, N, EXTRA_TERMS)),
     radius: () => null, // unknown: the app shows an estimate from the coefficients
     endpoints: () => null,
     centerRange: [-3, 3],

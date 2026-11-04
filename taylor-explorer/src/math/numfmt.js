@@ -35,12 +35,16 @@ const gcd = (a, b) => {
   return a;
 };
 
-/** If v is (numerically) an integer of moderate size return it as a BigInt, else null. */
-export function asInteger(v) {
+/**
+ * If v is (numerically) an integer with |v| < maxAbs, return it as a BigInt, else null.
+ * relTol is the allowed relative error; keep both tight when deciding that a coefficient is an exact
+ * fraction, because a loose test turns a large irrational number into a "fraction".
+ */
+export function asInteger(v, relTol = 1e-9, maxAbs = 1e15) {
   if (!Number.isFinite(v)) return null;
   const r = Math.round(v);
-  if (Math.abs(r) >= 1e15) return null;
-  if (Math.abs(v - r) > 1e-9 * Math.max(1, Math.abs(v))) return null;
+  if (Math.abs(r) >= maxAbs) return null;
+  if (Math.abs(v - r) > relTol * Math.max(1, Math.abs(v))) return null;
   return BigInt(r);
 }
 
@@ -57,7 +61,7 @@ export function fmtDeriv(d) {
 /**
  * Describe the Taylor coefficient c_k = f^(k)(a)/k!.
  * Returns { kind: 'zero'|'frac'|'dec', neg, num, den, text, mag }.
- * 'frac' means the derivative is an integer, so c_k is an exact fraction.
+ * 'frac' means c_k is an exact fraction (an integer derivative over k!, or a (k+j)! denominator).
  */
 export function describeCoef(c, k, decimal = false) {
   if (c === 0) return { kind: 'zero', neg: false, text: '0', mag: '0' };
@@ -65,10 +69,14 @@ export function describeCoef(c, k, decimal = false) {
     const mag = fmtNum(Math.abs(c));
     return { kind: 'dec', neg: c < 0, mag, text: (c < 0 ? MINUS : '') + mag };
   }
-  const d = c * factorial(k);
-  const di = asInteger(d);
-  if (di !== null && di !== 0n) {
-    const f = factBig[k];
+  // c_k = (integer) / D for D = (k + j)!, j = 0..3 (j = 0 is "f^(k)(a) is an integer"; j > 0 covers series
+  // such as sin(x)/x, (e^x − 1)/x and x/(e^x − 1)), and D = (k/2)! for even k (e^(−x²) has c_k = ±1/(k/2)!).
+  // The test is strict (1e-13 relative, |value| < 1e9) so an irrational coefficient is never mistaken for a fraction.
+  const denominators = [0, 1, 2, 3].map((j) => factBig[k + j]);
+  if (k >= 2 && k % 2 === 0) denominators.push(factBig[k / 2]);
+  for (const f of denominators) {
+    const di = asInteger(c * Number(f), 1e-13, 1e9);
+    if (di === null || di === 0n) continue;
     const g = gcd(di, f);
     const num = (di < 0n ? -di : di) / g;
     const den = f / g;

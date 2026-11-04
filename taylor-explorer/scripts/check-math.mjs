@@ -76,8 +76,8 @@ for (const a of [0, 0.5, -0.4]) {
   close(asin.coeffs(0, 5), [0, 1, 0, 1 / 6, 0, 3 / 40]) || fail('asin series');
   const twoX = await buildCustom('2^x');
   close(twoX.coeffs(0, 3), [1, Math.LN2, Math.LN2 ** 2 / 2, Math.LN2 ** 3 / 6]) || fail('2^x series');
-  const bad1 = await buildCustom('sin(x)/x');
-  bad1.coeffs(0, 3).every(Number.isNaN) || fail('sin(x)/x at 0 should be NaN, not analytic as written');
+  const pole = await buildCustom('1/x');
+  pole.coeffs(0, 3).every(Number.isNaN) || fail('1/x at 0 is a genuine pole and should be undefined');
   for (const t of ['foo(x)', 'y+x', 'x +', '']) {
     let threw = false;
     try { await buildCustom(t); } catch { threw = true; }
@@ -138,6 +138,56 @@ for (const a of [0, 0.5, -0.4]) {
   let msg = '';
   try { await buildCustom('x(x+1)'); } catch (err) { msg = err.message; }
   /\*/.test(msg) || fail('x(x+1) should suggest using *');
+}
+
+
+// ---- removable singularities: sin(x)/x at 0 and friends ----
+{
+  const finite = (cs) => cs.every(Number.isFinite);
+  const series = async (expr, a = 0, N = 40) => (await buildCustom(expr)).coeffs(a, N);
+  const fact = (k) => { let r = 1; for (let i = 2; i <= k; i++) r *= i; return r; };
+
+  const sinc = await series('sin(x)/x');
+  finite(sinc) || fail('sin(x)/x should have finite coefficients through degree 40');
+  close(sinc.slice(0, 7), [1, 0, -1 / 6, 0, 1 / 120, 0, -1 / 5040]) || fail('sin(x)/x series');
+  const f = (await buildCustom('sin(x)/x')).f;
+  f(0) === 1 || fail(`sin(x)/x at 0 should be 1, got ${f(0)}`);
+  Math.abs(f(0.5) - Math.sin(0.5) / 0.5) < 1e-15 || fail('sin(x)/x away from 0');
+
+  close((await series('(exp(x)-1)/x')).slice(0, 8), Array.from({ length: 8 }, (_, k) => 1 / fact(k + 1))) || fail('(e^x - 1)/x');
+  close((await series('(1-cos(x))/x^2')).slice(0, 5), [1 / 2, 0, -1 / 24, 0, 1 / 720]) || fail('(1 - cos x)/x^2');
+  close((await series('x/(exp(x)-1)')).slice(0, 5), [1, -1 / 2, 1 / 12, 0, -1 / 720]) || fail('Bernoulli series x/(e^x - 1)');
+  close((await series('tan(x)/x')).slice(0, 4), [1, 0, 1 / 3, 0]) || fail('tan(x)/x');
+  close((await series('x/x')).slice(0, 4), [1, 0, 0, 0]) || fail('x/x');
+  close((await series('(sin(x)/x - 1)/x^2')).slice(0, 4), [-1 / 6, 0, 1 / 120, 0]) || fail('nested cancellation');
+  finite(await series('(sin(x)/x - 1)/x^2')) || fail('nested cancellation should stay finite through degree 40');
+  close((await series('exp(sin(x)/x)')).slice(0, 3), [Math.E, 0, -Math.E / 6]) || fail('exp(sinc)');
+  close((await series('sin(x)/x + cos(x)')).slice(0, 3), [2, 0, -1 / 6 - 1 / 2]) || fail('sinc + cos');
+
+  // genuine poles stay undefined
+  for (const bad of ['1/x', 'sin(x)/x^2', 'cos(x)/x', '1/sin(x)', '(sin(x)/x)/x']) {
+    (await series(bad, 0, 10)).some(Number.isNaN) || fail(`${bad} at 0 is a pole and should stay undefined`);
+  }
+  // unchanged away from the singularity, and the preset-equivalent forms still agree
+  close(await series('sin(x)/x', 0.5, 10), (await series('sin(x)*(1/x)', 0.5, 10))) || fail('sinc at 0.5');
+}
+
+
+// ---- exact fractions for series with (k+j)! denominators; irrational coefficients stay decimal ----
+{
+  const text = async (expr, n) => polynomialText((await buildCustom(expr)).coeffs(0, n), 0, n);
+  expect(await text('sin(x)/x', 8), '1 − x²/6 + x⁴/120 − x⁶/5040 + x⁸/362880');
+  expect(await text('(exp(x)-1)/x', 4), '1 + x/2 + x²/6 + x³/24 + x⁴/120');
+  expect(await text('x/(exp(x)-1)', 4), '1 − x/2 + x²/12 − x⁴/720');
+  expect(await text('(1-cos(x))/x^2', 4), '1/2 − x²/24 + x⁴/720');
+  expect(polynomialText(PRESETS.find((q) => q.id === 'gauss').coeffs(0, 22), 0, 22), '1 − x² + x⁴/2 − x⁶/6 + x⁸/24 + ⋯ − x²²/39916800');
+  // coefficients that are genuinely irrational must stay decimals
+  const centers = [0.05, 0.1, 0.15, 0.3, 0.5, 0.65, 0.85, 1, 1.1, 1.35, 1.7, 2, 2.3, 2.75, 3, -0.4, -1.25];
+  const cases = ['exp', 'sin', 'cos', 'gauss'].flatMap((id) => centers.map((a) => [id, a]));
+  for (const [id, a] of cases) {
+    const cs = PRESETS.find((q) => q.id === id).coeffs(a, 30);
+    cs.forEach((c, k) => { c === 0 || describeCoef(c, k).kind === 'dec' || fail(`${id} at a=${a}: c_${k} wrongly shown as a fraction (${describeCoef(c, k).text})`); });
+  }
 }
 
 console.log(bad ? `\n${bad} problem(s)` : 'All math checks passed.');
