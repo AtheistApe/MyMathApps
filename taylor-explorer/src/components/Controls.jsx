@@ -136,6 +136,13 @@ export function CenterControl() {
   const a = useStore((s) => s.a);
   const setA = useStore((s) => s.setA);
   const [lo, hi] = fn.centerRange;
+  // The center stays where you left it when you switch functions, and exact fractions only exist at a = 0
+  // for most functions, so offer a one-tap way back.
+  const resetButton = a !== 0 && lo <= 0 && hi >= 0 && (
+    <button type="button" className="btn zero" onClick={() => setA(0)} aria-label="Set the center a to 0" title="Set the center a to 0">
+      a = 0
+    </button>
+  );
   return (
     <Stepper
       label="Center"
@@ -146,6 +153,7 @@ export function CenterControl() {
       step={0.05}
       format={(v) => fmtNum(v, 4)}
       onChange={setA}
+      extra={resetButton || null}
     />
   );
 }
