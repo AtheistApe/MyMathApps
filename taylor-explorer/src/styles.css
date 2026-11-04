@@ -16,6 +16,7 @@
 }
 
 * { box-sizing: border-box; }
+button, select, label.toggle { touch-action: manipulation; } /* no double-tap-zoom delay on iPad */
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -73,6 +74,7 @@ main { padding: 16px max(16px, env(safe-area-inset-right)) 40px max(16px, env(sa
 .key.gap { height: 10px; width: 14px; border: 0; background: rgba(201, 42, 42, 0.22); }
 .plot-wrap { position: relative; width: 100%; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; user-select: none; -webkit-user-select: none; }
 .plot-wrap canvas { display: block; }
+.plot-wrap canvas:focus-visible { outline: 3px solid #4dabf7; outline-offset: -3px; }
 .plot-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 2px 2px; }
 .tb-group { display: inline-flex; align-items: center; gap: 4px; }
 .tb-label { font-size: 13px; color: var(--muted); margin-right: 2px; }

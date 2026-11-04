@@ -21,6 +21,17 @@ export default function App() {
     window.history.replaceState(null, '', `#${id}`);
   };
 
+  // arrow keys move between tabs (the standard keyboard pattern for a tab bar)
+  const onTabKey = (e) => {
+    const i = TABS.findIndex((t) => t.id === tabId);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    const id = TABS[(next + TABS.length) % TABS.length].id;
+    choose(id);
+    document.getElementById(`tab-${id}`)?.focus();
+  };
+
   const Active = TABS.find((t) => t.id === tabId).component;
 
   return (
@@ -31,12 +42,15 @@ export default function App() {
           <p>{COURSE_LABEL}</p>
         </div>
         {TABS.length > 1 && (
-          <nav className="tabs" role="tablist" aria-label="Sections">
+          <nav className="tabs" role="tablist" aria-label="Sections" onKeyDown={onTabKey}>
             {TABS.map((t) => (
               <button
                 key={t.id}
+                id={`tab-${t.id}`}
                 role="tab"
                 aria-selected={t.id === tabId}
+                aria-controls="tab-panel"
+                tabIndex={t.id === tabId ? 0 : -1}
                 className={t.id === tabId ? 'tab active' : 'tab'}
                 onClick={() => choose(t.id)}
               >
@@ -46,7 +60,7 @@ export default function App() {
           </nav>
         )}
       </header>
-      <main>
+      <main id="tab-panel" role="tabpanel" aria-labelledby={`tab-${tabId}`}>
         <Active />
       </main>
     </div>

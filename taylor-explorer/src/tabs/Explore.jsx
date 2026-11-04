@@ -5,25 +5,25 @@ import { useCallback, useMemo, useState } from 'react';
 import PlotCanvas from '../components/PlotCanvas.jsx';
 import CoefficientTable from '../components/CoefficientTable.jsx';
 import { CenterControl, DegreeControl, FunctionPicker, TestPointControl, Toggle } from '../components/Controls.jsx';
+import { useCenterTestHandles } from '../components/useHandles.js';
 import { useFn, useStore, useTabView } from '../store.js';
 import { COL } from '../theme.js';
-import { coeffsOK, horner, hornerAbs, partialSums } from '../math/taylor.js';
+import { clampPx, drawDot, drawLine, drawTestPoint } from '../plot/draw.js';
+import { coeffsOK, errorInfo, horner, partialSumsGrid } from '../math/taylor.js';
 import { fmtNum, sub, MINUS } from '../math/numfmt.js';
 
 const TAB = 'explore';
 const MAX_EXPLORE_DEGREE = 30;
-const EPS = 2.22e-16; // double-precision round-off
 
 export default function Explore() {
   const fn = useFn();
   const a = useStore((s) => s.a);
   const nRaw = useStore((s) => s.n);
   const x0 = useStore((s) => s.x0);
-  const setA = useStore((s) => s.setA);
-  const setX0 = useStore((s) => s.setX0);
   const n = Math.min(nRaw, fn.maxDegree, MAX_EXPLORE_DEGREE);
 
   const [view, setView, resetView] = useTabView(TAB, fn);
+  const { handles, onHandleDrag } = useCenterTestHandles(fn);
   const [ghosts, setGhosts] = useState(true);
   const [shade, setShade] = useState(true);
   const [logErr, setLogErr] = useState(true);
@@ -32,131 +32,65 @@ export default function Explore() {
 
   const coeffs = useMemo(() => fn.coeffs(a, fn.maxDegree), [fn, a]);
   const ok = coeffsOK(coeffs, n);
-
   const T = useCallback((x) => horner(coeffs, n, x - a), [coeffs, n, a]);
-  const err = useCallback((x) => Math.abs(fn.f(x) - T(x)), [fn, T]);
-  // On the log plot, values smaller than the round-off in computing f − Tn are meaningless
-  // (they come out as 0 or random multiples of 1e-16 and make the curve jagged), so the curve
-  // is held at a smooth estimate of that round-off level instead.
-  const errLog = useCallback(
-    (x) => {
-      const fx = fn.f(x);
-      const e = Math.abs(fx - T(x));
-      if (!Number.isFinite(e)) return NaN;
-      const noise = EPS * (Math.abs(fx) + hornerAbs(coeffs, n, Math.abs(x - a)));
-      return Math.max(e, noise, 1e-300);
-    },
-    [fn, T, coeffs, n, a],
-  );
+  // |f − Tn| at x, with the round-off floor (see errorInfo)
+  const errAt = useCallback((x) => errorInfo(fn.f(x), coeffs, n, x - a), [fn, coeffs, n, a]);
 
   // ---- main plot --------------------------------------------------------
-  const fa = fn.f(a);
-  const handles = [
-    { id: 'a', x: a, y: fa, anchor: Number.isFinite(fa) ? undefined : 'bottom', color: COL.center, label: 'a' },
-    { id: 'x0', x: x0, anchor: 'bottom', color: COL.test, label: 'x₀', guide: true },
-  ];
-  const onHandle = (id, x) => (id === 'a' ? setA(x) : setX0(x));
-
   const drawMain = (ctx, H) => {
     const xs = H.samples(1.5);
     const fy = xs.map(fn.f);
+    const ty = ok ? xs.map(T) : null;
 
-    if (ok) {
-      if (shade) {
-        ctx.fillStyle = COL.errFill;
-        for (let i = 0; i < xs.length; i++) {
-          const t = horner(coeffs, n, xs[i] - a);
-          if (!Number.isFinite(fy[i]) || !Number.isFinite(t)) continue;
-          const y1 = H.Y(fy[i]);
-          const y2 = H.Y(t);
-          const top = Math.max(-1e4, Math.min(1e4, Math.min(y1, y2)));
-          const bot = Math.max(-1e4, Math.min(1e4, Math.max(y1, y2)));
-          ctx.fillRect(H.X(xs[i]) - 0.75, top, 1.5, bot - top);
-        }
+    if (ok && shade) {
+      ctx.fillStyle = COL.errFill;
+      for (let i = 0; i < xs.length; i++) {
+        if (!Number.isFinite(fy[i]) || !Number.isFinite(ty[i])) continue;
+        const y1 = clampPx(H.Y(fy[i]));
+        const y2 = clampPx(H.Y(ty[i]));
+        ctx.fillRect(H.X(xs[i]) - 0.75, Math.min(y1, y2), 1.5, Math.abs(y1 - y2));
       }
-      if (ghosts && n > 0) {
-        const cols = xs.map((x) => partialSums(coeffs, n - 1, x - a));
-        for (let k = 0; k < n; k++) {
-          H.stroke(xs, cols.map((c) => c[k]), { color: COL.ghost, width: 1.25, alpha: 0.12 + 0.38 * ((k + 1) / n) });
-        }
-      }
+    }
+    if (ok && ghosts && n > 0) {
+      // the lower-degree polynomials T0 … T(n-1), fainter the lower they are
+      const rows = partialSumsGrid(coeffs, n - 1, xs, a);
+      rows.forEach((row, k) => H.stroke(xs, row, { color: COL.ghost, width: 1.25, alpha: 0.12 + 0.38 * ((k + 1) / n) }));
     }
 
     H.stroke(xs, fy, { color: COL.fn, width: 3 });
-    if (ok) H.stroke(xs, xs.map((x) => horner(coeffs, n, x - a)), { color: COL.poly, width: 2.5 });
-
-    // test point: the two heights and the gap between them
-    const f0 = fn.f(x0);
-    const t0 = ok ? T(x0) : NaN;
-    if (Number.isFinite(f0) && Number.isFinite(t0)) {
-      ctx.strokeStyle = COL.err;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(H.X(x0), Math.max(-1e4, Math.min(1e4, H.Y(f0))));
-      ctx.lineTo(H.X(x0), Math.max(-1e4, Math.min(1e4, H.Y(t0))));
-      ctx.stroke();
-    }
-    for (const [y, color] of [[f0, COL.fn], [t0, COL.poly]]) {
-      if (!Number.isFinite(y)) continue;
-      ctx.beginPath();
-      ctx.arc(H.X(x0), H.Y(y), 5, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#fff';
-      ctx.stroke();
-    }
+    if (ok) H.stroke(xs, ty, { color: COL.poly, width: 2.5 });
+    drawTestPoint(ctx, H, x0, fn.f(x0), ok ? T(x0) : NaN, { gap: true });
   };
 
   // ---- error plot (shares the x-window with the main plot) ---------------------
   const errView = useMemo(() => {
-    const N = 300;
     let maxErr = 0;
     if (ok) {
+      const N = 300;
       for (let i = 0; i <= N; i++) {
-        const e = Math.abs(fn.f(view.xmin + ((view.xmax - view.xmin) * i) / N) - horner(coeffs, n, view.xmin + ((view.xmax - view.xmin) * i) / N - a));
-        if (Number.isFinite(e) && e > maxErr) maxErr = e;
+        const { err } = errAt(view.xmin + ((view.xmax - view.xmin) * i) / N);
+        if (Number.isFinite(err) && err > maxErr) maxErr = err;
       }
     }
-    const hMain = view.ymax - view.ymin;
     if (logErr) {
       const top = maxErr > 0 ? Math.ceil(Math.log10(maxErr)) + 1 : -8;
       return { xmin: view.xmin, xmax: view.xmax, ymin: -17, ymax: Math.max(-4, Math.min(12, top)) };
     }
-    const top = Math.max(1e-12, Math.min(maxErr, 3 * hMain));
+    const top = Math.max(1e-12, Math.min(maxErr, 3 * (view.ymax - view.ymin)));
     return { xmin: view.xmin, xmax: view.xmax, ymin: -0.04 * top, ymax: top * 1.05 };
-  }, [fn, coeffs, n, a, ok, view.xmin, view.xmax, view.ymin, view.ymax, logErr]);
+  }, [errAt, ok, view.xmin, view.xmax, view.ymin, view.ymax, logErr]);
 
   const drawErr = (ctx, H) => {
     if (!ok) return;
+    const value = (x) => {
+      const { err, shown } = errAt(x);
+      return logErr ? Math.log10(shown) : err;
+    };
     const xs = H.samples(1.5);
-    const ys = xs.map((x) => {
-      const e = err(x);
-      if (!Number.isFinite(e)) return NaN;
-      return logErr ? Math.log10(errLog(x)) : e;
-    });
-    H.stroke(xs, ys, { color: COL.err, width: 2.5 });
-    // dotted marker at the center
-    ctx.save();
-    ctx.setLineDash([2, 4]);
-    ctx.strokeStyle = COL.center;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(H.X(a), H.top);
-    ctx.lineTo(H.X(a), H.top + H.plotH);
-    ctx.stroke();
-    ctx.restore();
-    const e0 = logErr ? errLog(x0) : err(x0);
-    if (Number.isFinite(e0)) {
-      const y = logErr ? Math.log10(e0) : e0;
-      ctx.beginPath();
-      ctx.arc(H.X(x0), H.Y(y), 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = COL.err;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#fff';
-      ctx.stroke();
-    }
+    H.stroke(xs, xs.map(value), { color: COL.err, width: 2.5 });
+    drawLine(ctx, H.X(a), H.top, H.X(a), H.top + H.plotH, { color: COL.center, width: 1.5, dash: [2, 4] }); // the center
+    const y0 = value(x0);
+    if (Number.isFinite(y0)) drawDot(ctx, H.X(x0), H.Y(y0), COL.err, 5.5);
   };
 
   const onErrView = (v) => setView({ ...view, xmin: v.xmin, xmax: v.xmax });
@@ -164,7 +98,10 @@ export default function Explore() {
   // ---- readout ------------------------------------------------------------------
   const f0 = fn.f(x0);
   const t0 = ok ? T(x0) : NaN;
-  const e0 = Math.abs(f0 - t0);
+  const e0 = ok ? errAt(x0) : null;
+  // an error smaller than the round-off floor is reported as "< floor" instead of a meaningless digit string
+  const errorText =
+    e0 && Number.isFinite(e0.err) ? (e0.err < e0.floor ? `< ${fmtNum(e0.floor, 2)}` : fmtNum(e0.err, 4)) : '—';
 
   return (
     <div className="tab-grid">
@@ -181,7 +118,7 @@ export default function Explore() {
           onReset={resetView}
           draw={drawMain}
           handles={handles}
-          onHandleDrag={onHandle}
+          onHandleDrag={onHandleDrag}
           height={380}
           label={`Graph of f and its Taylor polynomial of degree ${n}`}
         />
@@ -225,7 +162,7 @@ export default function Explore() {
           <dl>
             <div><dt>f(x₀)</dt><dd>{fmtNum(f0, 7)}</dd></div>
             <div><dt>T{sub(n)}(x₀)</dt><dd>{ok ? fmtNum(t0, 7) : '—'}</dd></div>
-            <div className="err"><dt>error</dt><dd>{ok && Number.isFinite(e0) ? fmtNum(e0, 4) : '—'}</dd></div>
+            <div className="err"><dt>error</dt><dd>{errorText}</dd></div>
           </dl>
         </section>
 

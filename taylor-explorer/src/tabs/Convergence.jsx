@@ -5,127 +5,79 @@
 import { useMemo, useState } from 'react';
 import PlotCanvas from '../components/PlotCanvas.jsx';
 import { CenterControl, DegreeControl, FunctionPicker, TestPointControl } from '../components/Controls.jsx';
+import { useCenterTestHandles } from '../components/useHandles.js';
 import { useFn, useStore, useTabView } from '../store.js';
 import { COL } from '../theme.js';
-import { coeffsOK, horner, partialSums, radiusEstimates } from '../math/taylor.js';
-import { fmtNum, intervalText, MINUS, sub } from '../math/numfmt.js';
+import { drawDot, drawLine, drawTestPoint } from '../plot/draw.js';
+import { coeffsOK, horner, partialSums } from '../math/taylor.js';
+import { analyzeConvergence } from '../math/convergence.js';
+import { fmtNum, MINUS, sub } from '../math/numfmt.js';
 
 const TAB = 'convergence';
+
+/**
+ * Shade the interval of convergence green and the rest red, then mark each endpoint:
+ * closed dot = converges there, open dot = diverges, "?" = not known.
+ */
+function drawConvergenceBand(ctx, H, { R, lo, hi, ends }) {
+  if (R === Infinity) {
+    ctx.fillStyle = COL.goodFill;
+    ctx.fillRect(H.left, H.top, H.plotW, H.plotH);
+    return;
+  }
+  const inside = (px) => Math.max(H.left, Math.min(H.left + H.plotW, px));
+  const x1 = inside(H.X(lo));
+  const x2 = inside(H.X(hi));
+  ctx.fillStyle = COL.badFill;
+  ctx.fillRect(H.left, H.top, H.plotW, H.plotH);
+  ctx.fillStyle = COL.goodFill;
+  ctx.fillRect(x1, H.top, x2 - x1, H.plotH);
+
+  for (const [x, side] of [[lo, 'left'], [hi, 'right']]) {
+    const px = H.X(x);
+    if (px < H.left - 4 || px > H.left + H.plotW + 4) continue;
+    drawLine(ctx, px, H.top, px, H.top + H.plotH, { color: COL.good, width: 2, dash: [7, 5] });
+    const state = ends?.[side];
+    const py = H.top + H.plotH - 14;
+    ctx.beginPath();
+    ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fillStyle = state === 'converges' ? COL.good : '#fff';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = state ? COL.good : COL.axis;
+    ctx.stroke();
+    if (!state) {
+      ctx.fillStyle = COL.axis;
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', px, py + 0.5);
+    }
+  }
+}
 
 export default function Convergence() {
   const fn = useFn();
   const a = useStore((s) => s.a);
   const nRaw = useStore((s) => s.n);
   const x0 = useStore((s) => s.x0);
-  const setA = useStore((s) => s.setA);
-  const setX0 = useStore((s) => s.setX0);
   const N = fn.maxDegree;
   const n = Math.min(nRaw, N);
 
   const [view, setView, resetView] = useTabView(TAB, fn);
+  const { handles, onHandleDrag } = useCenterTestHandles(fn);
   const coeffs = useMemo(() => fn.coeffs(a, N), [fn, a, N]);
   const ok = coeffsOK(coeffs, N);
-
-  // ---- radius of convergence: exact for presets, estimated for custom functions ----
-  const exactR = fn.radius(a);
-  const estimates = useMemo(() => (ok ? radiusEstimates(coeffs, N, 6) : []), [coeffs, N, ok]);
-  const estR = estimates.length ? estimates[estimates.length - 1].est : NaN;
-  const isExact = exactR !== null;
-  const R = isExact ? exactR : estR;
-  const ends = fn.endpoints(a); // { left, right } | null
-  const lo = a - R;
-  const hi = a + R;
-
-  const dist = Math.abs(x0 - a);
-  const eps = 1e-9 * Math.max(1, R);
-  let verdict;
-  if (!ok || !Number.isFinite(R)) verdict = { cls: 'none', text: 'No Taylor series at this center.' };
-  else if (R === Infinity) verdict = { cls: 'in', text: 'The series converges for every x (R = ∞).' };
-  else if (dist < R - eps) verdict = { cls: 'in', text: `|x₀ ${MINUS} a| < R: the series converges absolutely at x₀.` };
-  else if (dist > R + eps) verdict = { cls: 'out', text: `|x₀ ${MINUS} a| > R: the series diverges at x₀. The terms don't even go to 0.` };
-  else {
-    const side = x0 > a ? ends?.right : ends?.left;
-    verdict = {
-      cls: 'edge',
-      text:
-        side === 'converges'
-          ? 'x₀ is an endpoint, and the series converges there (check it with the alternating series test or comparison).'
-          : side === 'diverges'
-            ? 'x₀ is an endpoint, and the series diverges there.'
-            : 'x₀ is an endpoint: the ratio test is inconclusive, so test this series directly.',
-    };
-  }
+  const info = analyzeConvergence({ fn, a, x0, coeffs, N, ok });
+  const { R, isExact, exactR, rows: estimates, verdict } = info;
 
   // ---- main plot ------------------------------------------------------------------
-  const fa = fn.f(a);
-  const handles = [
-    { id: 'a', x: a, y: fa, anchor: Number.isFinite(fa) ? undefined : 'bottom', color: COL.center, label: 'a' },
-    { id: 'x0', x: x0, anchor: 'bottom', color: COL.test, label: 'x₀', guide: true },
-  ];
-  const onHandle = (id, x) => (id === 'a' ? setA(x) : setX0(x));
-
   const drawMain = (ctx, H) => {
-    if (ok && R === Infinity) {
-      ctx.fillStyle = COL.goodFill;
-      ctx.fillRect(H.left, H.top, H.plotW, H.plotH);
-    } else if (ok && Number.isFinite(R)) {
-      const x1 = Math.max(H.left, Math.min(H.left + H.plotW, H.X(lo)));
-      const x2 = Math.max(H.left, Math.min(H.left + H.plotW, H.X(hi)));
-      ctx.fillStyle = COL.badFill;
-      ctx.fillRect(H.left, H.top, H.plotW, H.plotH);
-      ctx.fillStyle = COL.goodFill;
-      ctx.fillRect(Number.isFinite(x1) ? x1 : H.left, H.top, (Number.isFinite(x2) ? x2 : H.left + H.plotW) - (Number.isFinite(x1) ? x1 : H.left), H.plotH);
-
-      if (Number.isFinite(R)) {
-        for (const [x, side] of [[lo, 'left'], [hi, 'right']]) {
-          const px = H.X(x);
-          if (px < H.left - 4 || px > H.left + H.plotW + 4) continue;
-          ctx.save();
-          ctx.strokeStyle = COL.good;
-          ctx.lineWidth = 2;
-          ctx.setLineDash([7, 5]);
-          ctx.beginPath();
-          ctx.moveTo(px, H.top);
-          ctx.lineTo(px, H.top + H.plotH);
-          ctx.stroke();
-          ctx.restore();
-          // closed dot = converges, open dot = diverges, "?" = not known
-          const state = ends?.[side];
-          const py = H.top + H.plotH - 14;
-          ctx.beginPath();
-          ctx.arc(px, py, 7, 0, Math.PI * 2);
-          ctx.fillStyle = state === 'converges' ? COL.good : '#fff';
-          ctx.fill();
-          ctx.lineWidth = 2.5;
-          ctx.strokeStyle = state === 'diverges' || state === 'converges' ? COL.good : COL.axis;
-          ctx.stroke();
-          if (!state) {
-            ctx.fillStyle = COL.axis;
-            ctx.font = 'bold 11px system-ui, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('?', px, py + 0.5);
-          }
-        }
-      }
-    }
-
+    if (ok && !Number.isNaN(R)) drawConvergenceBand(ctx, H, info);
     const xs = H.samples(1.5);
     H.stroke(xs, xs.map(fn.f), { color: COL.fn, width: 3 });
     if (ok) H.stroke(xs, xs.map((x) => horner(coeffs, n, x - a)), { color: COL.poly, width: 2.5 });
-
-    const f0 = fn.f(x0);
-    const t0 = ok ? horner(coeffs, n, x0 - a) : NaN;
-    for (const [y, color] of [[f0, COL.fn], [t0, COL.poly]]) {
-      if (!Number.isFinite(y)) continue;
-      ctx.beginPath();
-      ctx.arc(H.X(x0), H.Y(y), 5, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#fff';
-      ctx.stroke();
-    }
+    drawTestPoint(ctx, H, x0, fn.f(x0), ok ? horner(coeffs, n, x0 - a) : NaN);
   };
 
   // ---- partial sums S_k(x0), k = 0..N -------------------------------------------------
@@ -145,34 +97,22 @@ export default function Convergence() {
   const drawSums = (ctx, H) => {
     if (!ok) return;
     if (Number.isFinite(target)) {
-      ctx.save();
-      ctx.strokeStyle = COL.good;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 5]);
-      ctx.beginPath();
-      ctx.moveTo(H.left, H.Y(target));
-      ctx.lineTo(H.left + H.plotW, H.Y(target));
-      ctx.stroke();
-      ctx.restore();
+      drawLine(ctx, H.left, H.Y(target), H.left + H.plotW, H.Y(target), { color: COL.good, width: 2, dash: [8, 5] });
     }
     const ks = sums.map((_, k) => k);
     H.stroke(ks.slice(0, n + 1), sums.slice(0, n + 1), { color: COL.poly, width: 1.5, alpha: 0.55 });
-    sums.forEach((s, k) => {
-      if (!Number.isFinite(s)) return;
-      const active = k <= n;
-      ctx.beginPath();
-      ctx.arc(H.X(k), H.Y(s), k === n ? 6 : 3.6, 0, Math.PI * 2);
-      ctx.fillStyle = active ? COL.poly : '#c9ced9';
-      ctx.fill();
-      if (k === n) {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
-      }
+    sums.forEach((sum, k) => {
+      if (!Number.isFinite(sum)) return;
+      if (k === n) drawDot(ctx, H.X(k), H.Y(sum), COL.poly, 6);
+      else drawDot(ctx, H.X(k), H.Y(sum), k < n ? COL.poly : '#c9ced9', 3.6, 0);
     });
   };
 
-  const intervalLabel = ok && Number.isFinite(R) ? intervalText(lo, hi, ends?.left === 'converges', ends?.right === 'converges') : '—';
+  // how the readout shows R, the interval, and |x0 − a| / R
+  const known = ok && !Number.isNaN(R);
+  const approx = isExact || info.terminates || !known ? '' : '≈ ';
+  const radiusText = !known ? '—' : R === Infinity ? '∞' : `${approx}${fmtNum(R, 5)}`;
+  const ratioText = !known ? '—' : R === Infinity ? '0' : R > 0 ? fmtNum(info.dist / R, 4) : '—';
 
   return (
     <div className="tab-grid">
@@ -188,7 +128,7 @@ export default function Convergence() {
           onReset={resetView}
           draw={drawMain}
           handles={handles}
-          onHandleDrag={onHandle}
+          onHandleDrag={onHandleDrag}
           height={360}
           label="Graph showing the interval of convergence"
         />
@@ -223,12 +163,12 @@ export default function Convergence() {
         <section className="panel readout" aria-label="Convergence at the test point">
           <TestPointControl />
           <dl className="wide">
-            <div><dt>Radius of convergence</dt><dd>{R === Infinity ? '∞' : Number.isFinite(R) ? `${isExact ? '' : '≈ '}${fmtNum(R, 5)}` : '—'}</dd></div>
-            <div><dt>Interval of convergence</dt><dd>{isExact || !Number.isFinite(R) ? intervalLabel : `≈ ${intervalLabel}`}</dd></div>
-            <div><dt>|x₀ {MINUS} a| / R</dt><dd>{ok && Number.isFinite(R) && R > 0 ? fmtNum(dist / R, 4) : R === Infinity ? '0' : '—'}</dd></div>
+            <div><dt>Radius of convergence</dt><dd>{radiusText}</dd></div>
+            <div><dt>Interval of convergence</dt><dd>{approx}{info.interval}</dd></div>
+            <div><dt>|x₀ {MINUS} a| / R</dt><dd>{ratioText}</dd></div>
           </dl>
           <p className={`verdict ${verdict.cls}`}>{verdict.text}</p>
-          {!isExact && <p className="hint">R is estimated from the coefficients, and the endpoints can’t be classified automatically.</p>}
+          {!isExact && !info.terminates && <p className="hint">R is estimated from the coefficients, and the endpoints can’t be classified automatically.</p>}
         </section>
 
         <section className="panel table-panel" aria-label="Estimating the radius from the coefficients">

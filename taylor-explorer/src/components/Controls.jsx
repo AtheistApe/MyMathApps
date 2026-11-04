@@ -1,6 +1,6 @@
 // Shared control widgets used by every tab. All of them read/write the shared store.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { PRESETS } from '../math/functions.js';
 import { useFn, useStore } from '../store.js';
 import { fmtNum, sub } from '../math/numfmt.js';
@@ -9,42 +9,35 @@ export function FunctionPicker() {
   const fnId = useStore((s) => s.fnId);
   const custom = useStore((s) => s.custom);
   const selectPreset = useStore((s) => s.selectPreset);
-  const useCustomIfReady = useStore((s) => s.useCustomIfReady);
+  const activateCustom = useStore((s) => s.activateCustom);
   const setCustomExpr = useStore((s) => s.setCustomExpr);
-  const [pickingCustom, setPickingCustom] = useState(fnId === 'custom');
+  const selectId = useId();
+  const [wantsCustom, setWantsCustom] = useState(false); // "Your own function…" chosen, but not built yet
   const [text, setText] = useState(custom.expr);
-
-  useEffect(() => {
-    if (fnId !== 'custom') return;
-    setPickingCustom(true);
-  }, [fnId]);
+  const showCustom = wantsCustom || fnId === 'custom';
 
   const onSelect = (e) => {
     const v = e.target.value;
-    if (v === 'custom') {
-      setPickingCustom(true);
-      useCustomIfReady();
-    } else {
-      setPickingCustom(false);
-      selectPreset(v);
-    }
+    setWantsCustom(v === 'custom');
+    if (v === 'custom') activateCustom();
+    else selectPreset(v);
   };
 
   const apply = (e) => {
-    e?.preventDefault();
+    e.preventDefault();
     setCustomExpr(text);
   };
 
   return (
     <div className="field">
-      <label htmlFor="fn-select">Function f(x)</label>
-      <select id="fn-select" value={pickingCustom ? 'custom' : fnId} onChange={onSelect}>
+      <label htmlFor={selectId}>Function f(x)</label>
+      <select id={selectId} value={showCustom ? 'custom' : fnId} onChange={onSelect}>
         {PRESETS.map((p) => (
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
         <option value="custom">Your own function…</option>
       </select>
-      {pickingCustom && (
+      {showCustom && (
         <form className="custom-row" onSubmit={apply}>
           <input
             type="text"
@@ -61,27 +54,28 @@ export function FunctionPicker() {
           </button>
         </form>
       )}
-      {pickingCustom && custom.status === 'error' && <p className="msg error">{custom.error}</p>}
-      {pickingCustom && custom.status !== 'error' && (
-        <p className="hint">Use x, + − * / ^, and functions like sin, cos, exp, log, sqrt, atan. Needs to be differentiable at the center.</p>
+      {showCustom && custom.status === 'error' && <p className="msg error">{custom.error}</p>}
+      {showCustom && custom.status !== 'error' && (
+        <p className="hint">Use x, + − * / ^, and functions like sin, cos, exp, log, sqrt, atan. It must be defined (and smooth) at the center.</p>
       )}
     </div>
   );
 }
 
 function Stepper({ value, min, max, step, onChange, label, format = (v) => String(v), symbol, extra }) {
+  const id = useId();
   const dec = () => onChange(Math.max(min, +(value - step).toFixed(6)));
   const inc = () => onChange(Math.min(max, +(value + step).toFixed(6)));
   return (
     <div className="field">
       <div className="field-head">
-        <label htmlFor={`rng-${label}`}>{label}</label>
+        <label htmlFor={id}>{label}</label>
         <span className="value">{symbol} = {format(value)}</span>
       </div>
       <div className="stepper">
         <button type="button" className="btn round" onClick={dec} disabled={value <= min} aria-label={`Decrease ${label}`}>−</button>
         <input
-          id={`rng-${label}`}
+          id={id}
           type="range"
           min={min}
           max={max}
@@ -160,8 +154,11 @@ export function CenterControl() {
 export function TestPointControl() {
   const x0 = useStore((s) => s.x0);
   const setX0 = useStore((s) => s.setX0);
+  const inputId = useId();
   const [text, setText] = useState(String(x0));
-  useEffect(() => setText(String(x0)), [x0]);
+  useEffect(() => {
+    setText(String(x0)); // follow changes made by dragging the handle on a plot
+  }, [x0]);
   const commit = () => {
     const v = parseFloat(text);
     if (Number.isFinite(v)) setX0(v);
@@ -169,9 +166,9 @@ export function TestPointControl() {
   };
   return (
     <div className="field inline">
-      <label htmlFor="x0-input">Test point x{sub(0)}</label>
+      <label htmlFor={inputId}>Test point x{sub(0)}</label>
       <input
-        id="x0-input"
+        id={inputId}
         className="num"
         type="text"
         inputMode="decimal"

@@ -86,7 +86,7 @@ export function describeCoef(c, k, decimal = false) {
   return { kind: 'dec', neg: c < 0, mag, text: (c < 0 ? MINUS : '') + mag };
 }
 
-/** Continued-fraction search for p/q with q <= maxDen matching v to ~1e-12 (kept strict to avoid false hits). */
+/** Continued-fraction search for p/q with q <= maxDen matching v to a relative 1e-12 (strict, to avoid false hits). */
 function smallFraction(v, maxDen = 2000) {
   if (!Number.isFinite(v) || v === 0 || v > 1e6) return null;
   let h1 = 1, h0 = 0, k1 = 0, k0 = 1;
@@ -97,7 +97,8 @@ function smallFraction(v, maxDen = 2000) {
     const k2 = ai * k1 + k0;
     if (k2 > maxDen) return null;
     h0 = h1; h1 = h2; k0 = k1; k1 = k2;
-    if (Math.abs(v - h1 / k1) <= 1e-13 * Math.max(1, v)) return { num: BigInt(h1), den: BigInt(k1) };
+    // relative tolerance, and a nonzero numerator: a tiny c_k must never collapse to "0"
+    if (h1 > 0 && Math.abs(v - h1 / k1) <= 1e-12 * v) return { num: BigInt(h1), den: BigInt(k1) };
     const frac = x - ai;
     if (frac < 1e-15) return null;
     x = 1 / frac;

@@ -29,6 +29,8 @@ sinh, cosh, tanh, abs, ^, implicit multiplication). Its coefficients come from s
 (`src/math/tps.js`), so no symbolic differentiation is involved and degree 40 is instant. For a
 custom function the radius is *estimated* and endpoints are marked "?".
 
+Keyboard: click the plot (or Tab to it), then arrows pan, + / − zoom, 0 resets.
+
 Touch / mouse: drag to pan; scroll-wheel or pinch to zoom; double-click (or *Reset view*) to reset.
 To change the aspect ratio, drag along an axis (or scroll over it), use Shift+wheel (x only) or Alt+wheel
 (y only), or use the Horizontal / Vertical buttons under each plot. On a touchscreen, pinch with two fingers
@@ -39,25 +41,31 @@ Sliders and buttons are at least 44 px for fingers.
 
 ```
 src/
-  main.jsx, App.jsx        shell: header, tab bar (tab is also in the URL hash: #explore, #convergence)
+  main.jsx, App.jsx        shell: header, tab bar (keyboard accessible; the tab is also in the URL hash: #explore, #convergence)
   config.js                app title and course label
   store.js                 shared state: function, center a, degree n, test point x0, per-tab views
   theme.js, styles.css     colors / styling
-  math/
+  math/                    no React in here: easy to test with node
     functions.js           PRESETS (coefficients about any a, radius, endpoints, default view)
-    customFunction.js      parses student input (lazy math.js) -> same interface as a preset
+    customFunction.js      parses student input (lazy, tree-shaken math.js parser) -> same interface as a preset
     tps.js                 truncated power series arithmetic (the engine behind custom functions)
-    taylor.js              Horner, partial sums, radius estimates
+    taylor.js              Horner, partial sums, error + round-off floor, radius estimate
+    convergence.js         radius / interval / verdict for the convergence tab
     numfmt.js              unicode math text, exact fractions, interval text
-    ticks.js               axis ticks
+    ticks.js, util.js      axis ticks; clamp and snap
+  plot/                    the plotting toolkit
+    geometry.js            data <-> pixel mapping, zoom, pan, hit regions (pure functions)
+    draw.js                grid, curves, dots, handles, test-point marks
+    useGestures.js         mouse / touch / wheel / keyboard handling
   components/
-    PlotCanvas.jsx         pan / zoom / pinch plot with draggable handles
+    PlotCanvas.jsx         the plot component (canvas + zoom toolbar)
     Controls.jsx           FunctionPicker, DegreeControl, CenterControl, TestPointControl, Toggle
+    useHandles.js          the draggable center a and test point x0
     CoefficientTable.jsx
   tabs/
     index.js               TAB REGISTRY  <- add new features here
     Explore.jsx, Convergence.jsx
-scripts/check-math.mjs     numerical checks
+scripts/check-math.mjs     numerical checks (npm run check)
 ```
 
 ## Adding a feature later
@@ -80,6 +88,8 @@ const coeffs = fn.coeffs(a, fn.maxDegree); // c_k = f^(k)(a)/k!
 `PlotCanvas` is controlled (`view`, `onView`) and takes a `draw(ctx, H)` callback, where
 `H.X(x)`, `H.Y(y)` map data to pixels, `H.curve(f, style)` and `H.stroke(xs, ys, style)` draw
 curves (gaps and asymptotes handled), and `H.samples()` returns pixel-spaced x values.
+`plot/draw.js` has `drawDot`, `drawLine` and `drawTestPoint`; `useCenterTestHandles(fn)` gives you
+the draggable *a* and *x₀* handles for free.
 
 Where the planned features would plug in:
 

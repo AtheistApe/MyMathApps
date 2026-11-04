@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { useMemo } from 'react';
 import { presetById, viewFor } from './math/functions.js';
 import { buildCustom } from './math/customFunction.js';
-import { clamp, snap } from './math/taylor.js';
+import { clamp, snap } from './math/util.js';
 
 const DEFAULT_CUSTOM = 'exp(x)*cos(x)';
 
@@ -24,7 +24,7 @@ export const useStore = create((set, get) => ({
     const [lo, hi] = fn.centerRange;
     set({ a: clamp(snap(a), lo, hi) });
   },
-  setX0: (x) => set({ x0: snap(x) }),
+  setX0: (x) => set({ x0: x }), // exactly what was typed; dragging on a plot snaps before calling this
 
   setView: (tab, view) => set((s) => ({ views: { ...s.views, [tab]: view } })),
   resetView: (tab) =>
@@ -44,9 +44,9 @@ export const useStore = create((set, get) => ({
     }));
   },
 
-  useCustomIfReady: () => {
-    const { custom } = get();
-    if (custom.fn) set({ fnId: 'custom', views: {} });
+  /** Switch to the student's own function if one has already been built. */
+  activateCustom: () => {
+    if (get().custom.fn) set({ fnId: 'custom', views: {} });
   },
 
   setCustomExpr: async (expr) => {
@@ -71,11 +71,7 @@ function currentFn(s) {
 }
 
 /** The active function object. */
-export function useFn() {
-  const fnId = useStore((s) => s.fnId);
-  const custom = useStore((s) => s.custom.fn);
-  return fnId === 'custom' && custom ? custom : presetById(fnId);
-}
+export const useFn = () => useStore(currentFn);
 
 /** [view, setView, resetView] for one tab, falling back to the function's default window. */
 export function useTabView(tabId, fn) {

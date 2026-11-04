@@ -144,7 +144,7 @@ function tanLike(u, hyper) {
     let s = 0;
     for (let j = 1; j <= k; j++) s += j * u[j] * w[k - j];
     t[k] = s / k;
-    w[k] = (k === 0 ? 1 : 0) + (hyper ? -1 : 1) * sq(k);
+    w[k] = (hyper ? -1 : 1) * sq(k);
   }
   return t;
 }
@@ -215,6 +215,7 @@ export function validate(node) {
       return;
     case 'FunctionNode': {
       const name = node.fn?.name ?? node.name;
+      if (name === 'x' || name in CONSTANTS) throw new Error(`Write multiplication with * (for example ${name}*(x+1)), not ${name}(…).`);
       const ok = name in ONE_ARG && node.args.length === 1;
       const logBase = name === 'log' && node.args.length === 2;
       if (!ok && !logBase) throw new Error(`The function “${name}” isn't supported. Try ${SUPPORTED_FUNCTIONS.slice(0, 9).join(', ')}, …`);

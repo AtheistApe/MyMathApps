@@ -37,7 +37,7 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal =
 
   return (
     <div className="coef-block">
-      <p className="poly-line" aria-live="polite">
+      <p className="poly-line">
         <span className="lhs">T{sub(n)}(x) =</span> {polynomialText(coeffs, a, n, decimal)}
       </p>
       <div className="table-scroll" ref={box}>

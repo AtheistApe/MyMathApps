@@ -1,23 +1,25 @@
-// User-typed functions. math.js is used only to PARSE the text (it is loaded lazily the first
-// time a student opens the custom box); Taylor coefficients come from truncated-power-series
-// arithmetic in tps.js, which is instant and works to high degree.
+// User-typed functions. math.js is used only to PARSE the text; Taylor coefficients come from
+// truncated-power-series arithmetic in tps.js, which is instant and works to high degree.
+// Only math.js's parser is built (tree-shaken) and it is loaded lazily, the first time a student
+// uses the custom box, so everyone else never downloads it.
 
 import { autoView } from './functions.js';
 import { evalSeries, validate } from './tps.js';
 
-let mathPromise = null;
-export const loadMath = () => (mathPromise ??= import('mathjs'));
+let parserPromise = null;
+const loadParser = () =>
+  (parserPromise ??= import('mathjs').then(({ create, parseDependencies }) => create({ parseDependencies }).parse));
 
 const MAX_DEGREE = 40;
 
 export async function buildCustom(expr) {
   const text = expr.trim();
   if (!text) throw new Error('Type a function of x, for example exp(x)*cos(x).');
-  const math = await loadMath();
+  const parse = await loadParser();
 
   let node;
   try {
-    node = math.parse(text);
+    node = parse(text);
   } catch (err) {
     throw new Error(`Couldn't read that expression (${String(err.message).replace(/\s*\(char.*$/, '')}).`);
   }
