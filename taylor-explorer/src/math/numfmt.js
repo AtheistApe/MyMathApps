@@ -59,6 +59,22 @@ export function fmtDeriv(d) {
 }
 
 /**
+ * The k-th derivative f^(k)(a) = k!·c_k as text. When c_k is an exact fraction so is the derivative
+ * (sin(x)/x has f^(4)(0) = 1/5), so show it exactly unless decimals were asked for.
+ * `co` is describeCoef(c_k, k, decimal) and d = c_k·k!.
+ */
+export function derivText(co, k, d, decimal = false) {
+  if (!decimal && co.kind === 'frac') {
+    const top = co.num * factBig[k];
+    const g = gcd(top, co.den);
+    const num = top / g;
+    const den = co.den / g;
+    return (co.neg ? MINUS : '') + (den === 1n ? String(num) : `${num}/${den}`);
+  }
+  return fmtDeriv(d);
+}
+
+/**
  * Describe the Taylor coefficient c_k = f^(k)(a)/k!.
  * Returns { kind: 'zero'|'frac'|'dec', neg, num, den, text, mag }.
  * 'frac' means c_k is an exact fraction (an integer derivative over k!, or a (k+j)! denominator).

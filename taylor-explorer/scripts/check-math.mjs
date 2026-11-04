@@ -5,7 +5,7 @@ import { PRESETS } from '../src/math/functions.js';
 import { horner, estimateRadius, errorInfo, partialSumsGrid, partialSums } from '../src/math/taylor.js';
 import { niceTicks } from '../src/math/ticks.js';
 import { snap, clamp } from '../src/math/util.js';
-import { describeCoef, termText, polynomialText } from '../src/math/numfmt.js';
+import { describeCoef, termText, polynomialText, derivText } from '../src/math/numfmt.js';
 
 let bad = 0;
 const fail = (m) => { bad++; console.log('FAIL', m); };
@@ -188,6 +188,25 @@ for (const a of [0, 0.5, -0.4]) {
     const cs = PRESETS.find((q) => q.id === id).coeffs(a, 30);
     cs.forEach((c, k) => { c === 0 || describeCoef(c, k).kind === 'dec' || fail(`${id} at a=${a}: c_${k} wrongly shown as a fraction (${describeCoef(c, k).text})`); });
   }
+}
+
+
+// ---- the f^(k)(a) column of the table: exact fractions too (sin(x)/x has f''(0) = -1/3) ----
+{
+  const fact = (k) => { let r = 1; for (let i = 2; i <= k; i++) r *= i; return r; };
+  const deriv = (c, k, decimal = false) => derivText(describeCoef(c[k], k, decimal), k, c[k] * fact(k), decimal);
+  const sinc = (await buildCustom('sin(x)/x')).coeffs(0, 10);
+  expect(deriv(sinc, 2), '−1/3'); expect(deriv(sinc, 4), '1/5'); expect(deriv(sinc, 6), '−1/7'); expect(deriv(sinc, 8), '1/9');
+  expect(deriv(sinc, 3), '0'); expect(deriv(sinc, 0), '1');
+  expect(deriv(sinc, 2, true), '−0.33333');                        // decimals when asked
+  const ex = PRESETS.find((q) => q.id === 'exp').coeffs(0, 10);
+  expect(deriv(ex, 5), '1');                                       // integers stay integers
+  const geo = PRESETS.find((q) => q.id === 'geom').coeffs(0, 10);
+  expect(deriv(geo, 5), '120');
+  const ln = PRESETS.find((q) => q.id === 'ln').coeffs(0, 10);
+  expect(deriv(ln, 4), '−6');                                      // (-1)^(k-1) (k-1)!
+  const irr = PRESETS.find((q) => q.id === 'exp').coeffs(0.5, 10);
+  /^[0-9.]+$/.test(deriv(irr, 3)) || fail(`e^0.5 derivative should be a decimal, got ${deriv(irr, 3)}`);
 }
 
 console.log(bad ? `\n${bad} problem(s)` : 'All math checks passed.');

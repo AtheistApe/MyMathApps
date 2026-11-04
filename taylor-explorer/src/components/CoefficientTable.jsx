@@ -2,7 +2,7 @@
 // Optionally adds the term value and running total at the test point x0.
 
 import { useEffect, useRef } from 'react';
-import { describeCoef, factorialBig, fmtDeriv, fmtNum, factorial, polynomialText, powerText, sub, sup, termText } from '../math/numfmt.js';
+import { derivText, describeCoef, factorialBig, fmtNum, factorial, polynomialText, powerText, sub, sup, termText } from '../math/numfmt.js';
 import { partialSums } from '../math/taylor.js';
 
 const factText = (k) => (k <= 20 ? String(factorialBig(k)) : fmtNum(factorial(k), 4));
@@ -25,7 +25,7 @@ export default function CoefficientTable({ coeffs, a, n, x0, showEval, decimal =
     rows.push(
       <tr key={k} className={k === n ? 'newest' : undefined}>
         <td className="k">{k}</td>
-        <td>{fmtDeriv(d)}</td>
+        <td>{derivText(co, k, d, decimal)}</td>
         <td>{factText(k)}</td>
         <td className="coef">{co.text}</td>
         <td className="term">{termText(co, a, k)}</td>
