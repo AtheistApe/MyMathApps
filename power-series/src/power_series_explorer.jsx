@@ -225,6 +225,11 @@ const danceBtnStyle = {
   background: "linear-gradient(135deg, #1a2a10, #1a3318)",
   borderColor: "#2d5a1e", color: "#8dcc6a", letterSpacing: 0.5,
 };
+const transportBtn = {
+  padding: "6px 10px", borderRadius: 6, border: "1px solid #1e2d44",
+  background: "#111827", color: "#a0b8d0", cursor: "pointer", fontSize: 13,
+  fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center",
+};
 const cursorStyle = {
   position: "absolute", pointerEvents: "none",
   background: "rgba(10,14,24,0.88)", border: "1px solid #2a3a54",
@@ -312,11 +317,22 @@ export default function PowerSeriesExplorer() {
   const [saveName, setSaveName] = useState("");
   const [selectedSaved, setSelectedSaved] = useState(-1);
 
+  const [animPaused, setAnimPaused] = useState(false);
+  const [animType, setAnimType] = useState(null); /* 'single' | 'batch' | null */
+
   /* ── refs ── */
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const animRef = useRef({ active: false, timer: null });
-  const batchRef = useRef({ active: false, timer: null });
+  const animRef = useRef({
+    active: false, paused: false, timer: null,
+    /* externalized single-point state */
+    xClick: 0, k: 0, sum: 0, prevSum: null,
+    hist: [null, null, null], accel: null, prevAccel: null, accelCount: 0,
+    prevTermAbs: null, pixelSize: 0,
+    /* history for stepping */
+    history: [], viewIdx: -1,
+  });
+  const batchRef = useRef({ active: false, paused: false, timer: null, stepFn: null });
   const paramsRef = useRef({ formula, a, l, c, k0, xMin, xMax, yMin, yMax, speed, maxTerms });
   const redPointsRef = useRef(redPoints);
   const showGraphRef = useRef(showGraph);
@@ -340,6 +356,8 @@ export default function PowerSeriesExplorer() {
     if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
     animRef.current.active = false;
     batchRef.current.active = false;
+    setAnimPaused(false);
+    setAnimType(null);
   }, []);
 
   const addRedPoints = useCallback((newPts) => {
@@ -467,95 +485,131 @@ export default function PowerSeriesExplorer() {
   }, [canvasSize, getCurveCache]);
 
   /* ════════════════════════════════════════════════════════════
-     Single-point animation (click)
+     Single-point animation (ref-based state with history)
      ════════════════════════════════════════════════════════════ */
+
+  /* display a snapshot from the history array */
+  const displaySnapshot = useCallback((idx) => {
+    const st = animRef.current;
+    const snap = st.history[idx];
+    if (!snap) return;
+    setPartialSumInfo({ n: snap.nTerms, x: st.xClick, sum: snap.sum, accel: snap.accel, accelN: snap.accelCount });
+    setStatusText(
+      snap.accel !== null
+        ? `x = ${fmtNum(st.xClick, 4)}  |  k = ${snap.k}  |  Sₖ = ${fmtNum(snap.sum, 6)}  |  Aitken = ${fmtNum(snap.accel, 6)}`
+        : `x = ${fmtNum(st.xClick, 4)}  |  k = ${snap.k}  |  Sₖ = ${fmtNum(snap.sum, 6)}`
+    );
+    const cyanDots = snap.accel !== null ? [{ x: st.xClick, y: snap.accel }] : null;
+    draw([{ x: st.xClick, y: snap.sum }], cyanDots);
+  }, [draw]);
+
+  /* compute one step, push to history, draw, return whether finished */
+  const doAnimStep = useCallback(() => {
+    const st = animRef.current;
+    if (!st.active) return true;
+    const p = paramsRef.current;
+
+    const term = computeTerm(p.formula, st.k, st.xClick, p.a, p.l, p.c);
+    if (isNaN(term)) {
+      st.active = false;
+      setAnimType(null); setAnimPaused(false);
+      setStatusText(`b(${st.k}) is undefined. Stopped.`);
+      draw();
+      return true;
+    }
+
+    const termAbs = Math.abs(term);
+    const termsDecreasing = st.prevTermAbs === null || termAbs <= st.prevTermAbs * 1.01;
+    st.prevTermAbs = termAbs;
+
+    st.prevSum = st.sum;
+    st.sum += term;
+
+    if (!Number.isFinite(st.sum)) {
+      st.active = false;
+      setAnimType(null); setAnimPaused(false);
+      setStatusText(`Series diverges at x = ${fmtNum(st.xClick)} (overflow at k=${st.k}).`);
+      draw();
+      return true;
+    }
+
+    /* Aitken */
+    st.hist[0] = st.hist[1]; st.hist[1] = st.hist[2]; st.hist[2] = st.sum;
+    st.prevAccel = st.accel;
+    st.accel = (useAitken && st.hist[0] !== null) ? aitkenAccel(st.hist[0], st.hist[1], st.hist[2]) : null;
+    if (st.accel !== null && !Number.isFinite(st.accel)) st.accel = null;
+    if (st.accel !== null) st.accelCount++;
+
+    const nTerms = st.k - p.k0 + 1;
+
+    /* save snapshot */
+    st.history.push({
+      k: st.k, sum: st.sum, prevSum: st.prevSum,
+      accel: st.accel, prevAccel: st.prevAccel, accelCount: st.accelCount,
+      nTerms, termsDecreasing,
+      hist: [...st.hist], prevTermAbs: st.prevTermAbs,
+    });
+    st.viewIdx = st.history.length - 1;
+
+    /* display */
+    displaySnapshot(st.viewIdx);
+
+    /* convergence check */
+    const aitkenConverged = st.accel !== null && st.prevAccel !== null
+      && nTerms >= MIN_AITKEN_TERMS && termsDecreasing
+      && Math.abs(st.accel - st.prevAccel) < st.pixelSize;
+    const converged = aitkenConverged
+      || (nTerms >= 3 && Math.abs(st.sum - st.prevSum) < st.pixelSize);
+    if (converged || nTerms >= p.maxTerms) {
+      st.active = false;
+      setAnimType(null); setAnimPaused(false);
+      const finalVal = st.accel !== null ? st.accel : st.sum;
+      addRedPoints({ x: st.xClick, y: finalVal, terms: nTerms });
+      setPartialSumInfo({ n: nTerms, x: st.xClick, sum: finalVal, converged: true });
+      setStatusText(converged
+        ? `Converged at x = ${fmtNum(st.xClick, 4)}  →  f(x) ≈ ${fmtNum(finalVal, 6)}  (${nTerms} terms${st.accel !== null ? ", Aitken" : ""})`
+        : `Max terms (${p.maxTerms}) reached at x = ${fmtNum(st.xClick, 4)}  →  Sₖ ≈ ${fmtNum(st.sum, 6)}`);
+      setTimeout(() => draw(), 20);
+      return true;
+    }
+    st.k++;
+    return false;
+  }, [draw, addRedPoints, useAitken, displaySnapshot]);
+
+  /* auto-advance loop */
+  const runAnimLoop = useCallback(() => {
+    const st = animRef.current;
+    if (!st.active || st.paused) return;
+    const finished = doAnimStep();
+    if (!finished && !st.paused) {
+      st.timer = setTimeout(runAnimLoop, paramsRef.current.speed);
+    }
+  }, [doAnimStep]);
 
   const startAnimation = useCallback((xClick) => {
     cancelAnimations();
-    animRef.current.active = true;
-
-    let sum = 0, k = paramsRef.current.k0, prevSum = null;
-    /* ring buffer of last 3 partial sums for Aitken */
-    const hist = [null, null, null];
-    let accel = null, prevAccel = null, accelCount = 0;
-    let prevTermAbs = null; /* track |term| to verify nth-term test */
-    const { yMin: yMn, yMax: yMx } = paramsRef.current;
-    const pixelSize = (yMx - yMn) / canvasSize.h;
-
-    const step = () => {
-      if (!animRef.current.active) return;
-      const p = paramsRef.current;
-
-      const term = computeTerm(p.formula, k, xClick, p.a, p.l, p.c);
-      if (isNaN(term)) {
-        animRef.current.active = false;
-        setStatusText(`b(${k}) is undefined. Stopped.`);
-        draw();
-        return;
-      }
-
-      const termAbs = Math.abs(term);
-      /* nth-term test: are terms shrinking? (check after initial settling) */
-      const termsDecreasing = prevTermAbs === null || termAbs <= prevTermAbs * 1.01;
-      prevTermAbs = termAbs;
-
-      prevSum = sum;
-      sum += term;
-
-      if (!Number.isFinite(sum)) {
-        animRef.current.active = false;
-        setStatusText(`Series diverges at x = ${fmtNum(xClick)} (overflow at k=${k}).`);
-        draw();
-        return;
-      }
-
-      /* shift history and compute Aitken estimate */
-      hist[0] = hist[1]; hist[1] = hist[2]; hist[2] = sum;
-      prevAccel = accel;
-      accel = (useAitken && hist[0] !== null) ? aitkenAccel(hist[0], hist[1], hist[2]) : null;
-      if (accel !== null && !Number.isFinite(accel)) accel = null;
-      if (accel !== null) accelCount++;
-
-      const nTerms = k - p.k0 + 1;
-      setPartialSumInfo({ n: nTerms, x: xClick, sum, accel, accelN: accelCount });
-      setStatusText(
-        accel !== null
-          ? `x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}  |  Aitken = ${fmtNum(accel, 6)}`
-          : `x = ${fmtNum(xClick, 4)}  |  k = ${k}  |  Sₖ = ${fmtNum(sum, 6)}`
-      );
-      const cyanDots = accel !== null ? [{ x: xClick, y: accel }] : null;
-      draw([{ x: xClick, y: sum }], cyanDots);
-
-      /* convergence: Aitken only accepted if enough terms computed and terms shrinking */
-      const aitkenConverged = accel !== null && prevAccel !== null
-        && nTerms >= MIN_AITKEN_TERMS && termsDecreasing
-        && Math.abs(accel - prevAccel) < pixelSize;
-      const converged = aitkenConverged
-        || (nTerms >= 3 && Math.abs(sum - prevSum) < pixelSize);
-      if (converged || nTerms >= p.maxTerms) {
-        animRef.current.active = false;
-        const finalVal = accel !== null ? accel : sum;
-        addRedPoints({ x: xClick, y: finalVal, terms: nTerms });
-        setPartialSumInfo({ n: nTerms, x: xClick, sum: finalVal, converged: true });
-        setStatusText(converged
-          ? `Converged at x = ${fmtNum(xClick, 4)}  →  f(x) ≈ ${fmtNum(finalVal, 6)}  (${nTerms} terms${accel !== null ? ", Aitken" : ""})`
-          : `Max terms (${p.maxTerms}) reached at x = ${fmtNum(xClick, 4)}  →  Sₖ ≈ ${fmtNum(sum, 6)}`);
-        setTimeout(() => draw(), 20);
-        return;
-      }
-      k++;
-      animRef.current.timer = setTimeout(step, p.speed);
-    };
-    step();
-  }, [canvasSize, draw, cancelAnimations, addRedPoints, useAitken]);
+    const p = paramsRef.current;
+    const st = animRef.current;
+    st.active = true; st.paused = false;
+    st.xClick = xClick;
+    st.k = p.k0; st.sum = 0; st.prevSum = null;
+    st.hist = [null, null, null];
+    st.accel = null; st.prevAccel = null; st.accelCount = 0;
+    st.prevTermAbs = null;
+    st.pixelSize = (p.yMax - p.yMin) / canvasSize.h;
+    st.history = []; st.viewIdx = -1;
+    setAnimType("single"); setAnimPaused(false);
+    runAnimLoop();
+  }, [canvasSize, cancelAnimations, runAnimLoop]);
 
   /* ════════════════════════════════════════════════════════════
-     Batch animation (dance)
+     Batch animation (dance) — with pause/resume/step-forward
      ════════════════════════════════════════════════════════════ */
 
   const startBatchAnimation = useCallback(() => {
     cancelAnimations();
     batchRef.current.active = true;
+    batchRef.current.paused = false;
 
     const interval = findConvergenceInterval();
     if (!interval) {
@@ -575,6 +629,7 @@ export default function PowerSeriesExplorer() {
     let stepCount = 0;
 
     setStatusText(`Dancing ${n} points in [${fmtNum(lo, 3)}, ${fmtNum(hi, 3)}] …`);
+    setAnimType("batch"); setAnimPaused(false);
 
     const step = () => {
       if (!batchRef.current.active) return;
@@ -635,14 +690,85 @@ export default function PowerSeriesExplorer() {
 
       if (activeCount === 0) {
         batchRef.current.active = false;
+        setAnimType(null); setAnimPaused(false);
         setStatusText(`All ${n} points converged in [${fmtNum(lo, 3)}, ${fmtNum(hi, 3)}].`);
         setTimeout(() => draw(), 20);
         return;
       }
-      batchRef.current.timer = setTimeout(step, p.speed);
+      if (!batchRef.current.paused) {
+        batchRef.current.timer = setTimeout(step, paramsRef.current.speed);
+      }
     };
+    batchRef.current.stepFn = step;
     step();
   }, [canvasSize, draw, batchCount, findConvergenceInterval, cancelAnimations, addRedPoints, useAitken]);
+
+  /* ════════════════════════════════════════════════════════════
+     Transport controls: pause, resume, step forward/back
+     ════════════════════════════════════════════════════════════ */
+
+  const pauseAnim = useCallback(() => {
+    if (animRef.current.active) {
+      if (animRef.current.timer) clearTimeout(animRef.current.timer);
+      animRef.current.paused = true;
+    }
+    if (batchRef.current.active) {
+      if (batchRef.current.timer) clearTimeout(batchRef.current.timer);
+      batchRef.current.paused = true;
+    }
+    setAnimPaused(true);
+  }, []);
+
+  const resumeAnim = useCallback(() => {
+    if (animRef.current.active) {
+      /* if we stepped back, restore state and trim history */
+      const st = animRef.current;
+      if (st.viewIdx >= 0 && st.viewIdx < st.history.length - 1) {
+        const snap = st.history[st.viewIdx];
+        st.k = snap.k + 1;
+        st.sum = snap.sum; st.prevSum = snap.prevSum;
+        st.accel = snap.accel; st.prevAccel = snap.prevAccel;
+        st.accelCount = snap.accelCount;
+        st.hist = [...snap.hist]; st.prevTermAbs = snap.prevTermAbs;
+        st.history = st.history.slice(0, st.viewIdx + 1);
+      }
+      st.paused = false;
+      setAnimPaused(false);
+      runAnimLoop();
+    }
+    if (batchRef.current.active) {
+      batchRef.current.paused = false;
+      setAnimPaused(false);
+      if (batchRef.current.stepFn) batchRef.current.stepFn();
+    }
+  }, [runAnimLoop]);
+
+  const stepForward = useCallback(() => {
+    const st = animRef.current;
+    if (st.active && st.paused) {
+      if (st.viewIdx < st.history.length - 1) {
+        /* already computed — just advance view */
+        st.viewIdx++;
+        displaySnapshot(st.viewIdx);
+      } else {
+        /* at frontier — compute next step */
+        doAnimStep();
+      }
+      return;
+    }
+    /* batch step forward */
+    const bt = batchRef.current;
+    if (bt.active && bt.paused && bt.stepFn) {
+      bt.stepFn();
+    }
+  }, [doAnimStep, displaySnapshot]);
+
+  const stepBackward = useCallback(() => {
+    const st = animRef.current;
+    if (!st.active || !st.paused || st.viewIdx <= 0) return;
+    st.viewIdx--;
+    displaySnapshot(st.viewIdx);
+  }, [displaySnapshot]);
 
   /* ════════════════════════════════════════════════════════════
      Overlay drag helpers (shared by mouse + touch)
@@ -814,7 +940,7 @@ export default function PowerSeriesExplorer() {
   }, [a, l, c, k0]);
 
   const stopAll = useCallback(() => {
-    cancelAnimations();
+    cancelAnimations(); /* also sets animType=null, animPaused=false */
     setStatusText("Animation stopped.");
     draw();
   }, [cancelAnimations, draw]);
@@ -958,9 +1084,31 @@ export default function PowerSeriesExplorer() {
             </div>
           </div>
 
+          {/* transport controls — visible during animation */}
+          {animType && (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <button onClick={stepBackward}
+                disabled={!animPaused || animType !== "single"}
+                style={{ ...transportBtn, opacity: (!animPaused || animType !== "single") ? 0.25 : 1 }}
+                title="Step back">⏮</button>
+              <button onClick={animPaused ? resumeAnim : pauseAnim}
+                style={{ ...transportBtn, flex: 1, color: animPaused ? "#8dcc6a" : "#ffd700" }}
+                title={animPaused ? "Resume" : "Pause"}>
+                {animPaused ? "▶ Resume" : "⏸ Pause"}
+              </button>
+              <button onClick={stepForward}
+                disabled={!animPaused}
+                style={{ ...transportBtn, opacity: !animPaused ? 0.25 : 1 }}
+                title="Step forward">⏭</button>
+              <button onClick={stopAll}
+                style={{ ...transportBtn, color: "#cc7777" }}
+                title="Stop">⏹</button>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={clearAll} style={btnStyle}>Clear Points</button>
-            <button onClick={stopAll} style={dangerBtnStyle}>Stop</button>
+            {!animType && <button onClick={stopAll} style={dangerBtnStyle}>Stop</button>}
             <button onClick={() => window.open("help.html", "_blank")}
               style={{ ...btnStyle, flex: "0 0 auto", padding: "7px 10px", background: "#0f1f2e", borderColor: "#1e3a5a", color: "#6baadd" }}>?</button>
           </div>
