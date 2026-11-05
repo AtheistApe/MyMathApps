@@ -9,6 +9,8 @@
   --poly: #e8590c;
   --err: #c92a2a;
   --center: #0b7285;
+  --deriv: #1971c2;
+  --bound: #c2255c;
   --test: #6741d9;
   --good: #2f9e44;
   --radius: 8px;
@@ -69,6 +71,8 @@ main { padding: 16px max(16px, env(safe-area-inset-right)) 40px max(16px, env(sa
 .key.poly { border-color: var(--poly); }
 .key.ghost { border-color: var(--poly); opacity: 0.35; border-top-width: 2px; }
 .key.err { border-color: var(--err); }
+.key.deriv { border-color: var(--deriv); }
+.key.bound { border-color: var(--bound); }
 .key.good { border-color: var(--good); opacity: 0.55; }
 .key.good.dashed { border-top-style: dashed; opacity: 1; border-top-width: 3px; }
 .key.gap { height: 10px; width: 14px; border: 0; background: rgba(201, 42, 42, 0.22); }
@@ -83,6 +87,7 @@ main { padding: 16px max(16px, env(safe-area-inset-right)) 40px max(16px, env(sa
 .tb-btn.text { font-size: 14px; }
 .tb-spacer { flex: 1; }
 .c-center { color: var(--center); font-family: var(--math); font-style: italic; }
+.c-bound { color: var(--bound); font-family: var(--math); font-style: italic; }
 .c-test { color: var(--test); font-family: var(--math); font-style: italic; }
 
 /* ---------- controls ---------- */
@@ -158,3 +163,10 @@ input[type="range"]::-moz-range-thumb { box-sizing: border-box; width: 28px; hei
   .readout dl { grid-template-columns: 1fr; }
   .titles h1 { font-size: 18px; }
 }
+
+/* ---------- error bound tab ---------- */
+.theorem p { margin: 0 0 6px; }
+.theorem p:last-child { margin-bottom: 0; }
+.formula { font: 17px/1.5 var(--math); color: var(--ink); background: #f6f8fb; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-wrap: anywhere; }
+.formula.small { font-size: 15px; margin: 10px 0 0; }
+.m-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }

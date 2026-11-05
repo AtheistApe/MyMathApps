@@ -256,5 +256,118 @@ for (const a of [0, 0.5, -0.4]) {
   polynomialText(cs, 0, 12, false, all) === polynomialText(cs, 0, 12, false) || fail('polynomialText with shared descs');
 }
 
+
+// ---- Taylor's Inequality (the error-bound tab) ----
+{
+  const eb = await import('../src/math/errorbound.js');
+  const P = (id) => PRESETS.find((q) => q.id === id);
+  const near = (u, v, tol = 1e-9) => Math.abs(u - v) <= tol * Math.max(1, Math.abs(v));
+
+  // derivatives at a point, compared with the closed forms
+  near(eb.derivativeFn(P('sin'), 4)(0.3), Math.sin(0.3)) || fail('sin^(4)');
+  near(eb.derivativeFn(P('cos'), 3)(0.3), Math.sin(0.3)) || fail('cos^(3)');
+  near(eb.derivativeFn(P('exp'), 7)(1.1), Math.exp(1.1)) || fail('exp^(7)');
+  near(eb.derivativeFn(P('ln'), 3)(0.5), 2 / 1.5 ** 3) || fail('ln^(3)');
+  near(eb.derivativeFn(P('geom'), 2)(0.5), 16) || fail('1/(1-x)^(2)');
+  near(eb.derivativeFn(await buildCustom('x^3'), 3)(1.7), 6) || fail('x^3 third derivative');
+
+  // true maxima
+  let t = eb.maxAbsOnInterval(eb.derivativeFn(P('sin'), 4), -0.5, 0.5);
+  (near(t.M, Math.sin(0.5), 1e-9) && !t.unbounded) || fail(`sin^(4) on [-.5,.5]: ${t.M}`);
+  t = eb.maxAbsOnInterval(eb.derivativeFn(P('sin'), 4), 0, 2);
+  (near(t.M, 1, 1e-9) && near(t.at, Math.PI / 2, 1e-5)) || fail(`sin^(4) on [0,2]: ${t.M} at ${t.at}`);
+  t = eb.maxAbsOnInterval(eb.derivativeFn(P('geom'), 3), -0.5, 0.5);
+  (near(t.M, 96, 1e-9) && !t.unbounded) || fail('1/(1-x)^(3) on [-.5,.5]');
+  t = eb.maxAbsOnInterval(eb.derivativeFn(P('ln'), 2), -0.5, 0.5);
+  (near(t.M, 4, 1e-9) && !t.unbounded) || fail('ln^(2) on [-.5,.5]');
+
+  // intervals with a pole or a boundary of the domain have no finite M
+  for (const [id, order, lo, hi] of [['geom', 3, -0.5, 1.5], ['ln', 2, -1, 1], ['ln', 3, -1.5, 0.5], ['tan', 3, -2, 2], ['sqrt', 2, -1, 1], ['geom', 1, 0.2, 3]]) {
+    eb.maxAbsOnInterval(eb.derivativeFn(P(id), order), lo, hi).unbounded || fail(`${id}^(${order}) on [${lo},${hi}] should be unbounded`);
+  }
+  // sweep: intervals reaching a pole / domain edge are always flagged, and intervals short of it never are
+  // (x0 values on the same 0.05 grid the app uses, several centers, both kinds of interval)
+  {
+    let missed = 0, falseAlarms = 0, total = 0;
+    const poles = { geom: [1], ln: [-1], sqrt: [-1], tan: [Math.PI / 2, -Math.PI / 2] };
+    const orders = { geom: [1, 2, 4], ln: [1, 3], sqrt: [2, 4], tan: [1, 3] };
+    for (const [id, ps] of Object.entries(poles)) for (const order of orders[id]) {
+      const g = eb.derivativeFn(P(id), order);
+      for (const a of [-0.5, 0, 0.3, 0.5]) {
+        if (a < P(id).centerRange[0]) continue;
+        for (let i = -60; i <= 60; i++) {
+          const x0 = Number((i * 0.05).toFixed(2));
+          if (x0 === a) continue;
+          for (const symmetric of [true, false]) {
+            const { lo, hi } = eb.intervalFor(a, x0, symmetric);
+            const contains = ps.some((p0) => p0 >= lo - 1e-12 && p0 <= hi + 1e-12);
+            const nearEdge = ps.some((p0) => Math.min(Math.abs(p0 - lo), Math.abs(p0 - hi)) < 0.02) && !contains;
+            if (nearEdge || (id === 'tan' && ps.some((p0) => Math.abs(Math.abs(p0) - Math.abs(x0)) < 0.03))) continue; // too close to call
+            const unb = eb.maxAbsOnInterval(g, lo, hi).unbounded;
+            total++;
+            if (contains && !unb) missed++;
+            if (!contains && unb) falseAlarms++;
+          }
+        }
+      }
+    }
+    (missed === 0 && falseAlarms === 0) || fail(`pole detection: ${missed} missed, ${falseAlarms} false alarms in ${total} intervals`);
+    total > 3000 || fail(`pole sweep too small: ${total}`);
+    console.log(`  pole detection: ${total} intervals, ${missed} missed, ${falseAlarms} false alarms`);
+  }
+  // the symmetric interval ends exactly at x0, so a pole sitting at x0 is seen exactly
+  eb.intervalFor(0.3, 1, true).hi === 1 && eb.intervalFor(0.3, -0.4, true).lo === -0.4 || fail('intervalFor must end exactly at x0');
+  // ... but smooth functions with spiky derivatives are bounded
+  !eb.maxAbsOnInterval(eb.derivativeFn(P('lorentz'), 30), -3, 3).unbounded || void 0;
+  eb.maxAbsOnInterval(eb.derivativeFn(P('lorentz'), 30), -3, 3).unbounded && fail('1/(1+x^2)^(30) is bounded on [-3,3]');
+  eb.maxAbsOnInterval(eb.derivativeFn(P('tan'), 3), -1, 1).unbounded && fail('tan^(3) on [-1,1] is bounded');
+
+  // feedback classes
+  const truth = { M: 2, at: 0, unbounded: false };
+  const kinds = [[null, 'none'], [1.5, 'small'], [2, 'valid'], [2.0000001, 'valid'], [5, 'valid'], [25, 'loose']];
+  for (const [M, kind] of kinds) eb.classifyM(M, truth).kind === kind || fail(`classifyM(${M}) should be ${kind}`);
+  eb.classifyM(1, { M: Infinity, unbounded: true }).kind === 'unbounded' || fail('classify unbounded');
+  eb.classifyM(1, { M: 0, unbounded: false }).kind === 'exact' || fail('classify exact');
+
+  // bound arithmetic and rounding up
+  near(eb.boundValue(1, 0.5, 3), 0.5 ** 4 / 24) || fail('boundValue');
+  eb.roundUp(0.4794255) === 0.4795 && eb.roundUp(1) === 1 && eb.roundUp(1234.56) === 1235 || fail('roundUp');
+  eb.roundUp(0.4794255) >= 0.4794255 || fail('roundUp must not round down');
+  const iv = eb.intervalFor(1, 1.5, true), one = eb.intervalFor(1, 1.5, false), left = eb.intervalFor(1, 0.25, false);
+  (iv.lo === 0.5 && iv.hi === 1.5 && iv.d === 0.5 && one.lo === 1 && one.hi === 1.5 && left.lo === 0.25 && left.hi === 1) || fail('intervalFor');
+
+  // THE THEOREM: with the true M, the bound stays above the actual error everywhere on the interval
+  let cases = 0;
+  const customs = await Promise.all(['sin(x)/x', 'exp(x)*cos(x)', 'atan(x^3)'].map(buildCustom));
+  for (const fn of [...PRESETS, ...customs]) {
+    for (const n of [0, 1, 2, 3, 5, 8, 12]) {
+      for (const a of [0, 0.5, -0.4, 1]) {
+        if (a < fn.centerRange[0] || a > fn.centerRange[1]) continue;
+        const cf = fn.coeffs(a, 40);
+        if (!cf.slice(0, n + 1).every(Number.isFinite)) continue;
+        for (const d of [0.15, 0.5, 1]) {
+          for (const symmetric of [true, false]) {
+            const { lo, hi } = eb.intervalFor(a, a + d, symmetric);
+            const truthM = eb.maxAbsOnInterval(eb.derivativeFn(fn, n + 1), lo, hi);
+            if (truthM.unbounded) continue;
+            const M = eb.roundUp(truthM.M);
+            for (let i = 0; i <= 40; i++) {
+              const x = lo + ((hi - lo) * i) / 40;
+              const fx = fn.f(x);
+              if (!Number.isFinite(fx)) continue;
+              const err = Math.abs(fx - horner(cf, n, x - a));
+              const bound = eb.boundValue(M, Math.abs(x - a), n);
+              if (err > bound * (1 + 1e-9) + 1e-12 * (1 + Math.abs(fx))) fail(`${fn.label} n=${n} a=${a} d=${d} sym=${symmetric} x=${x}: error ${err} > bound ${bound}`);
+            }
+            cases++;
+          }
+        }
+      }
+    }
+  }
+  cases > 500 || fail(`the theorem check covered only ${cases} cases`);
+  console.log(`  Taylor's Inequality verified in ${cases} settings`);
+}
+
 console.log(bad ? `\n${bad} problem(s)` : 'All math checks passed.');
 process.exit(bad ? 1 : 0);

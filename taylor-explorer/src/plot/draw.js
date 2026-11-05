@@ -94,12 +94,18 @@ export function drawOriginAxes(ctx, g, view, { yLog = false } = {}) {
   ctx.stroke();
 }
 
-/** Dashed vertical guide lines for handles that ask for one (`guide: true`). */
+/** Dashed guide lines for handles that ask for one (`guide: true`): vertical for x handles, horizontal for y handles. */
 export function drawHandleGuides(ctx, g, handles) {
   for (const hd of handles) {
     if (!hd.guide) continue;
-    const px = Math.round(g.X(hd.x)) + 0.5;
-    drawLine(ctx, px, g.top, px, g.top + g.plotH, { color: hd.color, width: 1.5, dash: [5, 4], alpha: 0.55 });
+    const style = { color: hd.color, width: 1.5, dash: [5, 4], alpha: 0.55 };
+    if (hd.axis === 'y') {
+      const py = Math.round(g.Y(hd.y)) + 0.5;
+      drawLine(ctx, g.left, py, g.left + g.plotW, py, style);
+    } else {
+      const px = Math.round(g.X(hd.x)) + 0.5;
+      drawLine(ctx, px, g.top, px, g.top + g.plotH, style);
+    }
   }
 }
 
@@ -113,9 +119,14 @@ export function drawHandleKnobs(ctx, g, handles, height, margins) {
     if (hd.label) {
       ctx.font = 'italic 600 14px Georgia, "Times New Roman", serif';
       ctx.fillStyle = hd.color;
-      ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(hd.label, px + 12, py - 8);
+      if (hd.axis === 'y') {
+        ctx.textAlign = 'right'; // keep the label inside the plot, to the left of the knob
+        ctx.fillText(hd.label, px - 12, py - 8);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(hd.label, px + 12, py - 8);
+      }
     }
   }
 }

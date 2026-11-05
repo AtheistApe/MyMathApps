@@ -9,16 +9,17 @@
 //   <PlotCanvas/>                 pan/zoom/touch plot with draggable handles
 //   <FunctionPicker/> <DegreeControl/> <CenterControl/> <TestPointControl/>   (components/Controls.jsx)
 //
-// Planned additions (see README): error bound / Lagrange, match-the-function challenge,
+// Planned additions (see README): match-the-function challenge,
 // "how many terms do I need?", series manipulation, partial sums & convergence tests.
 
 import Explore from './Explore.jsx';
 import Convergence from './Convergence.jsx';
+import ErrorBound from './ErrorBound.jsx';
 
 export const TABS = [
   { id: 'explore', label: 'Taylor polynomials', component: Explore },
   { id: 'convergence', label: 'Interval of convergence', component: Convergence },
-  // { id: 'errorbound', label: 'Error bound', component: ErrorBound },
+  { id: 'errorbound', label: 'Error bound', component: ErrorBound },
   // { id: 'match', label: 'Match the function', component: MatchChallenge },
   // { id: 'howmany', label: 'How many terms?', component: HowManyTerms },
   // { id: 'manipulate', label: 'New series from old', component: SeriesManipulation },

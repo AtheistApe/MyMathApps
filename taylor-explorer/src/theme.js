@@ -8,6 +8,8 @@ export const COL = {
   errFill: 'rgba(201,42,42,0.13)',
   center: '#0b7285',
   test: '#6741d9',
+  deriv: '#1971c2',     // |f^(n+1)(x)|
+  bound: '#c2255c',     // M and the bound it gives
   good: '#2f9e44',
   goodFill: 'rgba(47,158,68,0.10)',
   badFill: 'rgba(201,42,42,0.07)',

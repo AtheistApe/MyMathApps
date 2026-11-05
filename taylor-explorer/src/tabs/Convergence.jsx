@@ -2,10 +2,11 @@
 //   shaded interval (a − R, a + R), endpoint behaviour, high-degree polynomials that
 //   hug f inside and blow up outside, and the partial sums S_k(x0) at a test point.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import PlotCanvas from '../components/PlotCanvas.jsx';
 import { CenterControl, DegreeControl, FunctionPicker, TestPointControl } from '../components/Controls.jsx';
 import { useCenterTestHandles } from '../components/useHandles.js';
+import { useAutoView } from '../components/useAutoView.js';
 import { useFn, useStore, useTabView } from '../store.js';
 import { COL } from '../theme.js';
 import { drawDot, drawLine, drawTestPoint } from '../plot/draw.js';
@@ -85,7 +86,6 @@ export default function Convergence() {
   const sums = useMemo(() => (ok ? partialSums(coeffs, N, x0 - a) : []), [coeffs, N, x0, a, ok]);
   const target = fn.f(x0);
   const sig = `${fn.id}|${fn.label}|${a}|${x0}`;
-  const [override, setOverride] = useState(null);
   const sumView = useMemo(() => {
     const center = Number.isFinite(target) ? target : sums.length ? sums[sums.length - 1] : 0;
     let dev = 0.5;
@@ -93,7 +93,7 @@ export default function Convergence() {
     dev = Math.min(dev, 60);
     return { xmin: -1.5, xmax: N + 1.5, ymin: center - dev * 1.1, ymax: center + dev * 1.1 };
   }, [sums, target, N]);
-  const pView = override?.sig === sig ? override.v : sumView;
+  const [pView, setPView, resetPView] = useAutoView(sig, sumView);
 
   const drawSums = (ctx, H) => {
     if (!ok) return;
@@ -144,8 +144,8 @@ export default function Convergence() {
         </div>
         <PlotCanvas
           view={pView}
-          onView={(v) => setOverride({ sig, v })}
-          onReset={() => setOverride(null)}
+          onView={setPView}
+          onReset={resetPView}
           draw={drawSums}
           height={230}
           label="Partial sums at the test point"

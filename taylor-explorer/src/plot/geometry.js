@@ -64,8 +64,13 @@ export function regionOf(p, g) {
   return 'corner';
 }
 
-/** Pixel position of a handle: anchored to the bottom/top edge, or sitting on the curve at (x, y). */
+/**
+ * Pixel position of a handle.
+ *  - horizontal handles (default) slide along x: anchored to the bottom/top edge, or sitting on the curve at (x, y)
+ *  - vertical handles (axis: 'y') slide along y and sit at the right edge of the plot
+ */
 export function handlePixel(hd, g, h, m) {
+  if (hd.axis === 'y') return { px: g.left + g.plotW - 18, py: g.Y(hd.y) };
   const px = g.X(hd.x);
   let py;
   if (hd.anchor === 'bottom') py = h - m.b - 16;

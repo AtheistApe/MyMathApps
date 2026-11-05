@@ -20,6 +20,7 @@ npm run check      # numerical sanity checks of every preset (no browser needed)
 | Tab | Contents |
 |---|---|
 | **Taylor polynomials** | f(x) and Tₙ(x) on one plot; degree slider with ▶ animation; draggable center *a* and test point x₀; faint lower-degree polynomials; shaded gap; error plot \|f − Tₙ\| (log or linear, x-axis linked to the main plot); live coefficient table f⁽ᵏ⁾(a) → k! → cₖ → term, with exact fractions; optional "evaluate at x₀" columns |
+| **Error bound** | Taylor's Inequality, step by step: a plot of \|f⁽ⁿ⁺¹⁾(x)\| with a draggable **M** line (or type M); the part of the curve above your line turns red; feedback says whether M is too small, valid, or loose; the bound M\|x−a\|ⁿ⁺¹/(n+1)! is plotted against the actual error. *Reveal the true M* is enabled once the student has made a guess, and shows the exact maximum and where it occurs. The interval is \|x−a\| ≤ d with d = \|x₀−a\| (or just the stretch between a and x₀). Intervals containing a pole or the edge of f's domain are reported as having no finite M |
 | **Interval of convergence** | Shaded interval (a − R, a + R) with open/closed endpoint dots; Tₙ up to n = 40; partial sums Sₖ(x₀) vs k; ratio-test style table estimating R from the coefficients; works for any center a |
 
 Presets: eˣ, sin x, cos x, 1/(1−x), 1/(1+x²), ln(1+x), arctan x, √(1+x), e^(−x²), tan x. Each has
@@ -58,6 +59,7 @@ src/
     tps.js                 truncated power series arithmetic (the engine behind custom functions)
     taylor.js              Horner, partial sums, error + round-off floor, radius estimate
     convergence.js         radius / interval / verdict for the convergence tab
+    errorbound.js          derivatives at a point, true max of |f^(n+1)| on an interval, pole detection, feedback on M
     numfmt.js              unicode math text, exact fractions, interval text
     ticks.js, util.js      axis ticks; clamp and snap
   plot/                    the plotting toolkit
@@ -68,10 +70,11 @@ src/
     PlotCanvas.jsx         the plot component (canvas + zoom toolbar)
     Controls.jsx           FunctionPicker, DegreeControl, CenterControl, TestPointControl, Toggle
     useHandles.js          the draggable center a and test point x0
+    useAutoView.js         a pan/zoom window that resets when the problem changes
     CoefficientTable.jsx
   tabs/
     index.js               TAB REGISTRY  <- add new features here
-    Explore.jsx, Convergence.jsx
+    Explore.jsx, Convergence.jsx, ErrorBound.jsx
 scripts/check-math.mjs     numerical checks (npm run check)
 ```
 
@@ -102,7 +105,6 @@ Where the planned features would plug in:
 
 | Feature | Where to build on |
 |---|---|
-| Error bound / Lagrange remainder | new tab; `fn.coeffs(a, n+1)` gives the (n+1)th derivative as `c[n+1]*(n+1)!`; reuse the error plot code from `Explore.jsx` |
 | Match-the-function challenge | new tab; local state for the student's coefficients, `PlotCanvas` with handles, compare with `fn.coeffs` |
 | How many terms do I need? | new tab; loop `partialSums(coeffs, N, x - a)` from `math/taylor.js` until the error is below tolerance |
 | Series manipulation (substitution, d/dx, ∫) | new tab; operate on coefficient arrays (`tps.js` already has add, mul, div, exp, log, …) |

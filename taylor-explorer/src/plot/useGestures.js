@@ -1,5 +1,6 @@
 // Mouse, touch, wheel and keyboard interaction for PlotCanvas.
 //
+//  handles slide along x (a, x0) or, with axis: 'y', along y (the M line); they are grabbed where touched
 //  mouse   drag = pan · wheel = zoom (Shift: x only, Alt: y only, over an axis: that axis) · drag along an axis
 //  touch   one finger = pan · two fingers: side by side = stretch x, one above the other = stretch y, diagonal = both
 //  keys    arrows pan · + / − zoom · 0 or Home resets (the canvas is focusable for keyboard users)
@@ -25,6 +26,7 @@ export function usePlotGestures(canvasRef, live, setCursor) {
       pts: new Map(),
       mode: null, // 'handle' | 'pan' | 'axisX' | 'axisY' | 'pinch'
       handleId: null,
+      handleAxis: 'x',
       handleOffset: 0,
       anchor: null,
       prevMid: null,
@@ -64,7 +66,9 @@ export function usePlotGestures(canvasRef, live, setCursor) {
     };
     const hoverCursor = (p) => {
       const region = regionOf(p, geo());
-      if (hitHandle(p) || region === 'xaxis') return 'ew-resize';
+      const hd = hitHandle(p);
+      if (hd) return hd.axis === 'y' ? 'ns-resize' : 'ew-resize';
+      if (region === 'xaxis') return 'ew-resize';
       if (region === 'yaxis' && !live.current.lockY) return 'ns-resize';
       return 'grab';
     };
@@ -81,7 +85,8 @@ export function usePlotGestures(canvasRef, live, setCursor) {
         if (hd) {
           s.mode = 'handle';
           s.handleId = hd.id;
-          s.handleOffset = hd.x - g.invX(p.x); // grab it where you touched it: no jump
+          s.handleAxis = hd.axis === 'y' ? 'y' : 'x';
+          s.handleOffset = s.handleAxis === 'y' ? hd.y - g.invY(p.y) : hd.x - g.invX(p.x); // grab it where you touched it: no jump
           setCursor('grabbing');
         } else if (region === 'xaxis') {
           s.mode = 'axisX';
@@ -119,7 +124,7 @@ export function usePlotGestures(canvasRef, live, setCursor) {
       const spanY = view.ymax - view.ymin;
 
       if (s.mode === 'handle') {
-        onHandleDrag?.(s.handleId, g.invX(p.x) + s.handleOffset);
+        onHandleDrag?.(s.handleId, (s.handleAxis === 'y' ? g.invY(p.y) : g.invX(p.x)) + s.handleOffset);
       } else if (s.mode === 'pan') {
         commit(translate(view, (-(p.x - prev.x) * spanX) / g.plotW, ((p.y - prev.y) * spanY) / g.plotH, lockY));
       } else if (s.mode === 'axisX') {
