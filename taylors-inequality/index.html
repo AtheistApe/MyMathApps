@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taylor’s Inequality – Math 252</title>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+  };
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #1d2433;
+    --muted: #556070;
+    --rule: #d5dae3;
+    --accent: #1f4e8c;
+    --accent-soft: #eaf0f9;
+    --warn: #8a4b0f;
+    --warn-soft: #fbf1e4;
+    --curve-err: #1f4e8c;
+    --curve-bound: #c0661a;
+    --grid: #e3e7ee;
+    --serif: "Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a24;
+      --ink: #e6e9f0;
+      --muted: #a2acbb;
+      --rule: #2e384a;
+      --accent: #7fb0ff;
+      --accent-soft: #1b2638;
+      --warn: #e6b36a;
+      --warn-soft: #2a2318;
+      --curve-err: #7fb0ff;
+      --curve-bound: #e0a14f;
+      --grid: #263042;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  h1, h2, h3 { font-family: var(--sans); line-height: 1.25; color: var(--ink); }
+  h1 { font-size: 2.3rem; margin: 0 0 0.4rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.45rem; margin: 3rem 0 0.8rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); }
+  h3 { font-size: 1.1rem; margin: 1.8rem 0 0.5rem; }
+  .subtitle { font-family: var(--sans); color: var(--muted); font-size: 1.05rem; margin: 0 0 2rem; }
+  p { margin: 0.9rem 0; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .theorem {
+    background: var(--accent-soft);
+    border-left: 5px solid var(--accent);
+    padding: 1rem 1.3rem 1.1rem;
+    margin: 1.6rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .theorem .name { font-family: var(--sans); font-weight: 700; color: var(--accent); margin: 0 0 0.3rem; }
+  .theorem p { margin: 0.5rem 0; }
+
+  .caution {
+    background: var(--warn-soft);
+    border-left: 5px solid var(--warn);
+    padding: 0.8rem 1.3rem;
+    margin: 1.4rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .caution .name { font-family: var(--sans); font-weight: 700; color: var(--warn); margin: 0 0 0.2rem; }
+  .caution p { margin: 0.4rem 0; }
+
+  ol.recipe { padding-left: 1.4rem; }
+  ol.recipe li { margin: 0.55rem 0; padding-left: 0.3rem; }
+
+  .example { border-left: 2px solid var(--rule); padding-left: 1.2rem; margin: 2rem 0; }
+  .example h3 { margin-top: 0; }
+  .mathblock { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+
+  .video {
+    position: relative; width: 100%; aspect-ratio: 659 / 371;
+    margin: 1.2rem 0 0.4rem; background: #000; border-radius: 6px; overflow: hidden;
+  }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .video-note { font-family: var(--sans); font-size: 0.9rem; color: var(--muted); margin: 0.3rem 0 0; }
+
+  .explorer {
+    border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.1rem 1.2rem; margin: 1.4rem 0;
+  }
+  .controls {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.8rem 1.2rem;
+    font-family: var(--sans); font-size: 0.95rem;
+  }
+  .controls label { display: block; margin-bottom: 0.2rem; }
+  .controls select, .controls input[type=range] { width: 100%; }
+  .controls select {
+    font: inherit; padding: 0.35rem; background: var(--bg); color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 4px;
+  }
+  canvas { width: 100%; height: 320px; display: block; margin-top: 1rem; }
+  .legend { font-family: var(--sans); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; margin-top: 0.5rem; }
+  .legend span::before {
+    content: ""; display: inline-block; width: 1.4rem; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 0.4rem;
+  }
+  .legend .err::before { border-color: var(--curve-err); }
+  .legend .bnd::before { border-color: var(--curve-bound); border-top-style: dashed; }
+  .legend .pt::before { border-color: var(--muted); border-top-width: 1px; }
+  output.readout { display: block; font-family: var(--sans); font-size: 0.95rem; margin-top: 0.8rem; line-height: 1.5; }
+
+  details { border: 1px solid var(--rule); border-radius: 6px; padding: 0.2rem 1rem; margin: 0.8rem 0; }
+  summary { cursor: pointer; font-family: var(--sans); font-weight: 600; padding: 0.5rem 0; }
+  .practice p:first-child { margin-top: 0.3rem; }
+
+  @media (max-width: 560px) {
+    body { font-size: 1.05rem; }
+    h1 { font-size: 1.8rem; }
+    canvas { height: 260px; }
+  }
+  @media print {
+    .explorer, .video { display: none; }
+    body { font-size: 11pt; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Taylor’s Inequality</h1>
+<p class="subtitle">How close is a Taylor polynomial to the function it approximates? &nbsp;Math 252 – Calculus II</p>
+
+<h2 id="question">The question we need to answer</h2>
+
+<p>Over the last few weeks you have learned to build a Taylor polynomial for a function \(f\) centered at \(a\):</p>
+
+\[
+T_n(x) \;=\; \sum_{k=0}^{n} \frac{f^{(k)}(a)}{k!}\,(x-a)^k .
+\]
+
+<p>You have also seen the <em>Taylor series</em>, which is what you get when \(n\) goes to infinity. Two questions have been hanging in the air:</p>
+
+<ol>
+  <li><strong>Approximation.</strong> If I use \(T_n(x)\) as a stand-in for \(f(x)\), how large could my mistake be?</li>
+  <li><strong>Convergence.</strong> Does the Taylor series of \(f\) actually equal \(f(x)\), or does it merely converge to something else?</li>
+</ol>
+
+<p>Both questions are about the same quantity, the <strong>remainder</strong> (the error):</p>
+
+\[
+R_n(x) \;=\; f(x) - T_n(x).
+\]
+
+<p>The series equals \(f(x)\) exactly when \(R_n(x)\to 0\) as \(n\to\infty\). The difficulty is that \(R_n(x)\) is defined using \(f(x)\), which is the very number we are trying to avoid computing. We need a way to <em>bound</em> the error without knowing it. That is exactly what Taylor’s Inequality does.</p>
+
+<h2 id="statement">Statement of Taylor’s Inequality</h2>
+
+<div class="theorem">
+  <p class="name">Taylor’s Inequality</p>
+  <p>Suppose \(f\) has \(n+1\) derivatives on an interval around \(a\), and suppose there are numbers \(M\) and \(d>0\) such that</p>
+  \[ \bigl|f^{(n+1)}(x)\bigr| \le M \qquad\text{for all } x \text{ with } |x-a|\le d. \]
+  <p>Then the remainder of the Taylor polynomial \(T_n\) satisfies</p>
+  \[ \bigl|R_n(x)\bigr| \;\le\; \frac{M}{(n+1)!}\,|x-a|^{\,n+1} \qquad\text{for all } x \text{ with } |x-a|\le d. \]
+</div>
+
+<h3>Reading it piece by piece</h3>
+
+<ul>
+  <li>\(f^{(n+1)}\) is the <strong>next derivative</strong>, the first one that \(T_n\) does <em>not</em> use. Since \(T_n\) matches \(f\) and its first \(n\) derivatives at \(a\), the error is controlled by how wildly the \((n+1)\)st derivative behaves.</li>
+  <li>\(M\) is a <strong>ceiling</strong> for \(|f^{(n+1)}|\). It does not have to be the smallest possible ceiling, only a valid one. Any number that is at least as big as the derivative everywhere on the interval works.</li>
+  <li>\(d\) sets the <strong>interval</strong> \([a-d,\,a+d]\) on which the ceiling \(M\) holds. The conclusion is only guaranteed for \(x\) inside that interval.</li>
+  <li>The right-hand side \(\dfrac{M}{(n+1)!}|x-a|^{n+1}\) looks just like the <strong>next term</strong> of the Taylor series, \(\dfrac{f^{(n+1)}(a)}{(n+1)!}(x-a)^{n+1}\), with the actual derivative replaced by its worst-case size \(M\). In plain words: <em>the error is no bigger than about one more term of the series, computed pessimistically.</em></li>
+</ul>
+
+<p>Two things make the bound small: a large \(n\) (the factorial in the denominator grows very fast) and an \(x\) close to the center \(a\) (the power \(|x-a|^{n+1}\) is small when \(|x-a|<1\)).</p>
+
+<h2 id="video">Video: why it works</h2>
+
+<p>This video explains the idea behind the inequality and why it is the right tool for showing that Taylor series work. Watch it before or after the examples below, whichever suits you.</p>
+
+<div class="video">
+<iframe width="659" height="371" src="https://www.youtube.com/embed/Iub16Y1ZXRw?list=PLHXZ9OQGMqxc4ySKTIW19TLrT91Ik9M4n" title="Why Taylor Series actually work: The Taylor Inequality" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
+<p class="video-note">If the video does not load here, <a href="https://www.youtube.com/watch?v=Iub16Y1ZXRw" target="_blank" rel="noopener">open it on YouTube</a>.</p>
+
+<h2 id="recipe">How to use it</h2>
+
+<p>Every application of Taylor’s Inequality follows the same recipe:</p>
+
+<ol class="recipe">
+  <li><strong>Identify</strong> \(f\), the center \(a\), the degree \(n\), and the point \(x\) (or the interval of \(x\)’s) you care about.</li>
+  <li><strong>Choose \(d\)</strong> so that the interval \(|x-a|\le d\) contains every \(x\) you need.</li>
+  <li><strong>Differentiate</strong> \(n+1\) times and find a number \(M\) with \(|f^{(n+1)}(x)|\le M\) on that whole interval.</li>
+  <li><strong>Plug in</strong> to get \(|R_n(x)|\le \dfrac{M}{(n+1)!}|x-a|^{n+1}\).</li>
+  <li><strong>Interpret</strong> the result. For approximation, ask whether the bound is small enough, and if not, increase \(n\). For convergence, ask whether the bound goes to \(0\) as \(n\to\infty\).</li>
+</ol>
+
+<h3>A fact we will need for convergence arguments</h3>
+
+<p>For every real number \(x\),</p>
+
+\[
+\lim_{n\to\infty}\frac{|x|^n}{n!} = 0 .
+\]
+
+<p>Why is this true? Apply the Ratio Test to \(\displaystyle\sum_{n=0}^{\infty}\frac{|x|^n}{n!}\). The ratio of consecutive terms is \(\dfrac{|x|}{n+1}\to 0<1\), so the series converges for every \(x\). And the terms of a convergent series must go to \(0\).</p>
+
+<h2 id="examples">Examples</h2>
+
+<div class="example">
+  <h3>Example 1. The Maclaurin series of \(\sin x\) really equals \(\sin x\) for every \(x\)</h3>
+  <p>Take \(f(x)=\sin x\) and \(a=0\). Every derivative of \(\sin x\) is one of \(\pm\sin x\) or \(\pm\cos x\), so for every \(n\) and every real \(x\),</p>
+  \[ \bigl|f^{(n+1)}(x)\bigr|\le 1 . \]
+  <p>So we can use \(M=1\), and since this works for all \(x\), the number \(d\) can be as large as we like. Taylor’s Inequality gives, for every \(x\),</p>
+  \[ 0\le |R_n(x)| \le \frac{|x|^{n+1}}{(n+1)!}. \]
+  <p>By the fact above, the right side tends to \(0\) as \(n\to\infty\). By the Squeeze Theorem, \(R_n(x)\to 0\), which means \(T_n(x)\to \sin x\). Therefore</p>
+  \[ \sin x = x - \frac{x^3}{3!} + \frac{x^5}{5!} - \cdots = \sum_{k=0}^{\infty}\frac{(-1)^k x^{2k+1}}{(2k+1)!}\qquad\text{for all real } x. \]
+  <p>The identical argument works for \(\cos x\). For \(e^x\) the derivatives are not bounded by \(1\) on the whole line, but on \(|x|\le d\) we have \(|f^{(n+1)}(x)| = e^x\le e^d\), so \(M=e^d\) and \(|R_n(x)|\le e^d\,\dfrac{|x|^{n+1}}{(n+1)!}\to 0\). Since \(d\) was arbitrary, \(e^x=\sum x^n/n!\) for all \(x\) as well.</p>
+</div>
+
+<div class="example">
+  <h3>Example 2. Estimating \(e\) with a guaranteed error</h3>
+  <p><em>How many terms of the Maclaurin series of \(e^x\) do we need to approximate \(e\) with error less than \(0.001\)?</em></p>
+  <p>Here \(f(x)=e^x\), \(a=0\), and \(x=1\). Use \(d=1\), so the interval is \([-1,1]\). Every derivative of \(e^x\) is \(e^x\), and on this interval</p>
+  \[ \bigl|f^{(n+1)}(x)\bigr| = e^x \le e^1 < 3 . \]
+  <p>So \(M=3\) works, and</p>
+  \[ |R_n(1)| \le \frac{3}{(n+1)!}\,|1|^{n+1} = \frac{3}{(n+1)!}. \]
+  <p>We need \(\dfrac{3}{(n+1)!}<0.001\), which is the same as \((n+1)!>3000\). Checking: \(6!=720\) is too small, but \(7!=5040\) is large enough. So \(n+1=7\), that is, \(n=6\).</p>
+  \[ e\approx T_6(1) = 1+1+\frac12+\frac16+\frac1{24}+\frac1{120}+\frac1{720} = \frac{1957}{720}\approx 2.71806 , \]
+  <p>with error at most \(3/5040\approx 0.0006\). So \(e\) is guaranteed to lie between about \(2.7174\) and \(2.7187\). (The true error is about \(0.0002\); the bound is a guarantee, not a prediction, so it is usually a bit pessimistic.)</p>
+  <p><em>Notice the one subtle step:</em> we needed a number \(M\) for \(e^x\), but \(e\) is exactly the number we are trying to approximate. We only needed a rough ceiling, and \(e<3\) is good enough.</p>
+</div>
+
+<div class="example">
+  <h3>Example 3. A center other than 0: approximating \(\sqrt{1.1}\)</h3>
+  <p><em>Use the degree-2 Taylor polynomial of \(\sqrt{x}\) at \(a=1\) to approximate \(\sqrt{1.1}\), and bound the error.</em></p>
+  <p>Differentiate:</p>
+  \[ f(x)=x^{1/2},\quad f'(x)=\tfrac12 x^{-1/2},\quad f''(x)=-\tfrac14 x^{-3/2},\quad f'''(x)=\tfrac38 x^{-5/2}. \]
+  <p>At \(a=1\) these give \(f(1)=1\), \(f'(1)=\tfrac12\), \(f''(1)=-\tfrac14\), so</p>
+  \[ T_2(x) = 1+\frac{x-1}{2}-\frac{(x-1)^2}{8}, \qquad T_2(1.1) = 1+0.05-0.00125 = 1.04875 . \]
+  <p>For the error we need a bound on \(f'''\). Take \(d=0.1\), so the interval is \(0.9\le x\le 1.1\). The function \(f'''(x)=\dfrac{3}{8x^{5/2}}\) is <em>decreasing</em>, so its largest value on the interval occurs at the left endpoint:</p>
+  \[ \bigl|f'''(x)\bigr| \le \frac{3}{8(0.9)^{5/2}} \approx 0.488 < 0.5 =: M. \]
+  <p>Now apply the inequality with \(n=2\):</p>
+  \[ |R_2(1.1)| \le \frac{0.5}{3!}\,(0.1)^3 = \frac{0.5}{6}\cdot 0.001 \approx 0.000083 . \]
+  <p>So \(\sqrt{1.1}=1.04875\pm 0.00009\). (A calculator gives \(1.048809\ldots\), which is inside the guaranteed range.)</p>
+  <p><em>The lesson:</em> when \(f^{(n+1)}\) is not constant in size, look for where it is largest on the interval. For a monotonic derivative, that is always at an endpoint.</p>
+</div>
+
+<div class="example">
+  <h3>Example 4. Choosing \(n\) for a target accuracy: \(\cos 1\)</h3>
+  <p><em>How many terms of the Maclaurin series of \(\cos x\) are needed to compute \(\cos 1\) to within \(0.00005\)?</em></p>
+  <p>Every derivative of cosine is bounded by \(1\), so \(M=1\), and with \(x=1\):</p>
+  \[ |R_n(1)|\le\frac{1}{(n+1)!}. \]
+  <p>We need \(\dfrac1{(n+1)!}\le 0.00005\), i.e. \((n+1)!\ge 20{,}000\). Since \(7!=5040\) is too small and \(8!=40{,}320\) is enough, we need \(n+1=8\), so \(n=7\).</p>
+  \[ \cos 1\approx T_7(1) = 1-\frac{1}{2!}+\frac{1}{4!}-\frac{1}{6!} = \frac{389}{720}\approx 0.54028 , \]
+  <p>with error at most \(1/40320\approx 0.000025\).</p>
+  <p><em>A useful observation:</em> the Maclaurin series of \(\cos x\) has no \(x^7\) term, so \(T_7=T_6\). The polynomial did not change, but our <em>guarantee</em> got better, because we are allowed to treat it as a degree-7 polynomial and use \((n+1)!=8!\) in the denominator. It is always worth asking whether a zero coefficient lets you move up one degree for free.</p>
+</div>
+
+<h2 id="explore">Explore it yourself</h2>
+
+<p>The graph below shows, on a logarithmic vertical scale, the <strong>actual error</strong> \(|R_n(x)|\) (solid) and the <strong>Taylor’s Inequality bound</strong> \(\dfrac{M}{(n+1)!}|x|^{n+1}\) (dashed) for a Maclaurin polynomial. Each gridline is a factor of 10 smaller than the one above it. Increase \(n\) and watch how fast both curves collapse near \(x=0\). The solid curve always stays on or below the dashed one; that is the inequality at work.</p>
+
+<div class="explorer">
+  <div class="controls">
+    <div>
+      <label for="fn">Function (centered at 0)</label>
+      <select id="fn">
+        <option value="sin">sin x &nbsp;(M = 1)</option>
+        <option value="cos">cos x &nbsp;(M = 1)</option>
+        <option value="exp">eˣ on [−2, 2] &nbsp;(M = e²)</option>
+      </select>
+    </div>
+    <div>
+      <label for="deg">Degree n: <strong id="degOut">3</strong></label>
+      <input id="deg" type="range" min="0" max="12" step="1" value="3">
+    </div>
+    <div>
+      <label for="xv">Point x: <strong id="xOut">1.00</strong></label>
+      <input id="xv" type="range" min="-2" max="2" step="0.05" value="1">
+    </div>
+  </div>
+  <canvas id="plot" role="img" aria-label="Log-scale plot of the actual Taylor remainder and the Taylor inequality bound against x"></canvas>
+  <div class="legend">
+    <span class="err">actual error |R<sub>n</sub>(x)|</span>
+    <span class="bnd">bound M|x|<sup>n+1</sup>/(n+1)!</span>
+    <span class="pt">selected x</span>
+  </div>
+  <output class="readout" id="readout" for="fn deg xv"></output>
+</div>
+
+<h2 id="pitfalls">Common mistakes</h2>
+
+<div class="caution">
+  <p class="name">Check these before you hand in a solution</p>
+  <p><strong>Wrong derivative.</strong> The bound \(M\) is for the <em>\((n+1)\)st</em> derivative, not the \(n\)th. If you use \(T_3\), you bound \(f^{(4)}\).</p>
+  <p><strong>\(M\) must work on the whole interval.</strong> It is not enough that \(|f^{(n+1)}|\le M\) at the particular \(x\) you care about; it has to hold for every point between \(a\) and \(x\) (and the interval \(|x-a|\le d\) should be stated).</p>
+  <p><strong>The factorial matches the derivative.</strong> The denominator is \((n+1)!\) and the exponent is \(n+1\). Keep these in sync.</p>
+  <p><strong>It is an upper bound, not the error.</strong> Saying “the error is \(\dfrac{M}{(n+1)!}|x-a|^{n+1}\)” is wrong; the error is <em>at most</em> that.</p>
+  <p><strong>Don’t forget the center.</strong> The quantity that gets raised to a power is \(|x-a|\), not \(|x|\), whenever \(a\ne 0\).</p>
+</div>
+
+<h2 id="practice">Practice problems</h2>
+
+<div class="practice">
+  <p><strong>Problem 1.</strong> Use the Maclaurin polynomial of \(e^x\) to approximate \(e^{0.5}\) with error less than \(0.0001\). Find the smallest \(n\) that Taylor’s Inequality guarantees will work.</p>
+  <details>
+    <summary>Show answer</summary>
+    <p>Use \(d=0.5\). On \([-0.5,0.5]\), \(|f^{(n+1)}(x)|=e^x\le e^{0.5}<2\), so \(M=2\). Then \(|R_n(0.5)|\le \dfrac{2\,(0.5)^{n+1}}{(n+1)!}\).</p>
+    <p>For \(n=4\): \(\dfrac{2(0.03125)}{120}\approx 0.00052\), too big. For \(n=5\): \(\dfrac{2(0.015625)}{720}\approx 0.000043\), small enough. So \(n=5\), and \(T_5(0.5)\approx 1.648698\).</p>
+  </details>
+
+  <p><strong>Problem 2.</strong> Show that the approximation \(\sin x\approx x-\dfrac{x^3}{6}\) has error less than \(0.01\) whenever \(|x|\le 1\).</p>
+  <details>
+    <summary>Show answer</summary>
+    <p>The polynomial \(x-\frac{x^3}{6}\) is \(T_3\), but it is also \(T_4\) because the \(x^4\) coefficient is zero. Using \(n=4\) with \(M=1\):</p>
+    \[ |R_4(x)|\le\frac{|x|^5}{5!}\le\frac{1}{120}\approx 0.0083<0.01 . \]
+  </details>
+
+  <p><strong>Problem 3.</strong> Let \(f(x)=\ln(1+x)\), centered at \(a=0\). Show that \(|R_3(x)|\le \dfrac{|x|^4}{4(1-d)^4}\) for \(|x|\le d<1\), and then give a numerical bound on the error in approximating \(\ln(1.1)\) by \(T_3(0.1)\).</p>
+  <details>
+    <summary>Show answer</summary>
+    <p>The fourth derivative is \(f^{(4)}(x)=-\dfrac{6}{(1+x)^4}\), so \(|f^{(4)}(x)|=\dfrac{6}{(1+x)^4}\), which on \(|x|\le d\) is largest at \(x=-d\): \(M=\dfrac{6}{(1-d)^4}\). Then</p>
+    \[ |R_3(x)|\le \frac{6/(1-d)^4}{4!}\,|x|^4=\frac{|x|^4}{4(1-d)^4}. \]
+    <p>With \(d=0.1\) and \(x=0.1\): \(|R_3(0.1)|\le\dfrac{(0.1)^4}{4(0.9)^4}=\dfrac{0.0001}{2.6244}\approx 0.000038\). Here \(T_3(0.1)=0.1-\dfrac{0.01}{2}+\dfrac{0.001}{3}\approx 0.095333\).</p>
+  </details>
+</div>
+
+</main>
+
+<script>
+(function () {
+  var canvas = document.getElementById('plot');
+  var ctx = canvas.getContext('2d');
+  var fnSel = document.getElementById('fn');
+  var degIn = document.getElementById('deg');
+  var xIn = document.getElementById('xv');
+  var degOut = document.getElementById('degOut');
+  var xOut = document.getElementById('xOut');
+  var readout = document.getElementById('readout');
+
+  var D = 2;                 // plot interval is [-D, D]
+  var LOG_MIN = -10, LOG_MAX = 1;
+
+  var FUNCS = {
+    sin: { f: Math.sin, M: 1,
+           coef: function (k) { return [0, 1, 0, -1][k % 4]; } },
+    cos: { f: Math.cos, M: 1,
+           coef: function (k) { return [1, 0, -1, 0][k % 4]; } },
+    exp: { f: Math.exp, M: Math.exp(D),
+           coef: function () { return 1; } }
+  };
+
+  function factorial(n) { var p = 1; for (var i = 2; i <= n; i++) p *= i; return p; }
+
+  function taylor(F, n, x) {
+    var s = 0, term;
+    for (var k = 0; k <= n; k++) {
+      term = F.coef(k) * Math.pow(x, k) / factorial(k);
+      s += term;
+    }
+    return s;
+  }
+  function err(F, n, x) { return Math.abs(F.f(x) - taylor(F, n, x)); }
+  function bound(F, n, x) { return F.M * Math.pow(Math.abs(x), n + 1) / factorial(n + 1); }
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function fmt(v) {
+    if (v === 0) return '0';
+    if (v < 1e-4 || v >= 1000) return v.toExponential(2);
+    return v.toPrecision(3);
+  }
+
+  function draw() {
+    var F = FUNCS[fnSel.value];
+    var n = parseInt(degIn.value, 10);
+    var x0 = parseFloat(xIn.value);
+    degOut.textContent = n;
+    xOut.textContent = x0.toFixed(2);
+
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var padL = 46, padR = 12, padT = 10, padB = 28;
+    var pw = w - padL - padR, ph = h - padT - padB;
+    function px(x) { return padL + (x + D) / (2 * D) * pw; }
+    function py(v) {
+      var L = Math.log10(Math.max(v, Math.pow(10, LOG_MIN)));
+      return padT + (LOG_MAX - L) / (LOG_MAX - LOG_MIN) * ph;
+    }
+
+    ctx.font = '12px ' + css('--sans');
+    ctx.fillStyle = css('--muted');
+    ctx.strokeStyle = css('--grid');
+    ctx.lineWidth = 1;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (var e = LOG_MIN; e <= LOG_MAX; e += 3) {
+      var yy = py(Math.pow(10, e));
+      ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
+      ctx.fillText('10^' + e, padL - 6, yy);
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (var t = -D; t <= D; t += 1) {
+      var xx = px(t);
+      ctx.beginPath(); ctx.moveTo(xx, padT); ctx.lineTo(xx, padT + ph); ctx.stroke();
+      ctx.fillText(String(t), xx, padT + ph + 6);
+    }
+
+    function curve(fn, color, dash) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      var N = 400;
+      for (var i = 0; i <= N; i++) {
+        var x = -D + 2 * D * i / N;
+        var X = px(x), Y = py(fn(F, n, x));
+        if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    curve(bound, css('--curve-bound'), [7, 5]);
+    curve(err, css('--curve-err'));
+
+    ctx.strokeStyle = css('--muted');
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px(x0), padT); ctx.lineTo(px(x0), padT + ph); ctx.stroke();
+
+    var a = err(F, n, x0), b = bound(F, n, x0);
+    var note = '';
+    if (a < 1e-10) note = ' (error is below the 10<sup>−10</sup> floor of the graph)';
+    readout.innerHTML =
+      'At x = ' + x0.toFixed(2) + ' with n = ' + n + ': actual error ≈ <strong>' + fmt(a) +
+      '</strong>, guaranteed bound = <strong>' + fmt(b) + '</strong>' + note + '.';
+  }
+
+  fnSel.addEventListener('change', draw);
+  degIn.addEventListener('input', draw);
+  xIn.addEventListener('input', draw);
+  window.addEventListener('resize', draw);
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>
