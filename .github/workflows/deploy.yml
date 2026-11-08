@@ -180,6 +180,11 @@ jobs:
           mkdir -p _site/latex-to-unicode
           cp -r latex-to-unicode/* _site/latex-to-unicode/
 
+      - name: Copy static app taylors-inequality into combined site
+        run: |
+          mkdir -p _site/taylors-inequality
+          cp -r taylors-inequality/* _site/taylors-inequality/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 
