@@ -319,7 +319,7 @@ export default function ParametricCurves() {
     textAnchor: "middle",
     fontFamily: "'JetBrains Mono', monospace",
   };
-  const faintCurve = { fill: "none", strokeWidth: 1.5, opacity: 0.4 };
+  const faintCurve = { fill: "none", strokeWidth: 2, opacity: 0.6 };
   const brightCurve = {
     fill: "none",
     strokeWidth: 2.5,
