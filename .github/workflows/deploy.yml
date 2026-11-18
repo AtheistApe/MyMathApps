@@ -185,6 +185,11 @@ jobs:
           mkdir -p _site/vector-field-explorer
           cp -r vector-field-explorer/* _site/vector-field-explorer/
 
+      - name: Copy static app cycloid-explorer into combined site
+        run: |
+          mkdir -p _site/cycloid-explorer
+          cp -r cycloid-explorer/* _site/cycloid-explorer/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 
