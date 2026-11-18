@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cycloid Generator — Parametric Curves</title>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --ink:#1d2433; --muted:#64748b; --line:#e2e0d8;
+  --orange:#e07a1f; --blue:#2563eb; --green:#15803d; --purple:#7c3aed;
+  --red:#dc2626; --gray:#6b7280; --curve:#c026d3; --cyan:#0891b2;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{padding:14px 20px 0}
+h1{font-size:1.35rem;margin:0;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);font-size:.93rem}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:16px;padding:12px 20px 28px;align-items:start}
+@media (max-width:1000px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card + .card{margin-top:12px}
+.card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px;font-weight:650}
+canvas{display:block;width:100%}
+.m{font-family:"Cambria Math","STIX Two Text","Times New Roman",serif;font-style:italic}
+.o{color:var(--orange)} .b{color:var(--blue)} .g{color:var(--green)} .p{color:var(--purple)} .gr{color:var(--gray)} .c{color:var(--curve)} .cy{color:var(--cyan)}
+.eq{font-family:"Cambria Math","STIX Two Text","Times New Roman",serif;font-size:1.28rem;margin:4px 0}
+.eq b{font-weight:600}
+.live{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;color:var(--muted);margin:0 0 6px 2px}
+.controls{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+button{font:inherit;font-size:.9rem;border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--ink)}
+button:hover{background:#f1f5f9}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink);min-width:92px}
+button.primary:hover{background:#334155}
+button.small{padding:3px 8px;font-size:.84rem}
+input[type=text],input[type=number]{font:inherit;font-size:.9rem;width:84px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:7px}
+input.bad{border-color:var(--red);background:#fef2f2}
+input[type=range]{accent-color:var(--curve)}
+#theta{flex:1;min-width:220px;height:28px}
+.thetaVal{font-family:"Cambria Math","Times New Roman",serif;font-size:1.1rem;min-width:150px}
+label{font-size:.9rem;color:#334155}
+.toggles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 12px}
+.toggles label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.swatch{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle}
+.muted{color:var(--muted);font-size:.86rem}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+td{padding:3px 2px;border-bottom:1px solid #f0eee8}
+td:first-child{font-family:"Cambria Math","Times New Roman",serif;font-style:italic;color:#334155;width:46%}
+td:last-child{text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem}
+ol{padding-left:20px;margin:4px 0} ol li{margin:5px 0;line-height:1.4}
+details{margin-top:4px} summary{cursor:pointer;font-weight:600;color:#334155}
+details ul{padding-left:18px;margin:6px 0} details li{margin:5px 0;line-height:1.4}
+.ans{color:var(--muted)}
+.kind{font-weight:600}
+.sep{width:1px;height:22px;background:var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Generating the Cycloid</h1>
+  <p>A wheel of radius <span class="m">r</span> rolls without slipping along the <span class="m">x</span>-axis. A dot painted at the end of a spoke traces the curve. Drag the slider or press Play.</p>
+</header>
+
+<div class="wrap">
+  <main>
+    <div class="card">
+      <div id="stageWrap"><canvas id="stage"></canvas></div>
+
+      <div class="controls">
+        <div class="row">
+          <button id="play" class="primary">▶ Play</button>
+          <button id="reset" title="Back to θ start">⟲ Reset</button>
+          <input type="range" id="theta" min="0" max="6.283" step="0.001" value="0" aria-label="theta">
+          <span class="thetaVal">θ = <span id="thetaTxt">0</span></span>
+        </div>
+
+        <div class="row">
+          <label>θ start <input type="text" id="tmin" value="0"></label>
+          <label>θ end <input type="text" id="tmax" value="2pi"></label>
+          <span class="muted">(accepts e.g. <code>3pi/2</code>, <code>-2pi</code>, <code>7.5</code>)</span>
+          <span class="sep"></span>
+          <button class="small" data-range="0,2pi">0 → 2π</button>
+          <button class="small" data-range="0,4pi">0 → 4π</button>
+          <button class="small" data-range="-2pi,2pi">−2π → 2π</button>
+        </div>
+
+        <div class="row">
+          <span class="muted">Jump to θ =</span>
+          <button class="small" data-jump="0">0</button>
+          <button class="small" data-jump="pi/2">π/2</button>
+          <button class="small" data-jump="pi">π</button>
+          <button class="small" data-jump="3pi/2">3π/2</button>
+          <button class="small" data-jump="2pi">2π</button>
+          <span class="sep"></span>
+          <label>Speed <input type="range" id="speed" min="0.1" max="3" step="0.05" value="0.8" style="width:110px"></label>
+          <span id="speedTxt" class="muted">0.80 rad/s</span>
+          <label><input type="checkbox" id="loop"> Loop</label>
+        </div>
+
+        <div class="row">
+          <label>Radius <span class="m">r</span> = <input type="number" id="rIn" value="1" min="0.1" step="0.1" style="width:70px"></label>
+          <span class="sep"></span>
+          <label>Dot distance from hub <span class="m">d</span> = <input type="range" id="kIn" min="0" max="2" step="0.05" value="1" style="width:130px"></label>
+          <span id="kTxt" class="m">1.00 r</span>
+          <span id="kind" class="kind c">cycloid</span>
+          <button class="small" id="kReset">dot on rim (d = r)</button>
+        </div>
+
+        <div class="toggles">
+          <label><input type="checkbox" id="optGeom" checked> Geometry triangle <span class="swatch" style="background:var(--blue)"></span><span class="swatch" style="background:var(--green)"></span></label>
+          <label><input type="checkbox" id="optRoll" checked> Rolled distance = arc <span class="swatch" style="background:var(--orange)"></span></label>
+          <label><input type="checkbox" id="optDims" checked> x and y dimension lines <span class="swatch" style="background:var(--purple)"></span></label>
+          <label><input type="checkbox" id="optAngle" checked> Angle θ at the hub</label>
+          <label><input type="checkbox" id="optPreview" checked> Preview of full path (dashed)</label>
+          <label><input type="checkbox" id="optGhost"> Snapshots every π/2</label>
+          <label><input type="checkbox" id="optVel"> Velocity vector <span class="swatch" style="background:var(--cyan)"></span></label>
+          <label><input type="checkbox" id="optIC"> Pivot point &amp; tangent line</label>
+          <label><input type="checkbox" id="optGrid" checked> Grid (units of πr and r)</label>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="card">
+      <h2>Parametric equations</h2>
+      <div class="eq" id="eqX"></div>
+      <div class="live" id="liveX"></div>
+      <div class="eq" id="eqY"></div>
+      <div class="live" id="liveY"></div>
+    </div>
+
+    <div class="card">
+      <h2>Why these equations?</h2>
+      <ol id="why"></ol>
+    </div>
+
+    <div class="card">
+      <h2>Live values</h2>
+      <table>
+        <tr><td>θ</td><td id="vTh"></td></tr>
+        <tr><td>(x, y)</td><td id="vXY"></td></tr>
+        <tr><td>dx/dθ, dy/dθ</td><td id="vD"></td></tr>
+        <tr><td>dy/dx (slope)</td><td id="vSlope"></td></tr>
+        <tr><td>speed |dP/dθ|</td><td id="vSpeed"></td></tr>
+        <tr><td>arc length traced</td><td id="vArc"></td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Component graphs</h2>
+      <canvas id="mini"></canvas>
+      <div class="muted" style="margin-top:4px">A parametric curve is two ordinary functions of θ. The curve above plots <span class="m">y</span> against <span class="m">x</span>; these plot each against θ.</div>
+    </div>
+
+    <div class="card">
+      <h2>Explore</h2>
+      <details>
+        <summary>Questions for students</summary>
+        <ul>
+          <li>Where is the dot at θ = π? At θ = 2π? <span class="ans">Answer: (πr, 2r), the top of the arch, and (2πr, 0), back on the ground.</span></li>
+          <li>For θ between π/2 and 3π/2, <span class="m">r</span> cos θ is negative. Does the formula for <span class="m">y</span> still work? <span class="ans">Answer: yes. The dot is above the hub, and subtracting a negative adds.</span></li>
+          <li>Turn on the velocity vector. Where is the dot moving fastest, and where does it stop? <span class="ans">Answer: fastest at the top, at twice the wheel's speed. It is momentarily at rest when it touches the ground.</span></li>
+          <li>At the cusps both dx/dθ and dy/dθ are 0. Is the curve smooth there? <span class="ans">Answer: no. The parametrization is smooth, but the curve has a cusp, and dy/dx → ±∞.</span></li>
+          <li>Set <span class="m">d</span> &lt; <span class="m">r</span>. Why do the cusps disappear? Set <span class="m">d</span> &gt; <span class="m">r</span>. Why does the curve form loops? <span class="ans">Answer: dx/dθ = r − d cos θ. It is always positive when d &lt; r, and it turns negative near θ = 2πk when d &gt; r.</span></li>
+        </ul>
+      </details>
+      <details>
+        <summary>Facts about one arch (0 ≤ θ ≤ 2π, d = r)</summary>
+        <ul>
+          <li>Arc length = 8<span class="m">r</span>, which is exactly 4 times the wheel's diameter. Compare with the "arc length traced" readout.</li>
+          <li>Area under one arch = 3π<span class="m">r</span>², which is 3 times the area of the wheel.</li>
+          <li>Speed: |dP/dθ| = 2<span class="m">r</span>|sin(θ/2)|.</li>
+          <li>An upside-down cycloid is the <i>brachistochrone</i> (the fastest slide between two points) and the <i>tautochrone</i> (a bead reaches the bottom in the same time from any starting point).</li>
+        </ul>
+      </details>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const PI = Math.PI, TAU = 2*Math.PI;
+const COL = {orange:'#e07a1f', blue:'#2563eb', green:'#15803d', purple:'#7c3aed', red:'#dc2626',
+             gray:'#6b7280', curve:'#c026d3', cyan:'#0891b2', ink:'#1d2433', grid:'#ebe9e2'};
+
+const S = { r:1, k:1, th:0, tmin:0, tmax:TAU, playing:false, speed:0.8, loop:false };
+const opt = {};
+const optIds = ['optGeom','optRoll','optDims','optAngle','optPreview','optGhost','optVel','optIC','optGrid'];
+
+// ---------- math ----------
+const d = () => S.k * S.r;
+const P = t => [S.r*t - d()*Math.sin(t), S.r - d()*Math.cos(t)];
+const V = t => [S.r - d()*Math.cos(t), d()*Math.sin(t)];
+const speedAt = t => Math.hypot(...V(t));
+function arcLen(a, b){
+  if (Math.abs(b-a) < 1e-12) return 0;
+  let n = Math.max(40, 2*Math.ceil(Math.abs(b-a)/TAU*300));
+  const h = (b-a)/n; let s = speedAt(a) + speedAt(b);
+  for (let i=1;i<n;i++) s += (i%2?4:2)*speedAt(a+i*h);
+  return Math.abs(s*h/3);
+}
+function parseAngle(str){
+  let t = String(str).trim().toLowerCase().replace(/π/g,'pi').replace(/\s+/g,'').replace(/−/g,'-');
+  if (!t || !/^[0-9.+\-*/()pi]*$/.test(t)) return NaN;
+  t = t.replace(/(\d|\))(pi)/g,'$1*$2').replace(/pi(\d|\()/g,'pi*$1').replace(/pi/g,'(Math.PI)');
+  try { const v = Function('"use strict";return ('+t+');')(); return (typeof v==='number' && isFinite(v)) ? v : NaN; }
+  catch(e){ return NaN; }
+}
+function fmtPi(v){
+  if (Math.abs(v) < 1e-9) return '0';
+  const q = v/PI;
+  for (const den of [1,2,3,4,6]) {
+    const num = Math.round(q*den);
+    if (Math.abs(q*den - num) < 1e-6 && num !== 0) {
+      const g = gcd(Math.abs(num), den), n = num/g, dd = den/g;
+      const sign = n<0?'−':''; const an = Math.abs(n);
+      const top = (an===1?'':an)+'π';
+      return sign + top + (dd===1?'':'/'+dd);
+    }
+  }
+  return (q<0?'−':'') + Math.abs(q).toFixed(3) + 'π';
+}
+function gcd(a,b){ return b ? gcd(b, a%b) : a; }
+const f3 = v => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3).replace('-', '−');
+const paren = v => v < -5e-4 ? '('+f3(v)+')' : f3(v);
+
+// ---------- canvas setup ----------
+const stage = $('stage'), mini = $('mini');
+let ctx, W, H, view;
+
+function computeView(w){
+  const r = S.r, R = Math.max(r, d());
+  const x0 = Math.min(0, r*S.tmin, P(S.tmin)[0]) - R - 0.15*r;
+  const x1 = Math.max(0, r*S.tmax, P(S.tmax)[0]) + R + 0.15*r;
+  const y0 = 0, y1 = r + R + 0.18*r;
+  const padL = 26, padR = 26, padT = 22, padB = 78;
+  const sW = (w-padL-padR)/(x1-x0);
+  const h = Math.round(Math.min(540, Math.max(280, sW*(y1-y0) + padT + padB)));
+  const s = Math.min(sW, (h-padT-padB)/(y1-y0));
+  const ox = padL + ((w-padL-padR) - s*(x1-x0))/2 - s*x0;
+  const top = padT + ((h-padT-padB) - s*(y1-y0))/2;
+  const oy = top + s*y1;
+  return {s, ox, oy, h, x0, x1, y1};
+}
+function setup(){
+  const dpr = window.devicePixelRatio || 1;
+  W = stage.parentElement.clientWidth;
+  view = computeView(W); H = view.h;
+  stage.style.height = H+'px'; stage.width = Math.round(W*dpr); stage.height = Math.round(H*dpr);
+  ctx = stage.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  const mw = mini.parentElement.clientWidth - 28, mh = 230;
+  mini.style.height = mh+'px'; mini.width = Math.round(mw*dpr); mini.height = Math.round(mh*dpr);
+  mini.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  mini._w = mw; mini._h = mh;
+}
+const X = x => view.ox + view.s*x;
+const Y = y => view.oy - view.s*y;
+
+// ---------- drawing helpers ----------
+function seg(a, b, color, width=2, dash=null){
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round';
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(X(a[0]),Y(a[1])); ctx.lineTo(X(b[0]),Y(b[1])); ctx.stroke(); ctx.restore();
+}
+function poly(pts, color, width=2, dash=null){
+  if (pts.length<2) return;
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineJoin='round'; ctx.lineCap='round';
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(X(pts[0][0]),Y(pts[0][1]));
+  for (let i=1;i<pts.length;i++) ctx.lineTo(X(pts[i][0]),Y(pts[i][1]));
+  ctx.stroke(); ctx.restore();
+}
+function text(str, sx, sy, color, {align='center', base='middle', size=15, italic=true, weight=''}={}){
+  ctx.save();
+  ctx.font = `${italic?'italic ':''}${weight} ${size}px "Cambria Math","STIX Two Text","Times New Roman",serif`;
+  ctx.textAlign=align; ctx.textBaseline=base;
+  ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,0.92)'; ctx.lineJoin='round';
+  ctx.strokeText(str, sx, sy); ctx.fillStyle=color; ctx.fillText(str, sx, sy); ctx.restore();
+}
+function dot(p, rad, color, stroke='#fff'){
+  ctx.save(); ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),rad,0,TAU);
+  ctx.fillStyle=color; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
+}
+function curve(a, b, n=400){
+  const pts=[]; if (b<a) [a,b]=[b,a];
+  const N = Math.max(2, Math.ceil(n*Math.abs(b-a)/TAU));
+  for (let i=0;i<=N;i++) pts.push(P(a+(b-a)*i/N));
+  return pts;
+}
+// horizontal dimension line drawn rowPx below the x-axis
+function dimH(xa, xb, rowPx, color, label, dashed=false){
+  const sa=X(xa), sb=X(xb), sy=view.oy+rowPx;
+  if (Math.abs(sb-sa) < 3) return;
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=2; if (dashed) ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(sa,sy); ctx.lineTo(sb,sy); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(sa,sy-5); ctx.lineTo(sa,sy+5); ctx.moveTo(sb,sy-5); ctx.lineTo(sb,sy+5); ctx.stroke();
+  ctx.restore();
+  if (Math.abs(sb-sa) > 22) text(label, (sa+sb)/2, sy, color, {size:14});
+}
+function arrow(from, vec, color){
+  const a=[X(from[0]),Y(from[1])], b=[X(from[0]+vec[0]),Y(from[1]+vec[1])];
+  const L=Math.hypot(b[0]-a[0],b[1]-a[1]); if (L<4) return;
+  const ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L;
+  ctx.save(); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0]-ux*8,b[1]-uy*8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b[0],b[1]); ctx.lineTo(b[0]-ux*12-uy*5,b[1]-uy*12+ux*5); ctx.lineTo(b[0]-ux*12+uy*5,b[1]-uy*12-ux*5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ---------- main draw ----------
+function draw(){
+  const r=S.r, dd=d(), th=S.th, L = S.k===1 ? 'r' : 'd';
+  ctx.clearRect(0,0,W,H);
+
+  // grid & axes
+  if (opt.optGrid){
+    ctx.save(); ctx.strokeStyle=COL.grid; ctx.lineWidth=1;
+    const pxPer = PI*r*view.s; const stepK = pxPer<45 ? 2 : 1;
+    const k0 = Math.ceil(view.x0/(PI*r)), k1 = Math.floor(view.x1/(PI*r));
+    for (let k=k0;k<=k1;k++){
+      const sx=X(k*PI*r); ctx.beginPath(); ctx.moveTo(sx,Y(view.y1)); ctx.lineTo(sx,view.oy); ctx.stroke();
+      if (k%stepK===0) text(k===0?'0':fmtPi(k*PI).replace('π','πr').replace(/^1πr$/,'πr').replace(/^−1πr$/,'−πr'), sx, view.oy+64, COL.gray, {size:13});
+    }
+    for (let j=1; j*r<=view.y1; j++){
+      const sy=Y(j*r); ctx.beginPath(); ctx.moveTo(X(view.x0),sy); ctx.lineTo(X(view.x1),sy); ctx.stroke();
+      text((j===1?'':j)+'r', X(view.x0)-2, sy, COL.gray, {size:13, align:'right'});
+    }
+    ctx.restore();
+  }
+  ctx.save(); ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,view.oy); ctx.lineTo(W,view.oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0),Y(view.y1)); ctx.lineTo(X(0),view.oy+4); ctx.stroke(); ctx.restore();
+
+  // full path preview
+  if (opt.optPreview) poly(curve(S.tmin, S.tmax), 'rgba(192,38,211,0.35)', 1.5, [6,5]);
+
+  // snapshots
+  if (opt.optGhost){
+    const step=PI/2, lo=Math.min(S.tmin,th), hi=Math.max(S.tmin,th);
+    for (let t=Math.ceil(lo/step-1e-9)*step; t<=hi+1e-9; t+=step){
+      const c=[r*t,r], p=P(t);
+      ctx.save(); ctx.strokeStyle='rgba(100,116,139,0.28)'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(X(c[0]),Y(c[1]),r*view.s,0,TAU); ctx.stroke(); ctx.restore();
+      seg(c,p,'rgba(100,116,139,0.35)',1.2); dot(p,3.5,'rgba(220,38,38,0.55)');
+    }
+  }
+
+  // traced curve
+  poly(curve(S.tmin, th), COL.curve, 3.2);
+
+  const C=[r*th, r], T=[r*th, 0], Pp=P(th), Q=[r*th, Pp[1]];
+  const sn=Math.sin(th), cs=Math.cos(th);
+
+  // wheel
+  ctx.save();
+  ctx.beginPath(); ctx.arc(X(C[0]),Y(C[1]),r*view.s,0,TAU);
+  ctx.fillStyle='rgba(148,163,184,0.10)'; ctx.fill();
+  ctx.lineWidth=4; ctx.strokeStyle='#334155'; ctx.stroke(); ctx.restore();
+  for (let i=1;i<8;i++){ const a=-PI/2-th+i*TAU/8; seg(C,[C[0]+r*Math.cos(a), C[1]+r*Math.sin(a)],'rgba(51,65,85,0.25)',1.5); }
+
+  // rolled distance & matching arc
+  if (opt.optRoll){
+    ctx.save(); ctx.strokeStyle=COL.orange; ctx.lineWidth=6; ctx.lineCap='butt'; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.moveTo(X(0),view.oy); ctx.lineTo(X(r*th),view.oy); ctx.stroke(); ctx.restore();
+    const arcPts=[]; const N=Math.max(2,Math.ceil(Math.abs(th)*40));
+    for (let i=0;i<=N;i++){ const a=-PI/2-th+th*i/N; arcPts.push([C[0]+r*Math.cos(a), C[1]+r*Math.sin(a)]); }
+    poly(arcPts, COL.orange, 6);
+    dimH(0, r*th, 14, COL.orange, 'rθ');
+    if (Math.abs(th)>0.35){
+      const am=-PI/2-th/2; const lr=r+0.16*r;
+      const lab = Math.abs(th)>TAU ? 'arc = rθ (wraps)' : 'arc = rθ';
+      text(lab, X(C[0]+lr*Math.cos(am))+ (Math.cos(am)>0?14:-14)*0, Y(C[1]+lr*Math.sin(am)), COL.orange, {size:14, align: Math.cos(am)>0.2?'left':(Math.cos(am)<-0.2?'right':'center')});
+    }
+  }
+
+  // geometry triangle
+  const big = v => Math.abs(v)*view.s > 16;
+  if (opt.optGeom){
+    // T→C radius (gray)
+    seg(T, C, COL.gray, 1.5, [4,4]);
+    const side = sn>=0 ? 1 : -1;   // P is to the left when sin>0 → put r-label on right
+    const gx = X(C[0]) + side*14;
+    ctx.save(); ctx.strokeStyle=COL.gray; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(gx,Y(0)); ctx.lineTo(gx,Y(r));
+    ctx.moveTo(gx-4,Y(0)); ctx.lineTo(gx+4,Y(0)); ctx.moveTo(gx-4,Y(r)); ctx.lineTo(gx+4,Y(r)); ctx.stroke(); ctx.restore();
+    text('r', gx+side*9, Y(r/2), COL.gray, {size:15});
+
+    // C→Q (green, vertical)  and Q→P (blue, horizontal)
+    seg(C, Q, COL.green, 3);
+    seg(Q, Pp, COL.blue, 3);
+    if (big(dd*cs)) text(`${L} cos θ`, X(Q[0]) - side*7, Y((C[1]+Q[1])/2), COL.green, {size:14, align: side>0?'right':'left'});
+    if (big(dd*sn)) text(`${L} sin θ`, (X(Q[0])+X(Pp[0]))/2, Y(Q[1]) + (cs>=0? 13 : -13), COL.blue, {size:14});
+    // right-angle marker
+    if (big(dd*cs) && big(dd*sn)){
+      const m=8, sxq=X(Q[0]), syq=Y(Q[1]);
+      const dx = Pp[0]<Q[0] ? -m : m, dy = C[1]>Q[1] ? -m : m;
+      ctx.save(); ctx.strokeStyle='#475569'; ctx.lineWidth=1.2; ctx.beginPath();
+      ctx.moveTo(sxq+dx,syq); ctx.lineTo(sxq+dx,syq+dy); ctx.lineTo(sxq,syq+dy); ctx.stroke(); ctx.restore();
+    }
+    if (big(dd*cs)){ dot(Q, 3, '#475569'); text('Q', X(Q[0]) + side*12, Y(Q[1]), '#475569', {size:13}); }
+  }
+
+  // x & y dimensions
+  if (opt.optDims){
+    if (opt.optGeom) dimH(Pp[0], r*th, 30, COL.blue, `${L} sin θ`, true);
+    dimH(0, Pp[0], 46, COL.purple, 'x');
+    seg([Pp[0],0], Pp, COL.purple, 1.6, [5,4]);
+    if (big(Pp[1])) text('y', X(Pp[0]) + (sn>=0?-10:10), Y(Pp[1]/2), COL.purple, {size:15});
+  }
+
+  // angle θ at hub
+  if (opt.optAngle && Math.abs(th)>1e-3){
+    let tm = th % TAU; if (Math.abs(th)>=TAU && Math.abs(tm)<1e-6) tm = 0;
+    const ar = Math.min(0.32*r, 60/view.s*0.6+0.12*r);
+    const pts=[]; const N=Math.max(2,Math.ceil(Math.abs(tm)*30));
+    for (let i=0;i<=N;i++){ const a=-PI/2 - tm*i/N; pts.push([C[0]+ar*Math.cos(a), C[1]+ar*Math.sin(a)]); }
+    poly(pts, '#334155', 1.6);
+    if (Math.abs(tm)>0.08){
+      const am=-PI/2 - tm/2, lr = ar + 13/view.s;
+      text('θ', X(C[0]+lr*Math.cos(am)), Y(C[1]+lr*Math.sin(am)), '#0f172a', {size:16});
+    }
+  }
+
+  // main spoke (to the painted dot)
+  const rimPt=[C[0]+r*Math.cos(-PI/2-th), C[1]+r*Math.sin(-PI/2-th)];
+  seg(C, rimPt, '#1e293b', 3);
+  if (dd>r) seg(rimPt, Pp, '#1e293b', 3);
+  if (S.k<1 && S.k>0) dot(rimPt, 3, '#64748b');
+
+  // pivot point & tangent line
+  if (opt.optIC){
+    seg(T, Pp, '#475569', 1.4, [3,4]);
+    const v=V(th), vl=Math.hypot(...v);
+    if (vl>1e-6){
+      const u=[v[0]/vl, v[1]/vl], e=1.6*r;
+      seg([Pp[0]-u[0]*e, Pp[1]-u[1]*e],[Pp[0]+u[0]*e, Pp[1]+u[1]*e], '#0f766e', 1.6, [8,4]);
+    }
+    const A=[r*th, 2*r]; dot(A, 4, '#0f766e'); text('A', X(A[0])+10, Y(A[1])-10, '#0f766e', {size:13});
+  }
+
+  // velocity
+  if (opt.optVel){
+    const v=V(th); arrow(Pp, [0.5*v[0], 0.5*v[1]], COL.cyan);
+    const tip=[Pp[0]+0.5*v[0], Pp[1]+0.5*v[1]];
+    if (Math.hypot(...v)*0.5*view.s > 20) text('½·dP/dθ', X(tip[0])+8, Y(tip[1])-10, COL.cyan, {size:13, align:'left', italic:false});
+  }
+
+  // points
+  dot(C, 4, '#1e293b'); text('C', X(C[0])+ (sn>=0?-1:1)*0 + 10, Y(C[1])-11, '#1e293b', {size:14, align:'left'});
+  dot([0,0], 3, '#1e293b'); text('O', X(0)-9, view.oy-11, '#1e293b', {size:14});
+  if (Math.abs(r*th*view.s)>14){ dot(T, 3.5, '#1e293b'); text('T', X(T[0])+ (sn>=0?10:-10), view.oy-11, '#1e293b', {size:14}); }
+  ctx.save(); ctx.shadowColor='rgba(220,38,38,0.5)'; ctx.shadowBlur=8; dot(Pp, 7, COL.red); ctx.restore();
+  text('P', X(Pp[0]) + (sn>=0?-14:14), Y(Pp[1]) - 14, COL.red, {size:16, weight:'bold'});
+
+  drawMini(); updatePanel();
+}
+
+// ---------- component graphs ----------
+function drawMini(){
+  const c=mini.getContext('2d'), w=mini._w, h=mini._h;
+  c.clearRect(0,0,w,h);
+  const panels=[{f:t=>P(t)[0], name:'x(θ)', col:COL.purple, top:6, ht:h/2-14},
+                {f:t=>P(t)[1], name:'y(θ)', col:COL.green, top:h/2+6, ht:h/2-26}];
+  const a=S.tmin, b=S.tmax, padL=34, padR=8, N=300;
+  const sx=t=>padL+(t-a)/(b-a)*(w-padL-padR);
+  for (const pn of panels){
+    let lo=Infinity, hi=-Infinity; const vals=[];
+    for (let i=0;i<=N;i++){ const t=a+(b-a)*i/N, v=pn.f(t); vals.push(v); lo=Math.min(lo,v,0); hi=Math.max(hi,v); }
+    if (hi-lo<1e-9) hi=lo+1;
+    const sy=v=>pn.top+pn.ht-(v-lo)/(hi-lo)*pn.ht;
+    c.strokeStyle='#e2e8f0'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(padL,sy(0)); c.lineTo(w-padR,sy(0)); c.stroke();
+    // π gridlines
+    c.font='11px system-ui'; c.fillStyle='#94a3b8'; c.textAlign='center'; c.textBaseline='top';
+    for (let k=Math.ceil(a/PI); k*PI<=b+1e-9; k++){
+      const x=sx(k*PI); c.beginPath(); c.moveTo(x,pn.top); c.lineTo(x,pn.top+pn.ht); c.stroke();
+      if (pn===panels[1]) c.fillText(k===0?'0':fmtPi(k*PI), x, pn.top+pn.ht+3);
+    }
+    // faint full + solid traced
+    c.lineWidth=1.5; c.strokeStyle=pn.col+'55'; c.beginPath();
+    vals.forEach((v,i)=>{const t=a+(b-a)*i/N; i?c.lineTo(sx(t),sy(v)):c.moveTo(sx(t),sy(v));}); c.stroke();
+    c.lineWidth=2.5; c.strokeStyle=pn.col; c.beginPath();
+    const M=Math.max(2,Math.ceil(N*(S.th-a)/(b-a)));
+    for (let i=0;i<=M;i++){ const t=a+(S.th-a)*i/M; i?c.lineTo(sx(t),sy(pn.f(t))):c.moveTo(sx(t),sy(pn.f(t))); } c.stroke();
+    // marker
+    c.strokeStyle='rgba(220,38,38,0.4)'; c.setLineDash([3,3]); c.beginPath(); c.moveTo(sx(S.th),pn.top); c.lineTo(sx(S.th),pn.top+pn.ht); c.stroke(); c.setLineDash([]);
+    c.fillStyle=COL.red; c.beginPath(); c.arc(sx(S.th),sy(pn.f(S.th)),4,0,TAU); c.fill();
+    c.font='italic 13px "Times New Roman",serif'; c.fillStyle=pn.col; c.textAlign='left'; c.textBaseline='top';
+    c.fillText(pn.name, padL+4, pn.top);
+    c.font='10px system-ui'; c.fillStyle='#94a3b8'; c.textAlign='right'; c.textBaseline='middle';
+    c.fillText(hi.toFixed(1), padL-4, sy(hi)); c.fillText(lo.toFixed(1), padL-4, sy(lo));
+  }
+}
+
+// ---------- side panel ----------
+function updateEquations(){
+  const L = S.k===1 ? 'r' : 'd';
+  $('eqX').innerHTML = `<i>x</i>(<i>θ</i>) = <span class="o"><i>rθ</i></span> − <span class="b"><i>${L}</i> sin <i>θ</i></span>`;
+  $('eqY').innerHTML = `<i>y</i>(<i>θ</i>) = <span class="gr"><i>r</i></span> − <span class="g"><i>${L}</i> cos <i>θ</i></span>`;
+  const kind = S.k===1 ? 'cycloid' : S.k<1 ? (S.k===0 ? 'straight line (dot at the hub)' : 'curtate cycloid (dot inside the rim)') : 'prolate cycloid (dot beyond the rim, like a train-wheel flange)';
+  $('kind').textContent = kind;
+  $('kTxt').textContent = S.k.toFixed(2)+' r';
+  const dline = S.k===1 ? '' : ` Here the dot is at distance <i>d</i> = ${S.k.toFixed(2)}<i>r</i> from the hub, so the hypotenuse is <i>d</i> instead of <i>r</i>.`;
+  $('why').innerHTML = `
+    <li><b>Rolling without slipping.</b> The distance rolled along the ground equals the arc of the rim that has touched it: <span class="o">|OT| = arc = <i>rθ</i></span>. So the hub is at <i>C</i> = (<i>rθ</i>, <i>r</i>).</li>
+    <li><b>Right triangle at the hub.</b> The spoke <i>CP</i> makes angle <i>θ</i> with the downward vertical <i>CT</i>.${dline} So <span class="b">|QP| = <i>${L}</i> sin <i>θ</i></span> (horizontal) and <span class="g">|CQ| = <i>${L}</i> cos <i>θ</i></span> (vertical).</li>
+    <li><b>Assemble.</b> To get from <i>O</i> to <i>P</i>: go right <span class="o"><i>rθ</i></span>, then back left <span class="b"><i>${L}</i> sin <i>θ</i></span>. Go up <span class="gr"><i>r</i></span> to the hub, then down <span class="g"><i>${L}</i> cos <i>θ</i></span>.</li>
+    <li><b>Signs take care of every quadrant.</b> When <i>θ</i> passes π/2, cos <i>θ</i> &lt; 0, so the green segment points <i>up</i>. When <i>θ</i> passes π, sin <i>θ</i> &lt; 0, so the blue segment points <i>right</i>. The same two formulas hold for all <i>θ</i>.</li>`;
+}
+function updatePanel(){
+  const r=S.r, dd=d(), th=S.th, p=P(th), v=V(th), sn=Math.sin(th), cs=Math.cos(th);
+  $('thetaTxt').textContent = `${fmtPi(th)}  ≈ ${f3(th)}`;
+  $('liveX').textContent = `= ${f3(r*th)} − ${paren(dd*sn)} = ${f3(p[0])}`;
+  $('liveY').textContent = `= ${f3(r)} − ${paren(dd*cs)} = ${f3(p[1])}`;
+  $('vTh').textContent = `${fmtPi(th)} (${f3(th)} rad)`;
+  $('vXY').textContent = `(${f3(p[0])}, ${f3(p[1])})`;
+  $('vD').textContent = `${f3(v[0])}, ${f3(v[1])}`;
+  let slope;
+  if (Math.abs(v[0])<1e-6) slope = Math.abs(v[1])<1e-6 ? 'undefined (0/0: cusp)' : 'vertical tangent';
+  else slope = f3(v[1]/v[0]);
+  $('vSlope').textContent = slope;
+  $('vSpeed').textContent = f3(Math.hypot(...v));
+  const s = arcLen(S.tmin, th);
+  $('vArc').textContent = `${f3(s)}  (= ${(s/r).toFixed(3)} r)`;
+}
+
+// ---------- controls ----------
+const slider=$('theta');
+function syncSlider(){ slider.value = S.th; }
+function setRange(a, b){
+  S.tmin=a; S.tmax=b;
+  slider.min=a; slider.max=b; slider.step=(b-a)/4000;
+  S.th = Math.min(b, Math.max(a, S.th));
+  $('tmin').value = fmtPi(a).replace(/−/g,'-').replace(/π/g,'pi');
+  $('tmax').value = fmtPi(b).replace(/−/g,'-').replace(/π/g,'pi');
+  $('tmin').classList.remove('bad'); $('tmax').classList.remove('bad');
+  setup(); syncSlider(); draw();
+}
+function tryRange(){
+  const a=parseAngle($('tmin').value), b=parseAngle($('tmax').value);
+  const ok = isFinite(a) && isFinite(b) && b>a && (b-a)<=40*PI;
+  $('tmin').classList.toggle('bad', !isFinite(a) || !ok);
+  $('tmax').classList.toggle('bad', !isFinite(b) || !ok);
+  if (ok){ S.tmin=a; S.tmax=b; slider.min=a; slider.max=b; slider.step=(b-a)/4000; S.th=Math.min(b,Math.max(a,S.th)); setup(); syncSlider(); draw(); }
+}
+$('tmin').addEventListener('change', tryRange);
+$('tmax').addEventListener('change', tryRange);
+['tmin','tmax'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') tryRange(); }));
+document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
+  const [a,c]=b.dataset.range.split(',').map(parseAngle); setRange(a,c);
+}));
+document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',()=>{
+  setPlaying(false);
+  const t=parseAngle(b.dataset.jump);
+  if (t<S.tmin || t>S.tmax) setRange(Math.min(S.tmin,t), Math.max(S.tmax,t));
+  S.th=t; syncSlider(); draw();
+}));
+slider.addEventListener('input',()=>{ S.th=parseFloat(slider.value); draw(); });
+
+let last=null;
+function setPlaying(p){
+  S.playing=p; $('play').textContent = p ? '❚❚ Pause' : '▶ Play';
+  if (p){ if (S.th>=S.tmax-1e-9) S.th=S.tmin; last=null; requestAnimationFrame(tick); }
+}
+function tick(ts){
+  if (!S.playing) return;
+  if (last===null) last=ts;
+  const dt=Math.min(0.1,(ts-last)/1000); last=ts;
+  S.th += S.speed*dt;
+  if (S.th>=S.tmax){ if (S.loop) S.th=S.tmin; else { S.th=S.tmax; setPlaying(false); } }
+  syncSlider(); draw();
+  if (S.playing) requestAnimationFrame(tick);
+}
+$('play').addEventListener('click',()=>setPlaying(!S.playing));
+$('reset').addEventListener('click',()=>{ setPlaying(false); S.th=S.tmin; syncSlider(); draw(); });
+$('speed').addEventListener('input',e=>{ S.speed=parseFloat(e.target.value); $('speedTxt').textContent=S.speed.toFixed(2)+' rad/s'; });
+$('loop').addEventListener('change',e=>{ S.loop=e.target.checked; });
+$('rIn').addEventListener('input',e=>{ const v=parseFloat(e.target.value); if (v>0){ S.r=v; setup(); draw(); } });
+$('kIn').addEventListener('input',e=>{ S.k=parseFloat(e.target.value); updateEquations(); setup(); draw(); });
+$('kReset').addEventListener('click',()=>{ S.k=1; $('kIn').value=1; updateEquations(); setup(); draw(); });
+optIds.forEach(id=>{ opt[id]=$(id).checked; $(id).addEventListener('change',e=>{ opt[id]=e.target.checked; draw(); }); });
+
+document.addEventListener('keydown',e=>{
+  if (e.target.tagName==='INPUT' && e.target.type!=='range' && e.target.type!=='checkbox') return;
+  if (e.code==='Space'){ e.preventDefault(); setPlaying(!S.playing); }
+  else if (e.key==='ArrowRight' && e.target!==slider){ S.th=Math.min(S.tmax,S.th+(S.tmax-S.tmin)/200); syncSlider(); draw(); }
+  else if (e.key==='ArrowLeft' && e.target!==slider){ S.th=Math.max(S.tmin,S.th-(S.tmax-S.tmin)/200); syncSlider(); draw(); }
+});
+let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ setup(); draw(); },80); });
+
+updateEquations();
+setRange(0, TAU);
+S.th = PI*2/3; syncSlider(); draw();
+})();
+</script>
+</body>
+</html>
