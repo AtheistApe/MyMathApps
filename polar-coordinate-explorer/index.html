@@ -66,6 +66,15 @@ td{padding:4px 0;border-bottom:1px solid var(--line)}td:last-child{text-align:ri
 .key{display:grid;gap:4px;font-size:13px;color:var(--mute);padding:4px 4px 0}
 .key span{display:inline-block;width:26px;height:0;border-top:3px solid;vertical-align:middle;margin-right:8px}
 body.quiz .hideq,[hidden]{display:none!important}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--field);text-align:center;font-size:14px;line-height:1.2;cursor:pointer}
+.seg input:checked+span{background:var(--violet);border-color:var(--violet);color:var(--bg);font-weight:700}
+.seg input:focus-visible+span{outline:3px solid var(--blue);outline-offset:2px}
+.cond{margin:0;padding:8px 10px;border-left:4px solid var(--violet);background:var(--field);border-radius:0 8px 8px 0;font-weight:700}
+.sum p{margin:0 0 8px}.sum .big{font-size:40px;font-weight:700;line-height:1.1}.sum .big span{font-size:20px;color:var(--mute)}
+.res li.ok{color:var(--green)}.res li.no{color:var(--red)}
 @media(max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.fig{position:relative;top:0;height:min(72vh,94vw)}}
 </style>
 </head>
@@ -91,8 +100,14 @@ body.quiz .hideq,[hidden]{display:none!important}
           <div class="row"><label for="dy">Δy</label><input type="text" id="dy" value="1"></div>
         </div>
       </fieldset>
-      <label class="check"><input type="checkbox" id="snapT"> Snap θ to the grid angles (multiples of 2π/n)</label>
-      <label class="check"><input type="checkbox" id="snapR"> Snap r to multiples of Δr</label>
+      <div class="row" style="margin-top:4px"><b>Snap the point to</b></div>
+      <div class="seg" role="radiogroup" aria-label="Snap the point to">
+        <label><input type="radio" name="snap" value="off" checked><span>Off</span></label>
+        <label><input type="radio" name="snap" value="theta"><span>Grid angles θ only</span></label>
+        <label><input type="radio" name="snap" value="polar"><span>Polar grid points</span></label>
+        <label><input type="radio" name="snap" value="rect"><span>Rectangular grid points</span></label>
+      </div>
+      <p class="hint" id="snapHint"></p>
     </div></details>
 
     <details open class="hideq"><summary>The point (r, θ)</summary><div class="body">
@@ -117,7 +132,7 @@ body.quiz .hideq,[hidden]{display:none!important}
       <ol class="steps" id="r2p"></ol>
     </div></details>
 
-    <details><summary>Graph a curve r = f(θ)</summary><div class="body">
+    <details class="hideq"><summary>Graph a curve r = f(θ)</summary><div class="body">
       <label class="check b"><input type="checkbox" id="curveOn"> Trace r = f(θ) with the θ slider</label>
       <select id="preset" aria-label="Example curves"></select>
       <div class="row"><label for="fIn">r =</label><input type="text" id="fIn" value="1 + 2cos(θ)" style="text-align:left"></div>
@@ -127,12 +142,26 @@ body.quiz .hideq,[hidden]{display:none!important}
     <details><summary>Quiz</summary><div class="body">
       <label class="check b"><input type="checkbox" id="quizOn"> Quiz mode</label>
       <div id="qWrap" class="body" hidden>
-        <select id="qMode" aria-label="Quiz type"><option value="name">Name the point: give its polar coordinates</option><option value="plot">Plot the point: tap where (r, θ) is</option></select>
-        <p class="prompt" id="qPrompt"></p>
-        <div class="pair" id="qName"><div class="row"><label for="qR">r</label><input type="text" id="qR"></div><div class="row"><label for="qT">θ</label><input type="text" id="qT"></div></div>
-        <div class="pair"><button class="main" id="qCheck">Check</button><button id="qNew">New point</button></div>
-        <p class="fb" id="qFb" aria-live="polite"></p>
-        <p class="hint" id="qScore"></p>
+        <div id="qSetup" class="body">
+          <select id="qMode" aria-label="Quiz type"><option value="name">Name the point: give polar coordinates</option><option value="plot">Plot the point: tap where (r, θ) is</option><option value="mixed">Mixed: both kinds</option></select>
+          <label class="check"><input type="checkbox" id="qCond" checked> Require conditions on r and θ (like r &lt; 0, −2π &lt; θ ≤ 0)</label>
+          <div class="row"><label for="qCount">Number of questions</label><input type="text" id="qCount" value="10" inputmode="numeric" style="max-width:6em;justify-self:end"></div>
+          <button class="main" id="qStart">Start quiz</button>
+        </div>
+        <div id="qRun" class="body" hidden>
+          <p class="hint" id="qProg"></p>
+          <p class="prompt" id="qPrompt"></p>
+          <p class="cond" id="qCondTxt"></p>
+          <div class="pair" id="qName"><div class="row"><label for="qR">r</label><input type="text" id="qR"></div><div class="row"><label for="qT">θ</label><input type="text" id="qT"></div></div>
+          <div class="pair"><button class="main" id="qCheck">Check</button><button id="qNext" disabled>Next question</button></div>
+          <p class="fb" id="qFb" aria-live="polite"></p>
+          <button id="qEnd" style="justify-self:start;min-height:36px;font-size:14px">End quiz now</button>
+        </div>
+        <div id="qDone" class="body" hidden>
+          <div id="qSum" class="sum"></div>
+          <div class="pair"><button id="qCopy">Copy results</button><button class="main" id="qAgain">New quiz</button></div>
+          <p class="hint" id="qCopyMsg" aria-live="polite"></p>
+        </div>
       </div>
     </div></details>
 
@@ -150,8 +179,8 @@ const cv=$('cv'),fig=$('fig'),ctx=cv.getContext('2d');
 const PI=Math.PI,TAU=2*PI,TSTEP=PI/720,RSTEP=0.01;
 const FONT='"Atkinson Hyperlegible",system-ui,sans-serif';
 const S={polar:true,rect:false,n:12,dr:1,dx:1,dy:1,rMin:-4,rMax:4,tMin:-TAU,tMax:TAU,r:3,t:PI/3,
-  snapT:false,snapR:false,sector:false,curve:false,f:null,ghost:null};
-const Q={on:false,mode:'name',target:null,revealed:false,placed:false,right:0,total:0};
+  snap:'off',sector:false,curve:false,f:null,ghost:null};
+const Q={on:false,phase:'setup',type:'name',cond:true,count:10,list:[],cur:null,revealed:false,placed:false};
 const V={sc:1,cx:0,cy:0};
 let anim=null;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)');
@@ -234,8 +263,8 @@ function syncSliders(){
   rs.min=Math.ceil(S.rMin/RSTEP-1e-9);rs.max=Math.floor(S.rMax/RSTEP+1e-9);if(Number.isFinite(S.r))rs.value=Math.round(S.r/RSTEP);
   ts.min=Math.ceil(S.tMin/TSTEP-1e-9);ts.max=Math.floor(S.tMax/TSTEP+1e-9);ts.value=Math.round(S.t/TSTEP);
 }
-function snapTheta(v){if(!S.snapT)return v;const d=TAU/S.n;return Math.round(v/d)*d}
-function snapRad(v){if(!S.snapR)return v;return Math.round(v/S.dr)*S.dr}
+function snapTheta(v){if(S.snap!=='theta'&&S.snap!=='polar')return v;const d=TAU/S.n;return Math.round(v/d)*d}
+function snapRad(v){if(S.snap!=='polar')return v;return Math.round(v/S.dr)*S.dr}
 function stopAnim(){if(anim){cancelAnimationFrame(anim);anim=null;S.ghost=null}}
 function updateDisabled(){
   for(const id of ['rSl','rIn','rMin','rMax'])$(id).disabled=S.curve;
@@ -270,8 +299,8 @@ function draw(){
   if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H2*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H2*dpr)}
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.setLineDash([]);
   const P=pal();ctx.fillStyle=P.bg;ctx.fillRect(0,0,W,H2);
-  const hide=Q.on&&!Q.revealed;
-  document.body.classList.toggle('quiz',hide);
+  const hide=Q.on&&Q.phase==='run'&&!Q.revealed;
+  document.body.classList.toggle('quiz',Q.on);
 
   // curve samples and scale
   let maxR=Math.max(Math.abs(S.rMin),Math.abs(S.rMax)),pts=null;
@@ -326,8 +355,8 @@ function draw(){
 
   // quiz: hidden state shows only a bare point
   if(hide){
-    if(Q.mode==='name'&&Q.target){const [a,b]=toXY(Q.target.t,Q.target.r);dot(a,b,P)}
-    if(Q.mode==='plot'&&Q.placed){const [a,b]=toXY(S.t,S.r);dot(a,b,P)}
+    if(Q.cur.mode==='name'){const [a,b]=toXY(Q.cur.t,Q.cur.r);dot(a,b,P)}
+    if(Q.cur.mode==='plot'&&Q.placed){const [a,b]=toXY(S.t,S.r);dot(a,b,P)}
     ctx.fillStyle=P.axis;ctx.beginPath();ctx.arc(cx,cy,3.5,0,TAU);ctx.fill();
     updatePanel();return;
   }
@@ -493,64 +522,175 @@ $('fIn').addEventListener('change',e=>{
 $('curveOn').addEventListener('change',e=>{
   stopAnim();S.curve=e.target.checked;
   if(S.curve){
-    if(Q.on){Q.on=false;$('quizOn').checked=false;$('qWrap').hidden=true;S.ghost=null}
+    if(Q.on){Q.on=false;Q.phase='setup';$('quizOn').checked=false;$('qWrap').hidden=true;S.ghost=null}
     if($('preset').value!=='c')applyPreset(+$('preset').value);else{S.f=compileF($('fIn').value);syncR()}
   }else{if(!Number.isFinite(S.r))S.r=1;S.r=clamp(S.r,S.rMin,S.rMax)}
   updateDisabled();draw();
 });
 
 /* ---------- quiz ---------- */
-function newQ(){
+const TCONDS=[
+  {lo:0,hi:TAU,loInc:true,hiInc:false},{lo:-TAU,hi:0,loInc:false,hiInc:true},{lo:-PI,hi:PI,loInc:false,hiInc:true},
+  {lo:TAU,hi:2*TAU,loInc:true,hiInc:false},{lo:PI,hi:3*PI,loInc:true,hiInc:false},{lo:-3*PI,hi:-PI,loInc:false,hiInc:true},
+  {lo:TAU,loInc:false},{hi:-TAU,hiInc:false},{hi:0,hiInc:false}];
+const CAT={
+  basic:['Naming a point (no conditions)','Find θ from the direction of the point, then r from its distance to the pole.'],
+  negR:['Names that need r < 0','When r < 0 the point sits opposite the direction θ: (r, θ) and (−r, θ + π) are the same point. Point θ the "wrong" way and walk backwards through the pole.'],
+  shiftT:['Names with θ outside [0, 2π)','Adding or subtracting 2π (a full turn) never moves the point. Shift θ by multiples of 2π until it lands in the required range.'],
+  plotNegR:['Plotting with r < 0','To plot (r, θ) with r < 0, face along θ, then go |r| units in the opposite direction, through the pole.'],
+  plotNegT:['Plotting with θ < 0','Negative θ means rotating clockwise from the polar axis.'],
+  plotBigT:['Plotting with |θ| ≥ 2π','Strip off full turns of 2π first; what is left tells you the direction.']};
+const rnd=n=>Math.floor(Math.random()*n);
+function fitTheta(th,c){
+  if(c.lo!=null){th+=TAU*Math.ceil((c.lo-th)/TAU-1e-9);if(!c.loInc&&Math.abs(th-c.lo)<1e-9)th+=TAU}
+  else if(c.hi!=null){th-=TAU*Math.ceil((th-c.hi)/TAU-1e-9);if(!c.hiInc&&Math.abs(th-c.hi)<1e-9)th-=TAU}
+  return th;
+}
+function condParts(c){
+  const p=[];
+  if(c.r==='pos')p.push('r > 0');if(c.r==='neg')p.push('r < 0');
+  if(c.lo!=null&&c.hi!=null)p.push(`${piStr(c.lo)} ${c.loInc?'≤':'<'} θ ${c.hiInc?'≤':'<'} ${piStr(c.hi)}`);
+  else if(c.lo!=null)p.push(`θ ${c.loInc?'≥':'>'} ${piStr(c.lo)}`);
+  else if(c.hi!=null)p.push(`θ ${c.hiInc?'≤':'<'} ${piStr(c.hi)}`);
+  return p;
+}
+function failedParts(r,th,c){
+  const f=[],e=1e-9;
+  if(c.r==='pos'&&!(r>e))f.push('r > 0');
+  if(c.r==='neg'&&!(r<-e))f.push('r < 0');
+  const okLo=c.lo==null||(c.loInc?th>=c.lo-e:th>c.lo+e),okHi=c.hi==null||(c.hiInc?th<=c.hi+e:th<c.hi-e);
+  if(!okLo||!okHi)f.push(condParts({lo:c.lo,hi:c.hi,loInc:c.loInc,hiInc:c.hiInc})[0]);
+  return f;
+}
+function kmax(){return Math.max(1,Math.floor(Math.min(Math.max(S.rMax,-S.rMin),5)/S.dr+1e-9))}
+function genName(){
+  const d=Math.random()<.5?4:6,r0=S.dr*(1+rnd(kmax())),t0=rnd(2*d)*PI/d,c={r:'any'},tags=[];
+  if(Q.cond){const u=Math.random();c.r=u<.45?'neg':u<.9?'pos':'any';Object.assign(c,TCONDS[rnd(TCONDS.length)])}
+  const rs=c.r==='neg'?-r0:r0;let th=rs<0?t0+PI:t0;
+  if(c.lo!=null||c.hi!=null)th=fitTheta(th,c);
+  if(c.r==='neg')tags.push('negR');
+  if(Q.cond&&(th<-1e-9||th>TAU-1e-9))tags.push('shiftT');
+  if(!tags.length)tags.push('basic');
+  return {mode:'name',d,r:r0,t:t0,c,expect:{r:rs,t:th},tags};
+}
+function genPlot(){
+  const d=Math.random()<.5?4:6;let r=S.dr*(1+rnd(kmax()));const t=(rnd(4*d+1)-2*d)*PI/d;
+  if(Math.random()<.4)r=-r;
+  const tags=[];if(r<0)tags.push('plotNegR');if(t<-1e-9)tags.push('plotNegT');if(Math.abs(t)>=TAU-1e-9)tags.push('plotBigT');
+  return {mode:'plot',d,r,t,expect:{r,t},tags};
+}
+function showPhase(){
+  $('qSetup').hidden=Q.phase!=='setup';$('qRun').hidden=Q.phase!=='run';$('qDone').hidden=Q.phase!=='done';
+}
+function startQuiz(){
+  const n=Math.round(parseVal($('qCount').value));
+  if(!(n>=1&&n<=50)){$('qCount').classList.add('bad');return}
+  $('qCount').classList.remove('bad');
+  Q.count=n;Q.type=$('qMode').value;Q.cond=$('qCond').checked;Q.list=[];Q.phase='run';showPhase();nextQ();
+}
+function nextQ(){
+  if(Q.list.length>=Q.count){finish();return}
   stopAnim();Q.revealed=false;Q.placed=false;S.ghost=null;
-  const d=Math.random()<.5?4:6;S.n=2*d;$('nSl').value=S.n;
-  const kmax=Math.max(1,Math.floor(Math.min(Math.max(S.rMax,-S.rMin),5)/S.dr+1e-9));
-  let r=S.dr*(1+Math.floor(Math.random()*kmax)),t;
-  if(Q.mode==='name')t=Math.floor(Math.random()*2*d)*PI/d;
-  else{t=(Math.floor(Math.random()*(4*d+1))-2*d)*PI/d;if(Math.random()<.4)r=-r;
-    S.snapT=S.snapR=true;$('snapT').checked=$('snapR').checked=true;S.r=Math.abs(S.r)||1}
-  Q.target={r,t};
-  $('qName').hidden=Q.mode!=='name';$('qR').value='';$('qT').value='';
-  $('qPrompt').textContent=Q.mode==='name'?'Give polar coordinates (r, θ) for the black point. Any correct name counts.':`Tap the plane to plot (r, θ) = (${fmt(r)}, ${piStr(t)}).`;
+  const m=Q.type==='mixed'?(Math.random()<.5?'name':'plot'):Q.type;
+  const q=Q.cur=m==='name'?genName():genPlot();
+  S.n=2*q.d;$('nSl').value=S.n;
+  if(m==='plot'){setSnap('polar',true);S.r=Math.abs(S.r)||1}
+  $('qProg').textContent=`Question ${Q.list.length+1} of ${Q.count}  ·  Score ${Q.list.filter(x=>x.ok).length}`;
+  $('qName').hidden=m!=='name';$('qR').value='';$('qT').value='';
+  const cp=m==='name'?condParts(q.c):[];
+  $('qPrompt').textContent=m==='name'?'Give polar coordinates (r, θ) for the black point.':`Tap the plane to plot (r, θ) = (${fmt(q.r)}, ${piStr(q.t)}).`;
+  $('qCondTxt').hidden=m!=='name';
+  $('qCondTxt').textContent=cp.length?'Your answer must satisfy:  '+cp.join('  and  '):'Any correct polar name counts.';
   $('qFb').textContent='';$('qFb').className='fb';
+  $('qCheck').disabled=false;$('qNext').disabled=true;
+  $('qNext').textContent=Q.list.length+1>=Q.count?'See results':'Next question';
   draw();
+  if(m==='name')$('qR').focus({preventScroll:true});
 }
 function checkQ(){
-  if(!Q.target||Q.revealed)return;
-  const T=Q.target,tx=T.r*Math.cos(T.t),ty=T.r*Math.sin(T.t),fb=$('qFb');let good;
-  if(Q.mode==='name'){
+  const q=Q.cur;if(!q||Q.revealed||Q.phase!=='run')return;
+  const tx=q.r*Math.cos(q.t),ty=q.r*Math.sin(q.t),fb=$('qFb'),E=q.expect,es=`(${fmt(E.r)}, ${piStr(E.t)})`;
+  let ok,ans,msg;
+  if(q.mode==='name'){
     const r=parseVal($('qR').value),th=parseVal($('qT').value,true);
     if(!Number.isFinite(r)||!Number.isFinite(th)){fb.textContent='Enter both r and θ (θ can be like 3π/4 or 135°).';fb.className='fb no';return}
-    const ax=r*Math.cos(th),ay=r*Math.sin(th);good=Math.hypot(ax-tx,ay-ty)<0.02;
-    ensureRange(T.r,T.t);S.r=T.r;S.t=T.t;
-    S.ghost=good?null:{x:ax,y:ay,label:'your answer'};
-    fb.textContent=good?`Correct! (${fmt(r)}, ${piStr(th)}) names that point. The plot shows another name, (${fmt(T.r)}, ${piStr(T.t)}).`:`Not quite. Your (${fmt(r)}, ${piStr(th)}) is the point (x, y) = (${fmt(ax)}, ${fmt(ay)}), the dashed circle. The black point is (${fmt(T.r)}, ${piStr(T.t)}).`;
+    const ax=r*Math.cos(th),ay=r*Math.sin(th),same=Math.hypot(ax-tx,ay-ty)<0.02,fail=failedParts(r,th,q.c);
+    ans=`(${fmt(r)}, ${piStr(th)})`;ok=same&&!fail.length;
+    msg=ok?`Correct! ${ans} names the point${condParts(q.c).length?' and meets the conditions':''}.`
+      :same?`${ans} does name this point, but it doesn't satisfy ${fail.join(' and ')}. A name that does: ${es}.`
+      :`Not quite. ${ans} is the point (x, y) = (${fmt(ax)}, ${fmt(ay)}), shown by the dashed circle. One correct answer: ${es}.`;
+    ensureRange(E.r,E.t);S.r=E.r;S.t=E.t;
+    S.ghost=same?null:{x:ax,y:ay,label:'your answer'};
   }else{
     if(!Q.placed){fb.textContent='Tap or drag on the plane to place your point first.';fb.className='fb no';return}
-    const ax=S.r*Math.cos(S.t),ay=S.r*Math.sin(S.t);good=Math.hypot(ax-tx,ay-ty)<Math.max(0.02,10/V.sc);
-    S.ghost=good?null:{x:tx,y:ty,label:`target (${fmt(T.r)}, ${piStr(T.t)})`};
-    fb.textContent=good?`Correct! You placed (${fmt(S.r)}, ${piStr(S.t)}), which is the same point as (${fmt(T.r)}, ${piStr(T.t)}).`:`Not quite. The target is at (x, y) = (${fmt(tx)}, ${fmt(ty)}), the dashed circle. Yours is at (${fmt(ax)}, ${fmt(ay)}).`;
+    const ax=S.r*Math.cos(S.t),ay=S.r*Math.sin(S.t);
+    ok=Math.hypot(ax-tx,ay-ty)<Math.max(0.02,10/V.sc);ans=`(${fmt(S.r)}, ${piStr(S.t)})`;
+    msg=ok?`Correct! You placed ${ans}, the same point as ${es}.`:`Not quite. ${es} is at (x, y) = (${fmt(tx)}, ${fmt(ty)}), the dashed circle. Yours is at (${fmt(ax)}, ${fmt(ay)}).`;
+    S.ghost=ok?null:{x:tx,y:ty,label:`target ${es}`};
   }
-  fb.className='fb '+(good?'ok':'no');
-  Q.revealed=true;Q.total++;if(good)Q.right++;
-  $('qScore').textContent=`Score: ${Q.right} of ${Q.total}`;
+  fb.textContent=msg;fb.className='fb '+(ok?'ok':'no');
+  Q.revealed=true;
+  Q.list.push({mode:q.mode,prompt:q.mode==='name'?`Name the point at (x, y) = (${fmt(tx)}, ${fmt(ty)})`+(condParts(q.c).length?` with ${condParts(q.c).join(' and ')}`:''):`Plot ${es}`,ans,expect:es,ok,tags:q.tags});
+  $('qProg').textContent=`Question ${Q.list.length} of ${Q.count}  ·  Score ${Q.list.filter(x=>x.ok).length}`;
+  $('qCheck').disabled=true;$('qNext').disabled=false;
+  draw();
+  $('qNext').focus({preventScroll:true});
+}
+function finish(){
+  const L=Q.list;if(!L.length){Q.phase='setup';showPhase();draw();return}
+  Q.phase='done';Q.revealed=false;S.ghost=null;showPhase();
+  const right=L.filter(x=>x.ok).length,pct=Math.round(100*right/L.length);
+  const tier=pct===100?'Perfect score! You can move fluently between the different polar names for a point.'
+    :pct>=90?'Excellent work. Just a slip or two; look over the one you missed.'
+    :pct>=70?'Good job. You have the main ideas; review the questions you missed below.'
+    :pct>=50?"You're getting there. Read the tips below, then try another round."
+    :'This takes practice. Work through the tips below, then try a new quiz. Outside quiz mode, the "Other names for this point" buttons animate why each name works.';
+  const stats=Object.keys(CAT).map(k=>{const a=L.filter(x=>x.tags.includes(k));return {k,n:a.length,c:a.filter(x=>x.ok).length}}).filter(s=>s.n);
+  const tips=stats.filter(s=>s.c<s.n&&s.c/s.n<0.75).map(s=>`<li><b>${CAT[s.k][0]}:</b> ${CAT[s.k][1]}</li>`);
+  $('qSum').innerHTML=`<p class="big">${right} / ${L.length} <span>(${pct}%)</span></p><p>${tier}</p>`+
+    `<table><tbody>${stats.map(s=>`<tr><td>${CAT[s.k][0]}</td><td>${s.c} / ${s.n}</td></tr>`).join('')}</tbody></table>`+
+    (tips.length?`<p><b>Tips</b></p><ul class="steps">${tips.join('')}</ul>`:'')+
+    `<p><b>Your answers</b></p><ol class="steps res">${L.map(x=>`<li class="${x.ok?'ok':'no'}">${x.ok?'✓':'✗'} ${x.prompt}. You: ${x.ans}${x.ok?'':`; correct: ${x.expect}`}</li>`).join('')}</ol>`;
+  $('qCopyMsg').textContent='';
   draw();
 }
+function resultsText(){
+  const L=Q.list,right=L.filter(x=>x.ok).length;
+  return `Polar coordinates quiz, ${new Date().toLocaleString()}\nScore: ${right} / ${L.length} (${Math.round(100*right/L.length)}%)\n`+
+    L.map((x,i)=>`${i+1}. ${x.ok?'correct':'WRONG'}: ${x.prompt}. Answer ${x.ans}${x.ok?'':`; correct ${x.expect}`}`).join('\n');
+}
 $('quizOn').addEventListener('change',e=>{
-  Q.on=e.target.checked;$('qWrap').hidden=!Q.on;
-  if(Q.on){if(S.curve){S.curve=false;$('curveOn').checked=false;if(!Number.isFinite(S.r))S.r=1;updateDisabled()}S.sector=false;$('sector').checked=false;newQ()}
-  else{Q.revealed=false;S.ghost=null;draw()}
+  Q.on=e.target.checked;$('qWrap').hidden=!Q.on;stopAnim();
+  if(Q.on)Q.saved={rMin:S.rMin,rMax:S.rMax,tMin:S.tMin,tMax:S.tMax,r:S.r,t:S.t,n:S.n,snap:S.snap};
+  else if(Q.saved){const v=Q.saved;for(const k of ['rMin','rMax','tMin','tMax'])setEdge(k,v[k]);S.r=v.r;S.t=v.t;S.n=v.n;$('nSl').value=v.n;setSnap(v.snap,true);Q.saved=null}
+  if(Q.on){if(S.curve){S.curve=false;$('curveOn').checked=false;if(!Number.isFinite(S.r))S.r=1;updateDisabled()}S.sector=false;$('sector').checked=false}
+  Q.phase='setup';Q.revealed=false;S.ghost=null;showPhase();draw();
 });
-$('qMode').addEventListener('change',e=>{Q.mode=e.target.value;newQ()});
-$('qNew').addEventListener('click',newQ);
+$('qStart').addEventListener('click',startQuiz);
+$('qAgain').addEventListener('click',()=>{Q.phase='setup';showPhase();draw()});
+$('qEnd').addEventListener('click',finish);
 $('qCheck').addEventListener('click',checkQ);
-for(const id of ['qR','qT'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter')checkQ()});
+$('qNext').addEventListener('click',nextQ);
+$('qCopy').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(resultsText());$('qCopyMsg').textContent='Copied. Paste it wherever your instructor asks.'}
+  catch(e){$('qCopyMsg').textContent="Couldn't copy here; select the list of answers and copy it by hand."}
+});
+for(const id of ['qR','qT'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();checkQ()}});
 
 /* ---------- controls ---------- */
 $('polarOn').addEventListener('change',e=>{S.polar=e.target.checked;$('polarFs').disabled=!S.polar;draw()});
 $('rectOn').addEventListener('change',e=>{S.rect=e.target.checked;$('rectFs').disabled=!S.rect;draw()});
 $('nSl').addEventListener('input',e=>{S.n=+e.target.value;draw()});
-$('snapT').addEventListener('change',e=>{S.snapT=e.target.checked;if(S.snapT&&!S.curve){S.t=clamp(snapTheta(S.t),S.tMin,S.tMax);syncR()}draw()});
-$('snapR').addEventListener('change',e=>{S.snapR=e.target.checked;if(S.snapR&&!S.curve)S.r=clamp(snapRad(S.r),S.rMin,S.rMax);draw()});
+const SNAPHINT={off:'',theta:'The θ slider and taps on the plane land on multiples of 2π/n.',
+  polar:'The sliders and taps land on polar grid points: θ a multiple of 2π/n, r a multiple of Δr.',
+  rect:'Taps and drags land on rectangular grid points (multiples of Δx, Δy); r and θ are computed from x and y. The sliders still move freely.'};
+function setSnap(v,quiet){
+  S.snap=v;document.querySelector(`input[name=snap][value=${v}]`).checked=true;$('snapHint').textContent=SNAPHINT[v];
+  if(v==='rect'&&!S.rect){S.rect=true;$('rectOn').checked=true;$('rectFs').disabled=false}
+  if(!S.curve&&!quiet){S.t=clamp(snapTheta(S.t),S.tMin,S.tMax);if(Number.isFinite(S.r))S.r=clamp(snapRad(S.r),S.rMin,S.rMax)}
+  if(!quiet)draw();
+}
+document.querySelectorAll('input[name=snap]').forEach(el=>el.addEventListener('change',e=>setSnap(e.target.value)));
 $('sector').addEventListener('change',e=>{S.sector=e.target.checked;draw()});
 for(const [id,key] of [['dr','dr'],['dx','dx'],['dy','dy']])$(id).addEventListener('change',e=>{
   const v=parseVal(e.target.value);if(!(v>0)){e.target.classList.add('bad');return}e.target.classList.remove('bad');S[key]=v;draw()});
@@ -568,19 +708,20 @@ $('tIn').addEventListener('change',e=>{const v=parseVal(e.target.value,true);if(
 /* ---------- tap / drag on the plane ---------- */
 let dragging=false;
 function placeAt(e){
-  const b=cv.getBoundingClientRect(),x=(e.clientX-b.left-V.cx)/V.sc,y=-(e.clientY-b.top-V.cy)/V.sc;
+  const b=cv.getBoundingClientRect();let x=(e.clientX-b.left-V.cx)/V.sc,y=-(e.clientY-b.top-V.cy)/V.sc;
+  if(S.snap==='rect'){x=Math.round(x/S.dx)*S.dx;y=Math.round(y/S.dy)*S.dy}
   let r=Math.hypot(x,y),th=Math.atan2(y,x);
-  if(S.r<0&&!Q.on){r=-r;th+=PI}
+  if(S.r<0&&!Q.on&&S.snap!=='rect'){r=-r;th+=PI}
   r=snapRad(r);th=snapTheta(th);
   th+=TAU*Math.round((S.t-th)/TAU);
   while(th>S.tMax+1e-9&&th-TAU>=S.tMin-1e-9)th-=TAU;
   while(th<S.tMin-1e-9&&th+TAU<=S.tMax+1e-9)th+=TAU;
   S.t=clamp(th,S.tMin,S.tMax);S.r=clamp(r,S.rMin,S.rMax);
-  if(Q.on)Q.placed=true;
+  if(Q.on&&Q.phase==='run')Q.placed=true;
   draw();
 }
 cv.addEventListener('pointerdown',e=>{
-  if(S.curve||(Q.on&&(Q.mode==='name'||Q.revealed)))return;
+  if(S.curve||(Q.on&&Q.phase==='run'&&(Q.cur.mode==='name'||Q.revealed)))return;
   stopAnim();dragging=true;cv.setPointerCapture(e.pointerId);placeAt(e);e.preventDefault();
 });
 cv.addEventListener('pointermove',e=>{if(dragging)placeAt(e)});
