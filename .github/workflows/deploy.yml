@@ -190,6 +190,11 @@ jobs:
           mkdir -p _site/cycloid-explorer
           cp -r cycloid-explorer/* _site/cycloid-explorer/
 
+      - name: Copy static app polar-coordinate-explorer into combined site
+        run: |
+          mkdir -p _site/polar-coordinate-explorer
+          cp -r polar-coordinate-explorer/* _site/polar-coordinate-explorer/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 
