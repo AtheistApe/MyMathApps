@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polar Coordinates Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: calm classroom instrument, clear and legible from the back row
+   IDEA: a sheet of polar graph paper on the lecture table
+   PICTURE: the live plane itself, large, with the point, angle arrow and labels
+   COLOUR and TYPE: white paper, ink, violet polar grid, blue (+) and red (−) as the only accents; Atkinson Hyperlegible
+   LAYOUT: sticky plane left, collapsible control panel right; stacked plane-then-controls below 900px */
+:root{color-scheme:light dark;
+  --bg:light-dark(#ffffff,#11151c);--ink:light-dark(#14181f,#e8ecf2);--mute:light-dark(#5b6472,#9aa3b2);
+  --panel:light-dark(#f4f2f8,#191e28);--line:light-dark(#dcd6e8,#2c3340);--field:light-dark(#ffffff,#0f1319);
+  --blue:light-dark(#1d5fd1,#5b93ff);--red:light-dark(#d22b2b,#ff5d5d);--violet:light-dark(#7a4fb0,#b99ae6);--green:light-dark(#1d7a3e,#5ccf86)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif;overflow-x:clip}
+header{padding:20px max(3vw,16px) 8px}
+h1{font-size:clamp(26px,3.2vw,36px);line-height:1.05;margin:0 0 4px;text-wrap:balance}
+header p{margin:0;color:var(--mute);max-width:75ch}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:12px max(3vw,16px) 28px;align-items:start}
+.fig{position:sticky;top:12px;height:min(88vh,calc(100vw - 440px));min-height:340px;border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;cursor:crosshair}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%}
+.panel{display:grid;gap:10px}
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 14px}
+details[open]{padding-bottom:14px}
+summary{font-weight:700;font-size:17px;min-height:48px;display:flex;align-items:center;cursor:pointer;list-style:none;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸";color:var(--violet);transition:transform .15s}
+details[open]>summary::before{transform:rotate(90deg)}
+.body{display:grid;gap:8px}
+fieldset{border:0;margin:0;padding:0 0 0 4px;display:grid;gap:8px}
+fieldset:disabled,.off{opacity:.45}
+.check{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer}
+.check.b{font-weight:700}
+.check input{width:22px;height:22px;accent-color:var(--violet);flex:none}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vrow{display:grid;grid-template-columns:2.2em 7.5em minmax(0,1fr);align-items:center;gap:8px;font-weight:700;font-size:18px}
+.alt{font-weight:400;font-size:15px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.range{display:grid;grid-template-columns:4.6em minmax(0,1fr) 4.6em;align-items:center;gap:8px}
+input[type=text],select{font:inherit;font-size:16px;width:100%;height:40px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);text-align:center}
+select{text-align:left}
+input[type=text].bad{border-color:var(--red);box-shadow:0 0 0 2px color-mix(in srgb,var(--red) 30%,transparent)}
+input[type=range]{width:100%;height:44px;accent-color:var(--blue);margin:0}
+#tSl{accent-color:var(--violet)}
+button{font:inherit;font-size:15px;min-height:44px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--violet)}
+button:disabled{opacity:.45;cursor:default}
+button.main{background:var(--violet);border-color:var(--violet);color:var(--bg);font-weight:700}
+button small{display:block;font-size:13px;color:var(--mute)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.hint{font-size:13px;color:var(--mute);margin:0}
+.minmax{display:flex;justify-content:space-between;font-size:13px;color:var(--mute);margin-top:-6px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+td{padding:4px 0;border-bottom:1px solid var(--line)}td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.eq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.steps{margin:0;padding-left:1.2em;display:grid;gap:4px;font-size:15px}
+.fb{margin:0;font-size:15px;min-height:1.5em}
+.fb.ok{color:var(--green);font-weight:700}.fb.no{color:var(--red)}
+.prompt{font-size:18px;font-weight:700;margin:0}
+.key{display:grid;gap:4px;font-size:13px;color:var(--mute);padding:4px 4px 0}
+.key span{display:inline-block;width:26px;height:0;border-top:3px solid;vertical-align:middle;margin-right:8px}
+body.quiz .hideq,[hidden]{display:none!important}
+@media(max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.fig{position:relative;top:0;height:min(72vh,94vw)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Polar coordinates explorer</h1>
+  <p>Drag the sliders, type exact values, or tap the plane to place the point (r, θ). Open the sections on the right to trace polar curves, see other names for a point, or quiz yourself.</p>
+</header>
+<main class="wrap">
+  <div class="fig" id="fig"><canvas id="cv" role="img" aria-label="Polar plane showing the point (r, theta)"></canvas></div>
+  <aside class="panel">
+    <details open><summary>Grids</summary><div class="body">
+      <label class="check b"><input type="checkbox" id="polarOn" checked> Polar grid</label>
+      <fieldset id="polarFs">
+        <div class="row"><span>Subintervals of [0, 2π)</span><span id="nVal" style="text-align:right;font-weight:700"></span></div>
+        <input type="range" id="nSl" min="1" max="48" step="1" value="12" aria-label="Number of angle subintervals">
+        <div class="row"><label for="dr">Δr</label><input type="text" id="dr" value="1"></div>
+      </fieldset>
+      <label class="check b"><input type="checkbox" id="rectOn"> Rectangular grid</label>
+      <fieldset id="rectFs" disabled>
+        <div class="pair">
+          <div class="row"><label for="dx">Δx</label><input type="text" id="dx" value="1"></div>
+          <div class="row"><label for="dy">Δy</label><input type="text" id="dy" value="1"></div>
+        </div>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="snapT"> Snap θ to the grid angles (multiples of 2π/n)</label>
+      <label class="check"><input type="checkbox" id="snapR"> Snap r to multiples of Δr</label>
+    </div></details>
+
+    <details open class="hideq"><summary>The point (r, θ)</summary><div class="body">
+      <div class="vrow"><label for="rIn">r =</label><input type="text" id="rIn" aria-label="r value"><span class="alt" id="rAlt"></span></div>
+      <div class="range"><input type="text" id="rMin" value="-4" aria-label="r minimum"><input type="range" id="rSl" aria-label="r"><input type="text" id="rMax" value="4" aria-label="r maximum"></div>
+      <div class="minmax"><span>min</span><span>max</span></div>
+      <div class="vrow"><label for="tIn">θ =</label><input type="text" id="tIn" aria-label="theta value"><span class="alt" id="tAlt"></span></div>
+      <div class="range"><input type="text" id="tMin" value="-2π" aria-label="theta minimum"><input type="range" id="tSl" aria-label="theta"><input type="text" id="tMax" value="2π" aria-label="theta maximum"></div>
+      <div class="minmax"><span>min</span><span>max</span></div>
+      <p class="hint">Boxes accept <b>5π/4</b>, <b>-pi/2</b>, <b>2.5</b>; the θ box also takes degrees, like <b>225°</b> or <b>225deg</b>. Press Enter or Tab to apply. You can also tap or drag on the plane.</p>
+      <label class="check"><input type="checkbox" id="sector"> Shade the region swept out, and show its area</label>
+      <table><tbody id="ro"></tbody></table>
+    </div></details>
+
+    <details open class="hideq"><summary>Other names for this point</summary><div class="body">
+      <p class="hint">Every point has infinitely many polar names. Click one to watch why it names the same point.</p>
+      <div class="eq" id="eq"></div>
+      <p class="hint" id="eqNote"></p>
+    </div></details>
+
+    <details class="hideq"><summary>From (x, y) back to (r, θ)</summary><div class="body">
+      <ol class="steps" id="r2p"></ol>
+    </div></details>
+
+    <details><summary>Graph a curve r = f(θ)</summary><div class="body">
+      <label class="check b"><input type="checkbox" id="curveOn"> Trace r = f(θ) with the θ slider</label>
+      <select id="preset" aria-label="Example curves"></select>
+      <div class="row"><label for="fIn">r =</label><input type="text" id="fIn" value="1 + 2cos(θ)" style="text-align:left"></div>
+      <p class="hint" id="fMsg">Use θ (or t, theta), sin, cos, tan, sec, csc, cot, sqrt, abs, exp, ln, ^, π. The curve is drawn from θ min to the slider's θ: <b style="color:var(--blue)">blue</b> where r ≥ 0, <b style="color:var(--red)">red</b> where r &lt; 0. Turn on shading for ½∫ r² dθ.</p>
+    </div></details>
+
+    <details><summary>Quiz</summary><div class="body">
+      <label class="check b"><input type="checkbox" id="quizOn"> Quiz mode</label>
+      <div id="qWrap" class="body" hidden>
+        <select id="qMode" aria-label="Quiz type"><option value="name">Name the point: give its polar coordinates</option><option value="plot">Plot the point: tap where (r, θ) is</option></select>
+        <p class="prompt" id="qPrompt"></p>
+        <div class="pair" id="qName"><div class="row"><label for="qR">r</label><input type="text" id="qR"></div><div class="row"><label for="qT">θ</label><input type="text" id="qT"></div></div>
+        <div class="pair"><button class="main" id="qCheck">Check</button><button id="qNew">New point</button></div>
+        <p class="fb" id="qFb" aria-live="polite"></p>
+        <p class="hint" id="qScore"></p>
+      </div>
+    </div></details>
+
+    <div class="key">
+      <div><span style="color:var(--blue)"></span>θ &gt; 0 (counter-clockwise); terminal side when r ≥ 0</div>
+      <div><span style="color:var(--red)"></span>θ &lt; 0 (clockwise)</div>
+      <div><span style="color:var(--red);border-top-style:dashed"></span>extension through the pole when r &lt; 0</div>
+    </div>
+  </aside>
+</main>
+<script>
+{
+const $=id=>document.getElementById(id);
+const cv=$('cv'),fig=$('fig'),ctx=cv.getContext('2d');
+const PI=Math.PI,TAU=2*PI,TSTEP=PI/720,RSTEP=0.01;
+const FONT='"Atkinson Hyperlegible",system-ui,sans-serif';
+const S={polar:true,rect:false,n:12,dr:1,dx:1,dy:1,rMin:-4,rMax:4,tMin:-TAU,tMax:TAU,r:3,t:PI/3,
+  snapT:false,snapR:false,sector:false,curve:false,f:null,ghost:null};
+const Q={on:false,mode:'name',target:null,revealed:false,placed:false,right:0,total:0};
+const V={sc:1,cx:0,cy:0};
+let anim=null;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+
+/* ---------- parsing and formatting ---------- */
+function parseVal(str,deg){
+  let s=String(str).trim().toLowerCase().replace(/π/g,'pi').replace(/−/g,'-').replace(/\s+/g,'');
+  let k=1;
+  if(deg&&/(°|deg|degrees?)$/.test(s)){s=s.replace(/(°|deg|degrees?)$/,'');k=PI/180}
+  if(!s||!/^[0-9.+\-*/()pi]+$/.test(s))return NaN;
+  s=s.replace(/(\d|\))pi/g,'$1*pi').replace(/pi(\d|\()/g,'pi*$1').replace(/pi/g,'(Math.PI)');
+  try{const v=Function('"use strict";return ('+s+')')();return Number.isFinite(v)?v*k:NaN}catch(e){return NaN}
+}
+function fmt(v,d=3){if(!Number.isFinite(v))return 'undefined';if(Math.abs(v)<5e-10)v=0;return String(+v.toFixed(d)).replace('-','−')}
+function piStr(t){
+  if(!Number.isFinite(t))return 'undefined';
+  if(Math.abs(t)<1e-9)return '0';
+  const q=t/PI;
+  for(let d=1;d<=48;d++){const n=Math.round(q*d);if(Math.abs(q*d-n)<1e-7){const a=Math.abs(n);return (n<0?'−':'')+(a===1?'':a)+'π'+(d>1?'/'+d:'')}}
+  return fmt(t);
+}
+const H={sin:Math.sin,cos:Math.cos,tan:Math.tan,sec:x=>1/Math.cos(x),csc:x=>1/Math.sin(x),cot:x=>1/Math.tan(x),
+  sqrt:Math.sqrt,abs:Math.abs,exp:Math.exp,ln:Math.log,log:Math.log10,pi:PI,e:Math.E};
+const WORDS=['sqrt','sin','cos','tan','sec','csc','cot','abs','exp','log','ln','pi','t','e'];
+const FN=new Set(['sqrt','sin','cos','tan','sec','csc','cot','abs','exp','log','ln']);
+function compileF(src){
+  const s=String(src).toLowerCase().replace(/π/g,'pi').replace(/θ|theta/g,'t').replace(/−/g,'-').replace(/[·×]/g,'*').replace(/\s+/g,'');
+  if(!s)return null;
+  const raw=s.match(/\d+\.?\d*|\.\d+|[a-z]+|[^]/g),toks=[];
+  for(const w of raw){
+    if(!/^[a-z]+$/.test(w)){toks.push(w);continue}
+    let i=0;
+    while(i<w.length){const m=WORDS.find(x=>w.startsWith(x,i));if(!m)return null;toks.push(m);i+=m.length}
+  }
+  // rewrite sin^2(u) as (sin(u))^2
+  for(let i=0;i<toks.length-3;i++){
+    if(FN.has(toks[i])&&toks[i+1]==='^'&&/^[\d.]+$/.test(toks[i+2])&&toks[i+3]==='('){
+      let depth=0,j=i+3;
+      for(;j<toks.length;j++){if(toks[j]==='(')depth++;else if(toks[j]===')'&&--depth===0)break}
+      if(j>=toks.length)return null;
+      const pw=toks[i+2];
+      toks.splice(i,j-i+1,'(',toks[i],...toks.slice(i+3,j+1),')','^',pw);
+    }
+  }
+  let out='',prev=null;
+  for(const tk of toks){
+    let type,js;
+    if(/^[\d.]/.test(tk)){type='v';js=tk}
+    else if(FN.has(tk)){type='f';js='H.'+tk}
+    else if(tk==='t'){type='v';js='t'}
+    else if(tk==='pi'||tk==='e'){type='v';js='H.'+tk}
+    else if(tk==='('||tk===')'){type=tk;js=tk}
+    else if('+-*/^'.includes(tk)){
+      type='o';js=tk==='^'?'**':tk;
+      if((tk==='-'||tk==='+')&&(prev===null||prev==='('||prev==='o'||prev==='f'))js=tk==='-'?'(-1)*':'';
+    }
+    else return null;
+    if((prev==='v'||prev===')')&&(type==='v'||type==='f'||type==='('))out+='*';
+    out+=js;prev=type;
+  }
+  try{const g=new Function('H','t','"use strict";return ('+out+');');if(typeof g(H,0.7)!=='number')return null;return t=>g(H,t)}catch(e){return null}
+}
+
+/* ---------- theme ---------- */
+function dark(){const a=document.documentElement.dataset.theme;return a?a==='dark':matchMedia('(prefers-color-scheme: dark)').matches}
+function pal(){return dark()?
+  {bg:'#11151c',polar:'#3f3358',polarLbl:'#b99ae6',rect:'#2a313c',rectAxis:'#8a93a3',rectLbl:'#9aa3b2',axis:'#e8ecf2',blue:'#5b93ff',blueFaint:'rgba(91,147,255,.5)',red:'#ff5d5d',ink:'#e8ecf2',pill:'rgba(17,21,28,.9)',sector:'rgba(185,154,230,.22)',curveFaint:'rgba(232,236,242,.22)',green:'#5ccf86'}:
+  {bg:'#ffffff',polar:'#d9c9ef',polarLbl:'#7a4fb0',rect:'#d5dae2',rectAxis:'#7b8494',rectLbl:'#5b6472',axis:'#14181f',blue:'#1d5fd1',blueFaint:'rgba(29,95,209,.45)',red:'#d22b2b',ink:'#14181f',pill:'rgba(255,255,255,.9)',sector:'rgba(122,79,176,.16)',curveFaint:'rgba(20,24,31,.16)',green:'#1d7a3e'}}
+
+/* ---------- state helpers ---------- */
+function syncR(){if(S.curve&&S.f)S.r=S.f(S.t)}
+function setEdge(key,v){S[key]=v;$(key).value=key[0]==='t'?piStr(v):fmt(v);$(key).classList.remove('bad')}
+function ensureRange(r,t){
+  if(Number.isFinite(r)){if(r<S.rMin)setEdge('rMin',r);if(r>S.rMax)setEdge('rMax',r)}
+  if(t<S.tMin)setEdge('tMin',t);if(t>S.tMax)setEdge('tMax',t);
+}
+function syncSliders(){
+  const rs=$('rSl'),ts=$('tSl');
+  rs.min=Math.ceil(S.rMin/RSTEP-1e-9);rs.max=Math.floor(S.rMax/RSTEP+1e-9);if(Number.isFinite(S.r))rs.value=Math.round(S.r/RSTEP);
+  ts.min=Math.ceil(S.tMin/TSTEP-1e-9);ts.max=Math.floor(S.tMax/TSTEP+1e-9);ts.value=Math.round(S.t/TSTEP);
+}
+function snapTheta(v){if(!S.snapT)return v;const d=TAU/S.n;return Math.round(v/d)*d}
+function snapRad(v){if(!S.snapR)return v;return Math.round(v/S.dr)*S.dr}
+function stopAnim(){if(anim){cancelAnimationFrame(anim);anim=null;S.ghost=null}}
+function updateDisabled(){
+  for(const id of ['rSl','rIn','rMin','rMax'])$(id).disabled=S.curve;
+  document.querySelectorAll('#eq button').forEach(b=>b.disabled=S.curve);
+  $('eqNote').textContent=S.curve?'Turn off curve tracing to animate these (r comes from f(θ) there).':'';
+}
+
+/* ---------- drawing helpers ---------- */
+function pill(text,x,y,color,P,align='center',size=14){
+  ctx.font=`700 ${size}px ${FONT}`;
+  const w=ctx.measureText(text).width+10,h=size+8;
+  const lx=align==='center'?x-w/2:align==='left'?x:x-w;
+  ctx.fillStyle=P.pill;ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(lx,y-h/2,w,h,5);else ctx.rect(lx,y-h/2,w,h);
+  ctx.fill();ctx.fillStyle=color;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,lx+5,y+1);
+}
+function line(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function dot(x,y,P){ctx.fillStyle=P.bg;ctx.beginPath();ctx.arc(x,y,8,0,TAU);ctx.fill();ctx.fillStyle=P.ink;ctx.beginPath();ctx.arc(x,y,5.5,0,TAU);ctx.fill()}
+
+function sweptArea(){
+  if(!Number.isFinite(S.r))return NaN;
+  if(!(S.curve&&S.f))return 0.5*S.r*S.r*Math.abs(S.t);
+  const a=S.tMin,b=S.t,N=600;if(b<=a)return 0;
+  let sum=0;for(let i=0;i<=N;i++){const v=S.f(a+(b-a)*i/N);if(Number.isFinite(v))sum+=(i===0||i===N?0.5:1)*v*v}
+  return 0.5*sum*(b-a)/N;
+}
+
+/* ---------- main draw ---------- */
+function draw(){
+  const W=fig.clientWidth,H2=fig.clientHeight,dpr=window.devicePixelRatio||1;
+  if(!W||!H2)return;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H2*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H2*dpr)}
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.setLineDash([]);
+  const P=pal();ctx.fillStyle=P.bg;ctx.fillRect(0,0,W,H2);
+  const hide=Q.on&&!Q.revealed;
+  document.body.classList.toggle('quiz',hide);
+
+  // curve samples and scale
+  let maxR=Math.max(Math.abs(S.rMin),Math.abs(S.rMax)),pts=null;
+  if(S.curve&&S.f&&!hide){
+    pts=[];let m=0;const N=900;
+    for(let i=0;i<=N;i++){const th=S.tMin+(S.tMax-S.tMin)*i/N,rv=S.f(th);pts.push([th,rv]);if(Number.isFinite(rv))m=Math.max(m,Math.abs(rv))}
+    maxR=Math.min(m,50);
+  }
+  const R=Math.max(maxR,0.5)*1.15;
+  const sc=Math.min(W,H2)/2/R,cx=W/2,cy=H2/2,X=x=>cx+x*sc,Y=y=>cy-y*sc;
+  V.sc=sc;V.cx=cx;V.cy=cy;
+  const xM=W/2/sc,yM=H2/2/sc,Rv=Math.hypot(xM,yM);
+  const toXY=(th,rv)=>[cx+rv*sc*Math.cos(th),cy-rv*sc*Math.sin(th)];
+
+  // rectangular grid
+  const i0=Math.ceil(-xM/S.dx),i1=Math.floor(xM/S.dx),j0=Math.ceil(-yM/S.dy),j1=Math.floor(yM/S.dy);
+  if(S.rect){
+    ctx.strokeStyle=P.rect;ctx.lineWidth=1;ctx.beginPath();
+    if(i1-i0<800)for(let i=i0;i<=i1;i++){const p=Math.round(X(i*S.dx))+.5;ctx.moveTo(p,0);ctx.lineTo(p,H2)}
+    if(j1-j0<800)for(let j=j0;j<=j1;j++){const p=Math.round(Y(j*S.dy))+.5;ctx.moveTo(0,p);ctx.lineTo(W,p)}
+    ctx.stroke();
+    ctx.strokeStyle=P.rectAxis;ctx.lineWidth=1.5;line(0,cy,W,cy);line(cx,0,cx,H2);
+  }
+  // polar grid
+  const kc=Math.floor(Rv/S.dr);
+  if(S.polar){
+    ctx.strokeStyle=P.polar;ctx.lineWidth=1.2;ctx.beginPath();
+    if(kc<800)for(let k=1;k<=kc;k++){const rr=k*S.dr*sc;ctx.moveTo(cx+rr,cy);ctx.arc(cx,cy,rr,0,TAU)}
+    for(let k=0;k<S.n;k++){const a=TAU*k/S.n;ctx.moveTo(cx,cy);ctx.lineTo(cx+Rv*sc*Math.cos(a),cy-Rv*sc*Math.sin(a))}
+    ctx.stroke();
+  }
+  // polar axis
+  ctx.strokeStyle=P.axis;ctx.lineWidth=2.5;line(cx,cy,W,cy);
+  ctx.font=`13px ${FONT}`;ctx.fillStyle=P.axis;ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('polar axis',W-8,cy+(S.rect?24:6));
+  // labels
+  if(S.rect){
+    ctx.font=`13px ${FONT}`;ctx.fillStyle=P.rectLbl;
+    const sx=Math.max(1,Math.ceil(34/(S.dx*sc))),sy=Math.max(1,Math.ceil(24/(S.dy*sc)));
+    ctx.textAlign='center';ctx.textBaseline='top';
+    if(i1-i0<800)for(let i=i0;i<=i1;i++)if(i&&i%sx===0)ctx.fillText(fmt(i*S.dx),X(i*S.dx),cy+5);
+    ctx.textAlign='right';ctx.textBaseline='middle';
+    if(j1-j0<800)for(let j=j0;j<=j1;j++)if(j&&j%sy===0)ctx.fillText(fmt(j*S.dy),cx-6,Y(j*S.dy));
+    ctx.textAlign='left';ctx.fillText('x',W-14,cy-12);ctx.fillText('y',cx+8,12);
+  }
+  if(S.polar){
+    const m=Math.ceil(S.n/24),rho=Math.min(W,H2)/2-18;
+    for(let k=0;k<S.n;k+=m){const a=TAU*k/S.n;pill(piStr(a),cx+rho*Math.cos(a),cy-rho*Math.sin(a),P.polarLbl,P,'center',13)}
+    const st=Math.max(1,Math.ceil(30/(S.dr*sc)));
+    ctx.font=`13px ${FONT}`;ctx.fillStyle=P.polarLbl;ctx.textAlign='left';ctx.textBaseline='bottom';
+    if(kc<800)for(let k=st;k<=kc;k+=st){const px=cx+k*S.dr*sc;if(px<W-90)ctx.fillText(fmt(k*S.dr),px+3,cy-4)}
+  }
+
+  // quiz: hidden state shows only a bare point
+  if(hide){
+    if(Q.mode==='name'&&Q.target){const [a,b]=toXY(Q.target.t,Q.target.r);dot(a,b,P)}
+    if(Q.mode==='plot'&&Q.placed){const [a,b]=toXY(S.t,S.r);dot(a,b,P)}
+    ctx.fillStyle=P.axis;ctx.beginPath();ctx.arc(cx,cy,3.5,0,TAU);ctx.fill();
+    updatePanel();return;
+  }
+
+  const r=S.r,t=S.t,ok=Number.isFinite(r);
+  // sector shading
+  if(S.sector&&ok){
+    ctx.fillStyle=P.sector;ctx.beginPath();ctx.moveTo(cx,cy);
+    if(pts){for(const [th,rv] of pts){if(th>t)break;if(Number.isFinite(rv))ctx.lineTo(...toXY(th,rv))}ctx.lineTo(...toXY(t,r))}
+    else{const N=Math.max(8,Math.ceil(Math.abs(t)/0.02));for(let i=0;i<=N;i++)ctx.lineTo(...toXY(t*i/N,r))}
+    ctx.closePath();ctx.fill();
+  }
+  // curve
+  if(pts){
+    ctx.strokeStyle=P.curveFaint;ctx.lineWidth=1.5;ctx.beginPath();let pen=false;
+    for(const [th,rv] of pts){if(!Number.isFinite(rv)||Math.abs(rv)>1e3){pen=false;continue}const [a,b]=toXY(th,rv);pen?ctx.lineTo(a,b):ctx.moveTo(a,b);pen=true}
+    ctx.stroke();
+    const tr=pts.filter(p=>p[0]<t);tr.push([t,r]);
+    ctx.lineWidth=3;ctx.lineCap='round';
+    for(let i=1;i<tr.length;i++){
+      const [t1,r1]=tr[i-1],[t2,r2]=tr[i];
+      if(!Number.isFinite(r1)||!Number.isFinite(r2)||Math.abs(r1)>1e3||Math.abs(r2)>1e3)continue;
+      ctx.strokeStyle=(r1+r2)/2>=0?P.blue:P.red;line(...toXY(t1,r1),...toXY(t2,r2));
+    }
+    ctx.lineCap='butt';
+  }
+  const x=r*Math.cos(t),y=r*Math.sin(t),[px,py]=ok?toXY(t,r):[cx,cy];
+  const col=r>=0?P.blue:P.red;
+  // terminal side
+  if(ok){
+    if(r>=0){ctx.strokeStyle=P.blue;ctx.lineWidth=3;line(cx,cy,px,py)}
+    else{
+      ctx.strokeStyle=P.blueFaint;ctx.lineWidth=2;line(cx,cy,...toXY(t,-r));
+      ctx.strokeStyle=P.red;ctx.lineWidth=3;ctx.setLineDash([9,6]);line(cx,cy,px,py);ctx.setLineDash([]);
+    }
+  }
+  // ghost marker (animation start, quiz answer/target)
+  if(S.ghost){
+    const gx=X(S.ghost.x),gy=Y(S.ghost.y);
+    ctx.strokeStyle=S.ghost.color==='green'?P.green:P.ink;ctx.lineWidth=2;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.arc(gx,gy,11,0,TAU);ctx.stroke();ctx.setLineDash([]);
+    if(S.ghost.label)pill(S.ghost.label,gx,gy+(gy>cy?26:-26),P.ink,P,'center',13);
+  }
+  // angle arrow
+  if(Math.abs(t)>1e-9){
+    const sg=Math.sign(t),ac=sg>0?P.blue:P.red,rho=u=>30+12*Math.abs(u)/TAU;
+    const N=Math.max(8,Math.ceil(Math.abs(t)/0.02)),pt=u=>[cx+rho(u)*Math.cos(u),cy-rho(u)*Math.sin(u)];
+    ctx.strokeStyle=ac;ctx.lineWidth=2.5;ctx.beginPath();
+    for(let i=0;i<=N;i++){const [a,b]=pt(t*i/N);i?ctx.lineTo(a,b):ctx.moveTo(a,b)}
+    ctx.stroke();
+    const [ex,ey]=pt(t),[qx,qy]=pt(t-sg*Math.min(0.2,Math.abs(t)));
+    let dx=ex-qx,dy=ey-qy;const L=Math.hypot(dx,dy)||1;dx/=L;dy/=L;
+    ctx.fillStyle=ac;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-12*dx+6*dy,ey-12*dy-6*dx);ctx.lineTo(ex-12*dx-6*dy,ey-12*dy+6*dx);ctx.closePath();ctx.fill();
+    const la=Math.abs(t)<0.5?t+sg*0.45:Math.abs(t)<=TAU?t/2:t-sg*PI,lr=rho(t)+18;
+    pill('θ = '+piStr(t),cx+lr*Math.cos(la),cy-lr*Math.sin(la),ac,P);
+  }
+  // |r| label
+  const len=Math.hypot(px-cx,py-cy);
+  if(ok&&len>4){const ux=(px-cx)/len,uy=(py-cy)/len;pill('|r| = '+fmt(Math.abs(r)),(cx+px)/2+uy*18,(cy+py)/2-ux*18,col,P)}
+  // sector area pill
+  if(S.sector&&ok&&!pts&&Math.abs(r)*sc>40&&Math.abs(t)>0.15){
+    const ma=t/2+(r<0?PI:0),mr=Math.abs(r)*0.62;
+    pill('A = '+fmt(sweptArea()),cx+mr*sc*Math.cos(ma),cy-mr*sc*Math.sin(ma),P.polarLbl,P,'center',13);
+  }
+  // pole
+  ctx.fillStyle=P.axis;ctx.beginPath();ctx.arc(cx,cy,3.5,0,TAU);ctx.fill();
+  ctx.font=`13px ${FONT}`;ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('O',cx-6,cy+5);
+  // point and label box
+  if(ok){
+    dot(px,py,P);
+    const lines=[`(r, θ) = (${fmt(r)}, ${piStr(t)})`,`(x, y) = (${fmt(x)}, ${fmt(y)})`];
+    ctx.font=`700 15px ${FONT}`;
+    const bw=Math.max(...lines.map(s=>ctx.measureText(s).width))+16,bh=lines.length*21+10;
+    let ux=1,uy=-1;if(len>1){ux=(px-cx)/len;uy=(py-cy)/len}
+    let bx=ux>=0?px+12:px-12-bw,by=uy>=0?py+12:py-12-bh;
+    bx=Math.max(6,Math.min(W-bw-6,bx));by=Math.max(6,Math.min(H2-bh-6,by));
+    ctx.fillStyle=P.pill;ctx.strokeStyle=P.ink;ctx.lineWidth=1;ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(bx,by,bw,bh,7);else ctx.rect(bx,by,bw,bh);
+    ctx.fill();ctx.stroke();
+    ctx.textAlign='left';ctx.textBaseline='top';
+    ctx.fillStyle=col;ctx.fillText(lines[0],bx+8,by+6);
+    ctx.fillStyle=P.ink;ctx.fillText(lines[1],bx+8,by+27);
+  }
+  updatePanel();
+}
+
+/* ---------- side panel ---------- */
+const EQ=[{dt:PI,flip:true,note:'turn π more, then negate r'},{dt:-PI,flip:true,note:'turn π back, then negate r'},
+          {dt:TAU,flip:false,note:'one full turn more'},{dt:-TAU,flip:false,note:'one full turn back'}];
+$('eq').innerHTML=EQ.map((e,i)=>`<button id="eq${i}"><span></span><small>${e.note}</small></button>`).join('');
+EQ.forEach((e,i)=>$('eq'+i).addEventListener('click',()=>runEq(e.dt,e.flip)));
+
+function r2pSteps(x,y){
+  if(!Number.isFinite(x))return ['f(θ) is undefined at this θ.'];
+  const r=Math.hypot(x,y),z=v=>Math.abs(v)<1e-9;
+  const where=z(x)&&z(y)?'is the pole':z(y)?(x>0?'is on the positive x-axis':'is on the negative x-axis'):z(x)?(y>0?'is on the positive y-axis':'is on the negative y-axis'):'is in Quadrant '+(x>0?(y>0?'I':'IV'):(y>0?'II':'III'));
+  const out=[`The point (x, y) = (${fmt(x)}, ${fmt(y)}) ${where}.`,`r = √(x² + y²) = √(${fmt(x*x)} + ${fmt(y*y)}) = ${fmt(r)}`];
+  let th;
+  if(z(x)&&z(y)){out.push('At the pole r = 0, and any θ works.');return out}
+  if(z(x)){th=y>0?PI/2:-PI/2;out.push(`x = 0, so y/x is undefined and arctan can't be used. θ = ${piStr(th)}.`)}
+  else{
+    const a=Math.atan(y/x),as=piStr(a);
+    out.push(`arctan(y/x) = arctan(${fmt(y/x)}) = ${as}${as===fmt(a)?'':' ≈ '+fmt(a)}`);
+    if(x>0){th=a;out.push(`x > 0, so arctan already points into the right quadrant: θ = ${piStr(th)}.`)}
+    else{th=a+PI;out.push(`x < 0, but arctan only returns angles in (−π/2, π/2), on the right half of the plane. Add π: θ = arctan(y/x) + π = ${piStr(th)}.`)}
+  }
+  out.push(`One polar name: (${fmt(r)}, ${piStr(th)}). The slider's name is (${fmt(S.r)}, ${piStr(S.t)}).`);
+  return out;
+}
+
+function updatePanel(){
+  const r=S.r,t=S.t,x=r*Math.cos(t),y=r*Math.sin(t),tp=piStr(t),deg=fmt(t*180/PI,2);
+  $('nVal').textContent=`n = ${S.n},  Δθ = ${piStr(TAU/S.n)}`;
+  if(document.activeElement!==$('rIn')){$('rIn').value=fmt(r);$('rIn').classList.remove('bad')}
+  if(document.activeElement!==$('tIn')){$('tIn').value=tp;$('tIn').classList.remove('bad')}
+  $('rAlt').textContent=S.curve&&S.f?'from f(θ)':'';
+  $('tAlt').textContent=(tp!==fmt(t)?`≈ ${fmt(t)} rad = `:'rad = ')+deg+'°';
+  const rows=[['θ in radians',tp+(tp===fmt(t)?'':' ≈ '+fmt(t))],['θ in degrees',deg+'°'],['x = r cos θ',fmt(x)],['y = r sin θ',fmt(y)]];
+  if(S.sector)rows.push([S.curve&&S.f?`Area ½∫ r² dθ, θ from ${piStr(S.tMin)}`:'Area ½ r² |θ|',fmt(sweptArea())+(!S.curve&&Math.abs(t)>TAU?' (overlaps)':'')]);
+  $('ro').innerHTML=rows.map(([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  EQ.forEach((e,i)=>{$('eq'+i).firstChild.textContent=`(${fmt(e.flip?-r:r)}, ${piStr(t+e.dt)})`});
+  $('r2p').innerHTML=r2pSteps(x,y).map(s=>`<li>${s}</li>`).join('');
+  syncSliders();
+}
+
+/* ---------- animation of equivalent names ---------- */
+function runEq(dt,flip){
+  if(S.curve||!Number.isFinite(S.r))return;
+  stopAnim();
+  const r0=S.r,t0=S.t,r1=flip?-r0:r0,t1=t0+dt;
+  ensureRange(r1,t1);
+  if(reduce.matches){S.r=r1;S.t=t1;draw();return}
+  S.ghost={x:r0*Math.cos(t0),y:r0*Math.sin(t0),label:'start'};
+  const T1=1400,P1=350,T2=flip?1000:0,st=performance.now(),ease=s=>s<.5?2*s*s:1-2*(1-s)*(1-s);
+  const step=now=>{
+    const e=now-st;
+    if(e<T1)S.t=t0+dt*ease(e/T1);
+    else{
+      S.t=t1;
+      if(flip&&e<T1+P1+T2)S.r=e<T1+P1?r0:r0+(r1-r0)*ease((e-T1-P1)/T2);
+      else{S.r=r1;anim=null;S.ghost=null;draw();return}
+    }
+    draw();anim=requestAnimationFrame(step);
+  };
+  anim=requestAnimationFrame(step);
+}
+
+/* ---------- curves ---------- */
+const PRE=[['1 + 2cos(θ)','Limaçon with an inner loop',0,TAU],['1 + cos(θ)','Cardioid',0,TAU],['1 - 2sin(θ)','Limaçon, inner loop below',0,TAU],
+  ['2cos(3θ)','Rose, 3 petals',0,PI],['2sin(2θ)','Rose, 4 petals',0,TAU],['4sin(θ)','Circle',0,PI],['3sec(θ)','Vertical line x = 3',-PI/3,PI/3],['θ/2','Spiral of Archimedes',0,4*PI]];
+$('preset').innerHTML=PRE.map((p,i)=>`<option value="${i}">${p[1]}: r = ${p[0]}</option>`).join('')+'<option value="c">Custom</option>';
+function applyPreset(i){
+  const p=PRE[i];if(!p)return;
+  $('fIn').value=p[0];S.f=compileF(p[0]);$('fIn').classList.remove('bad');
+  setEdge('tMin',p[2]);setEdge('tMax',p[3]);S.t=p[2];syncR();
+}
+$('preset').addEventListener('change',e=>{if(e.target.value!=='c'){applyPreset(+e.target.value);if(!S.curve){S.curve=true;$('curveOn').checked=true;updateDisabled()}draw()}});
+$('fIn').addEventListener('change',e=>{
+  const f=compileF(e.target.value);
+  if(!f){e.target.classList.add('bad');return}
+  e.target.classList.remove('bad');S.f=f;$('preset').value='c';syncR();draw();
+});
+$('curveOn').addEventListener('change',e=>{
+  stopAnim();S.curve=e.target.checked;
+  if(S.curve){
+    if(Q.on){Q.on=false;$('quizOn').checked=false;$('qWrap').hidden=true;S.ghost=null}
+    if($('preset').value!=='c')applyPreset(+$('preset').value);else{S.f=compileF($('fIn').value);syncR()}
+  }else{if(!Number.isFinite(S.r))S.r=1;S.r=clamp(S.r,S.rMin,S.rMax)}
+  updateDisabled();draw();
+});
+
+/* ---------- quiz ---------- */
+function newQ(){
+  stopAnim();Q.revealed=false;Q.placed=false;S.ghost=null;
+  const d=Math.random()<.5?4:6;S.n=2*d;$('nSl').value=S.n;
+  const kmax=Math.max(1,Math.floor(Math.min(Math.max(S.rMax,-S.rMin),5)/S.dr+1e-9));
+  let r=S.dr*(1+Math.floor(Math.random()*kmax)),t;
+  if(Q.mode==='name')t=Math.floor(Math.random()*2*d)*PI/d;
+  else{t=(Math.floor(Math.random()*(4*d+1))-2*d)*PI/d;if(Math.random()<.4)r=-r;
+    S.snapT=S.snapR=true;$('snapT').checked=$('snapR').checked=true;S.r=Math.abs(S.r)||1}
+  Q.target={r,t};
+  $('qName').hidden=Q.mode!=='name';$('qR').value='';$('qT').value='';
+  $('qPrompt').textContent=Q.mode==='name'?'Give polar coordinates (r, θ) for the black point. Any correct name counts.':`Tap the plane to plot (r, θ) = (${fmt(r)}, ${piStr(t)}).`;
+  $('qFb').textContent='';$('qFb').className='fb';
+  draw();
+}
+function checkQ(){
+  if(!Q.target||Q.revealed)return;
+  const T=Q.target,tx=T.r*Math.cos(T.t),ty=T.r*Math.sin(T.t),fb=$('qFb');let good;
+  if(Q.mode==='name'){
+    const r=parseVal($('qR').value),th=parseVal($('qT').value,true);
+    if(!Number.isFinite(r)||!Number.isFinite(th)){fb.textContent='Enter both r and θ (θ can be like 3π/4 or 135°).';fb.className='fb no';return}
+    const ax=r*Math.cos(th),ay=r*Math.sin(th);good=Math.hypot(ax-tx,ay-ty)<0.02;
+    ensureRange(T.r,T.t);S.r=T.r;S.t=T.t;
+    S.ghost=good?null:{x:ax,y:ay,label:'your answer'};
+    fb.textContent=good?`Correct! (${fmt(r)}, ${piStr(th)}) names that point. The plot shows another name, (${fmt(T.r)}, ${piStr(T.t)}).`:`Not quite. Your (${fmt(r)}, ${piStr(th)}) is the point (x, y) = (${fmt(ax)}, ${fmt(ay)}), the dashed circle. The black point is (${fmt(T.r)}, ${piStr(T.t)}).`;
+  }else{
+    if(!Q.placed){fb.textContent='Tap or drag on the plane to place your point first.';fb.className='fb no';return}
+    const ax=S.r*Math.cos(S.t),ay=S.r*Math.sin(S.t);good=Math.hypot(ax-tx,ay-ty)<Math.max(0.02,10/V.sc);
+    S.ghost=good?null:{x:tx,y:ty,label:`target (${fmt(T.r)}, ${piStr(T.t)})`};
+    fb.textContent=good?`Correct! You placed (${fmt(S.r)}, ${piStr(S.t)}), which is the same point as (${fmt(T.r)}, ${piStr(T.t)}).`:`Not quite. The target is at (x, y) = (${fmt(tx)}, ${fmt(ty)}), the dashed circle. Yours is at (${fmt(ax)}, ${fmt(ay)}).`;
+  }
+  fb.className='fb '+(good?'ok':'no');
+  Q.revealed=true;Q.total++;if(good)Q.right++;
+  $('qScore').textContent=`Score: ${Q.right} of ${Q.total}`;
+  draw();
+}
+$('quizOn').addEventListener('change',e=>{
+  Q.on=e.target.checked;$('qWrap').hidden=!Q.on;
+  if(Q.on){if(S.curve){S.curve=false;$('curveOn').checked=false;if(!Number.isFinite(S.r))S.r=1;updateDisabled()}S.sector=false;$('sector').checked=false;newQ()}
+  else{Q.revealed=false;S.ghost=null;draw()}
+});
+$('qMode').addEventListener('change',e=>{Q.mode=e.target.value;newQ()});
+$('qNew').addEventListener('click',newQ);
+$('qCheck').addEventListener('click',checkQ);
+for(const id of ['qR','qT'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter')checkQ()});
+
+/* ---------- controls ---------- */
+$('polarOn').addEventListener('change',e=>{S.polar=e.target.checked;$('polarFs').disabled=!S.polar;draw()});
+$('rectOn').addEventListener('change',e=>{S.rect=e.target.checked;$('rectFs').disabled=!S.rect;draw()});
+$('nSl').addEventListener('input',e=>{S.n=+e.target.value;draw()});
+$('snapT').addEventListener('change',e=>{S.snapT=e.target.checked;if(S.snapT&&!S.curve){S.t=clamp(snapTheta(S.t),S.tMin,S.tMax);syncR()}draw()});
+$('snapR').addEventListener('change',e=>{S.snapR=e.target.checked;if(S.snapR&&!S.curve)S.r=clamp(snapRad(S.r),S.rMin,S.rMax);draw()});
+$('sector').addEventListener('change',e=>{S.sector=e.target.checked;draw()});
+for(const [id,key] of [['dr','dr'],['dx','dx'],['dy','dy']])$(id).addEventListener('change',e=>{
+  const v=parseVal(e.target.value);if(!(v>0)){e.target.classList.add('bad');return}e.target.classList.remove('bad');S[key]=v;draw()});
+for(const key of ['rMin','rMax','tMin','tMax'])$(key).addEventListener('change',e=>{
+  const v=parseVal(e.target.value,key[0]==='t'),isMin=key.endsWith('Min'),other=S[key[0]+(isMin?'Max':'Min')];
+  if(!Number.isFinite(v)||(isMin?!(v<other):!(v>other))){e.target.classList.add('bad');return}
+  e.target.classList.remove('bad');stopAnim();S[key]=v;
+  if(Number.isFinite(S.r))S.r=clamp(S.r,S.rMin,S.rMax);S.t=clamp(S.t,S.tMin,S.tMax);syncR();draw();
+});
+$('rSl').addEventListener('input',e=>{stopAnim();S.r=clamp(snapRad(e.target.value*RSTEP),S.rMin,S.rMax);draw()});
+$('tSl').addEventListener('input',e=>{stopAnim();S.t=clamp(snapTheta(e.target.value*TSTEP),S.tMin,S.tMax);syncR();draw()});
+$('rIn').addEventListener('change',e=>{const v=parseVal(e.target.value);if(!Number.isFinite(v)){e.target.classList.add('bad');return}stopAnim();ensureRange(v,S.t);S.r=v;draw()});
+$('tIn').addEventListener('change',e=>{const v=parseVal(e.target.value,true);if(!Number.isFinite(v)){e.target.classList.add('bad');return}stopAnim();ensureRange(S.r,v);S.t=v;syncR();draw()});
+
+/* ---------- tap / drag on the plane ---------- */
+let dragging=false;
+function placeAt(e){
+  const b=cv.getBoundingClientRect(),x=(e.clientX-b.left-V.cx)/V.sc,y=-(e.clientY-b.top-V.cy)/V.sc;
+  let r=Math.hypot(x,y),th=Math.atan2(y,x);
+  if(S.r<0&&!Q.on){r=-r;th+=PI}
+  r=snapRad(r);th=snapTheta(th);
+  th+=TAU*Math.round((S.t-th)/TAU);
+  while(th>S.tMax+1e-9&&th-TAU>=S.tMin-1e-9)th-=TAU;
+  while(th<S.tMin-1e-9&&th+TAU<=S.tMax+1e-9)th+=TAU;
+  S.t=clamp(th,S.tMin,S.tMax);S.r=clamp(r,S.rMin,S.rMax);
+  if(Q.on)Q.placed=true;
+  draw();
+}
+cv.addEventListener('pointerdown',e=>{
+  if(S.curve||(Q.on&&(Q.mode==='name'||Q.revealed)))return;
+  stopAnim();dragging=true;cv.setPointerCapture(e.pointerId);placeAt(e);e.preventDefault();
+});
+cv.addEventListener('pointermove',e=>{if(dragging)placeAt(e)});
+cv.addEventListener('pointerup',()=>{dragging=false});
+cv.addEventListener('pointercancel',()=>{dragging=false});
+
+const ro=new ResizeObserver(()=>draw());ro.observe(fig);
+const mo=new MutationObserver(()=>draw());mo.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);
+if(document.fonts)document.fonts.ready.then(draw);
+updateDisabled();draw();
+}
+</script>
+</body>
+</html>
