@@ -195,6 +195,11 @@ jobs:
           mkdir -p _site/polar-coordinate-explorer
           cp -r polar-coordinate-explorer/* _site/polar-coordinate-explorer/
 
+      - name: Copy static app polar-grids into combined site
+        run: |
+          mkdir -p _site/polar-grids
+          cp -r polar-grids/* _site/polar-grids/
+
       - name: Copy landing page
         run: cp index.html _site/index.html
 
