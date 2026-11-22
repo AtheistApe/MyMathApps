@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polar Coordinate Grids</title>
+<style>
+  :root { --ink:#1b1b1b; --muted:#666; --accent:#1f4e8c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:#e9ebef; }
+
+  .controls { position:sticky; top:0; z-index:5; background:#fff; border-bottom:1px solid #ccd; padding:10px 16px;
+              display:flex; flex-wrap:wrap; gap:10px 18px; align-items:flex-end; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .controls h1 { font-size:16px; margin:0 12px 0 0; align-self:center; color:var(--accent); }
+  .field { display:flex; flex-direction:column; gap:2px; }
+  .field label { font-size:12px; color:var(--muted); }
+  .field input[type=number], .field select { width:84px; padding:5px 6px; font:inherit; border:1px solid #aab; border-radius:4px; }
+  .field select { width:auto; }
+  .check { display:flex; align-items:center; gap:6px; align-self:center; font-size:13px; }
+  button { font:inherit; padding:7px 18px; border:0; border-radius:5px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:hover { background:#173d6e; }
+  .msg { color:#b00020; font-size:12px; align-self:center; min-height:1em; }
+
+  .stage { padding:18px 8px 40px; display:flex; justify-content:center; }
+  /* A letter sheet with 0.5in margins on all sides */
+  .sheet { width:8.5in; height:11in; padding:0.5in; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.25); overflow:hidden; }
+  .grid { width:7.5in; height:10in; display:grid; justify-content:center; align-content:center; }
+  .cell { display:block; }
+  .cell.frame { outline:0.5pt dashed #999; }
+
+  @page { size: letter portrait; margin: 0; }
+  @media print {
+    html, body { background:#fff; width:8.5in; height:11in; }
+    .controls { display:none !important; }
+    .stage { padding:0; display:block; }
+    .sheet { zoom:1 !important; box-shadow:none; margin:0; height:10.99in; page-break-after:avoid; break-after:avoid; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>Polar Grids</h1>
+  <div class="field"><label for="n">Rows (n)</label><input id="n" type="number" min="1" max="12" step="1" value="2"></div>
+  <div class="field"><label for="m">Columns (m)</label><input id="m" type="number" min="1" max="12" step="1" value="2"></div>
+  <div class="field"><label for="dr">Ring spacing (dr)</label><input id="dr" type="number" min="0.0001" step="any" value="1"></div>
+  <div class="field"><label for="N">Angular divisions (N)</label><input id="N" type="number" min="1" max="360" step="1" value="12"></div>
+  <div class="field"><label for="K">Rings per grid</label><input id="K" type="number" min="1" max="30" step="1" value="5"></div>
+  <div class="field"><label for="units">Angle labels</label>
+    <select id="units"><option value="rad">Radians (π)</option><option value="deg">Degrees</option></select></div>
+  <label class="check"><input id="frame" type="checkbox"> Cut guides</label>
+  <button id="print" type="button">Print</button>
+  <span class="msg" id="msg"></span>
+</div>
+
+<div class="stage"><div class="sheet" id="sheet"><div class="grid" id="grid"></div></div></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const ids = ['n','m','dr','N','K','units','frame'];
+
+  // Printable area in inches (letter minus 0.5in margins)
+  const W = 7.5, H = 10, GAP = 0.15;
+
+  // SVG coordinate system: viewBox spans [-120,120]; outer circle radius 88
+  const VB = 120, R = 88, MARGIN = VB - R;
+
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const fmt = x => String(Number(x.toPrecision(6)));
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+  function angleLabel(k, N, units) {
+    if (k === 0) return '0';
+    if (units === 'deg') return fmt(360 * k / N) + '°';
+    const g = gcd(2 * k, N), num = 2 * k / g, den = N / g;
+    const head = num === 1 ? '' : String(num);
+    return den === 1 ? head + 'π' : head + 'π/' + den;
+  }
+
+  function divisors(N) {
+    const d = [];
+    for (let i = 1; i <= N; i++) if (N % i === 0) d.push(i);
+    return d;
+  }
+
+  function buildSVG(p) {
+    const { s, dr, N, K, units } = p;                 // s = cell side in inches
+    const upt = 240 / (s * 72);                       // SVG units per typographic point
+    const pt = x => x * upt;
+    const out = [];
+
+    // ---- angular labels: choose font size, thin out if too crowded ----
+    const labels = [];
+    for (let k = 0; k < N; k++) labels.push(angleLabel(k, N, units));
+    const target = pt(clamp(s * 72 * 0.04, 6, 11));
+    const arc = 2 * Math.PI * (R + 6) / N;
+    const lenFor = stride => Math.max(...labels.filter((_, k) => k % stride === 0).map(l => l.length));
+    const fsFor = stride => {
+      const len = lenFor(stride);
+      return Math.min((MARGIN - 3) / (0.6 * len + 0.45), target, arc * stride / (0.6 * len * 1.15));
+    };
+    // fewest labels thinned out that still keeps text >= 4.5pt; otherwise the divisor giving the largest text
+    let stride = null, best = 1;
+    for (const d of divisors(N)) {
+      if (fsFor(d) > fsFor(best)) best = d;
+      if (stride === null && fsFor(d) / upt >= 4.5) stride = d;
+    }
+    if (stride === null) stride = best;
+    const fs = fsFor(stride);
+
+    // ---- rings, rays ----
+    for (let i = 1; i <= K; i++) {
+      const r = R * i / K, last = i === K;
+      out.push(`<circle r="${r.toFixed(3)}" fill="none" stroke="${last ? '#222' : '#777'}" stroke-width="${pt(last ? 0.9 : 0.5).toFixed(3)}"/>`);
+    }
+    for (let k = 0; k < N; k++) {
+      const a = 2 * Math.PI * k / N;
+      const axis = (4 * k) % N === 0;
+      out.push(`<line x1="0" y1="0" x2="${(R*Math.cos(a)).toFixed(3)}" y2="${(-R*Math.sin(a)).toFixed(3)}" stroke="${axis ? '#222' : '#999'}" stroke-width="${pt(axis ? 0.8 : 0.4).toFixed(3)}"/>`);
+    }
+    out.push(`<circle r="${pt(1.2).toFixed(3)}" fill="#222"/>`);
+
+    // ---- angle labels ----
+    let txt = '';
+    for (let k = 0; k < N; k += stride) {
+      const a = 2 * Math.PI * k / N, c = Math.cos(a), sn = Math.sin(a);
+      const rl = R + fs * 0.45;
+      const x = rl * c, y = -rl * sn - sn * fs * 0.5;
+      const anchor = c > 0.3 ? 'start' : c < -0.3 ? 'end' : 'middle';
+      txt += `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="${anchor}" dominant-baseline="central">${esc(labels[k])}</text>`;
+    }
+    out.push(`<g font-family="Helvetica, Arial, sans-serif" font-size="${fs.toFixed(2)}" fill="#111">${txt}</g>`);
+
+    // ---- radius labels (along the positive x-axis, above it) ----
+    const rtxt = [];
+    for (let i = 1; i <= K; i++) rtxt.push(fmt(i * dr));
+    const maxc = Math.max(...rtxt.map(t => t.length));
+    const spacing = R / K;
+    const fsRFor = rs => Math.min(target * 0.9, spacing * rs * 0.95 / (0.6 * maxc));
+    let rs = K;
+    for (let q = 1; q <= K; q++) { if (fsRFor(q) / upt >= 4.5) { rs = q; break; } }
+    const fsR = fsRFor(rs);
+    let rl = '';
+    for (let i = rs; i <= K; i += rs) {
+      const r = R * i / K;
+      rl += `<text x="${(r - fsR*0.2).toFixed(2)}" y="${(-fsR*0.3).toFixed(2)}" text-anchor="end">${esc(rtxt[i-1])}</text>`;
+    }
+    out.push(`<g font-family="Helvetica, Arial, sans-serif" font-size="${fsR.toFixed(2)}" fill="#0b3d91" stroke="#fff" stroke-width="${(fsR*0.3).toFixed(2)}" paint-order="stroke" stroke-linejoin="round">${rl}</g>`);
+
+    return `<svg class="cell" xmlns="http://www.w3.org/2000/svg" viewBox="${-VB} ${-VB} ${2*VB} ${2*VB}" width="${s}in" height="${s}in">${out.join('')}</svg>`;
+  }
+
+  function render() {
+    const msg = $('msg');
+    const n = parseInt($('n').value, 10), m = parseInt($('m').value, 10);
+    const dr = parseFloat($('dr').value), N = parseInt($('N').value, 10), K = parseInt($('K').value, 10);
+    const bad = !(n >= 1 && n <= 12) ? 'Rows must be 1–12.' :
+                !(m >= 1 && m <= 12) ? 'Columns must be 1–12.' :
+                !(dr > 0)            ? 'dr must be positive.' :
+                !(N >= 1 && N <= 360)? 'N must be 1–360.' :
+                !(K >= 1 && K <= 30) ? 'Rings must be 1–30.' : '';
+    msg.textContent = bad;
+    if (bad) return;
+
+    // Square cells as large as will fit, with a uniform gap between grids
+    const s = Math.floor(Math.min((W - (m - 1) * GAP) / m, (H - (n - 1) * GAP) / n) * 1000) / 1000;
+    const svg = buildSVG({ s, dr, N, K, units: $('units').value });
+
+    const grid = $('grid');
+    grid.style.gridTemplateColumns = `repeat(${m}, ${s}in)`;
+    grid.style.gridAutoRows = `${s}in`;
+    grid.style.gap = `${GAP}in`;
+    grid.innerHTML = Array(n * m).fill(svg).join('');
+    grid.classList.toggle('framed', $('frame').checked);
+    grid.querySelectorAll('.cell').forEach(c => c.classList.toggle('frame', $('frame').checked));
+  }
+
+  function fit() {  // shrink the on-screen preview on narrow windows (never affects print)
+    $('sheet').style.zoom = Math.min(1, (window.innerWidth - 24) / 816);
+  }
+
+  ids.forEach(id => $(id).addEventListener('input', render));
+  $('print').addEventListener('click', () => window.print());
+  window.addEventListener('resize', fit);
+  fit(); render();
+})();
+</script>
+</body>
+</html>
