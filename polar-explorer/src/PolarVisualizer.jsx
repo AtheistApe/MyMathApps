@@ -280,6 +280,8 @@ function formatPlain(v) {
  * Shape:
  *   • "π/4 ≈ 0.785 rad = 45.00°"   — when θ is a recognized π-fraction
  *   • "0.500 rad = 28.65°"          — when it isn't (no redundant prefix)
+ *   • "0.000 rad = 0.00°"           — at θ = 0 (also no prefix: "0 ≈ 0.000"
+ *                                      would just echo the number back)
  *   • "0.785 rad = 45.0°"           — compact variant used in the status line
  *
  * The π-fraction prefix is dropped when `piFractionOrNull` has nothing to add,
@@ -1422,6 +1424,9 @@ export default function PolarVisualizer() {
               className="flex-1 accent-indigo-600"
               disabled={!rangeOK}
             />
+            {/* Slider readout. Width is conditional so the layout doesn't jump:
+                angle mode needs room for "π/4 ≈ 0.785 rad = 45.00°" (w-72),
+                plain-r mode only needs a three-place decimal (w-28). */}
             <div className={`font-mono text-sm text-slate-800 ${indepIsAngle ? "w-72" : "w-28"} text-right tabular-nums`}>
               {indepIsAngle ? formatAngle(t) : t.toFixed(3)}
             </div>
@@ -1491,6 +1496,12 @@ export default function PolarVisualizer() {
                 </button>
               ))}
             </div>
+            {/* Status line, two rows:
+                  row 1: polar coordinates of the current point (θ in both
+                         units — important for theta_of_r mode, where θ is
+                         f(r) rather than the slider value)
+                  row 2: Cartesian coordinates, so students can read
+                         x = r cos θ and y = r sin θ off the screen */}
             <div className="ml-auto font-mono text-xs text-slate-600 text-right">
               <div>
                 θ = {formatAngle(currentPolar.th, { compact: true })}
