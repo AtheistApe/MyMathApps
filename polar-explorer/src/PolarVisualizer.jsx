@@ -70,22 +70,22 @@ const RECT_Y_CLIP_SLACK = 50;
 // Keeping the palette in one place makes it easy to retune visual hierarchy
 // without hunting through the render tree.
 const COLOR = {
-  curve:          "#4f46e5", // primary curve stroke
-  curveFaint:     "#cbd5e1", // curve shown behind partial trail
-  rectPoint:      "#dc2626", // moving point on rectangular plot
-  terminalSide:   "#d97706", // solid amber — terminal side of θ
-  arcStroke:      "#d97706", // amber spiral indicating the swept angle
-  arcLabel:       "#b45309", // amber for the θ label
-  extension:      "#059669", // dashed green — extension of terminal side
+  curve: "#4f46e5", // primary curve stroke
+  curveFaint: "#cbd5e1", // curve shown behind partial trail
+  rectPoint: "#dc2626", // moving point on rectangular plot
+  terminalSide: "#d97706", // solid amber — terminal side of θ
+  arcStroke: "#d97706", // amber spiral indicating the swept angle
+  arcLabel: "#b45309", // amber for the θ label
+  extension: "#059669", // dashed green — extension of terminal side
   radiusPositive: "#b45309", // amber radius when r ≥ 0 (on terminal side)
   radiusNegative: "#047857", // green radius when r < 0 (on extension)
-  grid:           "#e2e8f0", // grid lines
-  axis:           "#94a3b8", // zero lines, polar reference axes
-  label:          "#475569", // tick labels
-  labelAxis:      "#334155", // axis labels
-  errorBg:        "#fef2f2",
-  errorFg:        "#b91c1c",
-  errorBorder:    "#fecaca",
+  grid: "#e2e8f0", // grid lines
+  axis: "#94a3b8", // zero lines, polar reference axes
+  label: "#475569", // tick labels
+  labelAxis: "#334155", // axis labels
+  errorBg: "#fef2f2",
+  errorFg: "#b91c1c",
+  errorBorder: "#fecaca",
 };
 
 // ---------- Animation parameters ----------
@@ -170,10 +170,10 @@ function niceTicks(min, max, nTicks = 6) {
   const pow = Math.pow(10, Math.floor(Math.log10(rough)));
   const norm = rough / pow;
   let step;
-  if (norm < 1.5)      step = 1 * pow;
-  else if (norm < 3)   step = 2 * pow;
-  else if (norm < 7)   step = 5 * pow;
-  else                 step = 10 * pow;
+  if (norm < 1.5) step = 1 * pow;
+  else if (norm < 3) step = 2 * pow;
+  else if (norm < 7) step = 5 * pow;
+  else step = 10 * pow;
   const ticks = [];
   const start = Math.ceil(min / step) * step;
   for (let v = start; v <= max + 1e-9; v += step) ticks.push(v);
@@ -194,13 +194,21 @@ function piTicks(min, max) {
     return { ticks: [min], step: Math.PI };
   }
   const candidates = [
-    Math.PI / 6, Math.PI / 4, Math.PI / 3, Math.PI / 2, Math.PI, TWO_PI,
+    Math.PI / 6,
+    Math.PI / 4,
+    Math.PI / 3,
+    Math.PI / 2,
+    Math.PI,
+    TWO_PI,
   ];
   const range = max - min;
   let step = Math.PI / 2;
   for (const c of candidates) {
     const n = range / c;
-    if (n >= 3 && n <= 10) { step = c; break; }
+    if (n >= 3 && n <= 10) {
+      step = c;
+      break;
+    }
   }
   // Very wide range → choose a bigger step at integer multiples of π
   if (range / step > 12) {
@@ -236,11 +244,11 @@ function piFractionOrNull(v) {
     if (Math.abs(num - Math.round(num)) < 1e-6) {
       const n = Math.round(num);
       if (den === 1) {
-        if (n === 1)  return "π";
+        if (n === 1) return "π";
         if (n === -1) return "-π";
         return `${n}π`;
       }
-      if (n === 1)  return `π/${den}`;
+      if (n === 1) return `π/${den}`;
       if (n === -1) return `-π/${den}`;
       return `${n}π/${den}`;
     }
@@ -342,7 +350,10 @@ function computeRectExtent(samples) {
   const mm = finiteMinMax(vals);
   if (!mm) return { min: -1, max: 1 };
   let { min, max } = mm;
-  if (min === max) { min -= 1; max += 1; }
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
   const pad = 0.1 * (max - min);
   return { min: min - pad, max: max + pad };
 }
@@ -390,7 +401,7 @@ function findCutoffIndex(samples, cutoff) {
   while (lo < hi) {
     const mid = (lo + hi + 1) >>> 1;
     if (samples[mid].t <= cutoff) lo = mid;
-    else                          hi = mid - 1;
+    else hi = mid - 1;
   }
   return lo;
 }
@@ -415,7 +426,10 @@ function buildRectPath(samples, endIndex, xToPx, yToPx, yClipMin, yClipMax) {
   const last = Math.min(endIndex, samples.length - 1);
   for (let i = 0; i <= last; i++) {
     const s = samples[i];
-    if (!isFinite(s.v)) { pen = false; continue; }
+    if (!isFinite(s.v)) {
+      pen = false;
+      continue;
+    }
     const py = yToPx(s.v);
     if (!isFinite(py) || py < yClipMin || py > yClipMax) {
       pen = false;
@@ -444,7 +458,10 @@ function buildPolarPath(polarPts, endIndex, pxOf, pyOf) {
   const last = Math.min(endIndex, polarPts.length - 1);
   for (let i = 0; i <= last; i++) {
     const p = polarPts[i];
-    if (!isFinite(p.x) || !isFinite(p.y)) { pen = false; continue; }
+    if (!isFinite(p.x) || !isFinite(p.y)) {
+      pen = false;
+      continue;
+    }
     const px = pxOf(p.x);
     const py = pyOf(p.y);
     d += (pen ? " L" : " M") + px.toFixed(2) + "," + py.toFixed(2);
@@ -513,13 +530,17 @@ function snapSliderValue(raw, tMinNum, tMaxNum, step, indepIsAngle) {
  *   rhoAt: (u:number)=>number  // radius at a given u, for label placement
  * } | null}  null iff theta is 0 or not finite
  */
-function buildAngleSpiral(theta, cx, cy, baseRadius, growth, segmentRad = 0.02) {
+function buildAngleSpiral(
+  theta,
+  cx,
+  cy,
+  baseRadius,
+  growth,
+  segmentRad = 0.02,
+) {
   if (!isFinite(theta) || Math.abs(theta) < 1e-9) return null;
   const rhoAt = (u) => baseRadius + (growth * Math.abs(u)) / TWO_PI;
-  const pt = (u) => [
-    cx + rhoAt(u) * Math.cos(u),
-    cy - rhoAt(u) * Math.sin(u),
-  ];
+  const pt = (u) => [cx + rhoAt(u) * Math.cos(u), cy - rhoAt(u) * Math.sin(u)];
   const n = Math.max(8, Math.ceil(Math.abs(theta) / segmentRad));
   let d = "";
   for (let i = 0; i <= n; i++) {
@@ -536,7 +557,8 @@ function buildAngleSpiral(theta, cx, cy, baseRadius, growth, segmentRad = 0.02) 
   const len = Math.hypot(dxRaw, dyRaw) || 1;
   return {
     d,
-    tipX, tipY,
+    tipX,
+    tipY,
     tangentX: dxRaw / len,
     tangentY: dyRaw / len,
     rhoAt,
@@ -558,10 +580,34 @@ function buildAngleSpiral(theta, cx, cy, baseRadius, growth, segmentRad = 0.02) 
 
 /** @type {Preset[]} */
 const PRESETS = [
-  { name: "Cardioid",             mode: "r_of_theta", fn: "2 + 2*cos(theta)",      min: "0", max: "2*pi" },
-  { name: "Limaçon (inner loop)", mode: "r_of_theta", fn: "1 + 2*cos(theta)",      min: "0", max: "2*pi" },
-  { name: "Rose (4 petals)",      mode: "r_of_theta", fn: "3*cos(2*theta)",        min: "0", max: "2*pi" },
-  { name: "Rose (5 petals)",      mode: "r_of_theta", fn: "3*sin(5*theta)",        min: "0", max: "pi"   },
+  {
+    name: "Cardioid",
+    mode: "r_of_theta",
+    fn: "2 + 2*cos(theta)",
+    min: "0",
+    max: "2*pi",
+  },
+  {
+    name: "Limaçon (inner loop)",
+    mode: "r_of_theta",
+    fn: "1 + 2*cos(theta)",
+    min: "0",
+    max: "2*pi",
+  },
+  {
+    name: "Rose (4 petals)",
+    mode: "r_of_theta",
+    fn: "3*cos(2*theta)",
+    min: "0",
+    max: "2*pi",
+  },
+  {
+    name: "Rose (5 petals)",
+    mode: "r_of_theta",
+    fn: "3*sin(5*theta)",
+    min: "0",
+    max: "pi",
+  },
   // Real lemniscate r² = 9·cos(2θ) ⇒ r = 3·√(cos(2θ)), undefined where
   // cos(2θ) < 0. mathjs's sqrt returns a Complex for negative input, which
   // our evaluator folds to NaN — so the curve correctly breaks between lobes.
@@ -572,11 +618,35 @@ const PRESETS = [
   // lobes fail to close at the origin. The bias is small enough that genuinely
   // negative values of cos(2θ) one sample away (~0.02) still correctly break
   // the curve between the two lobes.
-  { name: "Lemniscate",           mode: "r_of_theta", fn: "3*sqrt(cos(2*theta) + 1e-12)",  min: "0", max: "2*pi" },
-  { name: "Archimedean spiral",   mode: "r_of_theta", fn: "0.3*theta",             min: "0", max: "6*pi" },
-  { name: "Circle r=3",           mode: "r_of_theta", fn: "3",                     min: "0", max: "2*pi" },
-  { name: "Circle r=4sin(θ)",     mode: "r_of_theta", fn: "4*sin(theta)",          min: "0", max: "pi"   },
-  { name: "θ = r/2 (spiral)",     mode: "theta_of_r", fn: "r/2",                   min: "0", max: "10"   },
+  {
+    name: "Lemniscate",
+    mode: "r_of_theta",
+    fn: "3*sqrt(cos(2*theta) + 1e-12)",
+    min: "0",
+    max: "2*pi",
+  },
+  {
+    name: "Archimedean spiral",
+    mode: "r_of_theta",
+    fn: "0.3*theta",
+    min: "0",
+    max: "6*pi",
+  },
+  { name: "Circle r=3", mode: "r_of_theta", fn: "3", min: "0", max: "2*pi" },
+  {
+    name: "Circle r=4sin(θ)",
+    mode: "r_of_theta",
+    fn: "4*sin(theta)",
+    min: "0",
+    max: "pi",
+  },
+  {
+    name: "θ = r/2 (spiral)",
+    mode: "theta_of_r",
+    fn: "r/2",
+    min: "0",
+    max: "10",
+  },
 ];
 
 /* =============================================================================
@@ -606,12 +676,19 @@ const PRESETS = [
 
 function RectangularPlot(props) {
   const {
-    pathFull, pathTrail,
-    rectExtent, tMinNum, tMaxNum,
-    t, currentDep,
-    indepIsAngle, depIsAngle,
-    xAxisLabel, yAxisLabel,
-    showGrid, trailMode,
+    pathFull,
+    pathTrail,
+    rectExtent,
+    tMinNum,
+    tMaxNum,
+    t,
+    currentDep,
+    indepIsAngle,
+    depIsAngle,
+    xAxisLabel,
+    yAxisLabel,
+    showGrid,
+    trailMode,
   } = props;
 
   // --- World-to-pixel transforms (closures capture current extent) ---
@@ -628,22 +705,24 @@ function RectangularPlot(props) {
 
   // --- Tick computations ---
   const xTicks = useMemo(
-    () => (indepIsAngle
-      ? piTicks(tMinNum, tMaxNum).ticks
-      : niceTicks(tMinNum, tMaxNum, 6)),
+    () =>
+      indepIsAngle
+        ? piTicks(tMinNum, tMaxNum).ticks
+        : niceTicks(tMinNum, tMaxNum, 6),
     [indepIsAngle, tMinNum, tMaxNum],
   );
   const yTicks = useMemo(
-    () => (depIsAngle
-      ? piTicks(rectExtent.min, rectExtent.max).ticks
-      : niceTicks(rectExtent.min, rectExtent.max, 6)),
+    () =>
+      depIsAngle
+        ? piTicks(rectExtent.min, rectExtent.max).ticks
+        : niceTicks(rectExtent.min, rectExtent.max, 6),
     [depIsAngle, rectExtent],
   );
 
   const formatX = indepIsAngle ? formatPi : formatPlain;
-  const formatY = depIsAngle   ? formatPi : formatPlain;
+  const formatY = depIsAngle ? formatPi : formatPlain;
 
-  const plotRight  = RECT_PAD.l + RECT_PLOT_W;
+  const plotRight = RECT_PAD.l + RECT_PLOT_W;
   const plotBottom = RECT_PAD.t + RECT_PLOT_H;
 
   return (
@@ -659,35 +738,45 @@ function RectangularPlot(props) {
       />
 
       {/* Grid lines */}
-      {showGrid && xTicks.map((v, i) => (
-        <line
-          key={`xg${i}`}
-          x1={xToPx(v)} x2={xToPx(v)}
-          y1={RECT_PAD.t} y2={plotBottom}
-          stroke={COLOR.grid}
-        />
-      ))}
-      {showGrid && yTicks.map((v, i) => (
-        <line
-          key={`yg${i}`}
-          x1={RECT_PAD.l} x2={plotRight}
-          y1={yToPx(v)}   y2={yToPx(v)}
-          stroke={COLOR.grid}
-        />
-      ))}
+      {showGrid &&
+        xTicks.map((v, i) => (
+          <line
+            key={`xg${i}`}
+            x1={xToPx(v)}
+            x2={xToPx(v)}
+            y1={RECT_PAD.t}
+            y2={plotBottom}
+            stroke={COLOR.grid}
+          />
+        ))}
+      {showGrid &&
+        yTicks.map((v, i) => (
+          <line
+            key={`yg${i}`}
+            x1={RECT_PAD.l}
+            x2={plotRight}
+            y1={yToPx(v)}
+            y2={yToPx(v)}
+            stroke={COLOR.grid}
+          />
+        ))}
 
       {/* Zero lines (drawn only when zero is inside the range) */}
       {rectExtent.min < 0 && rectExtent.max > 0 && (
         <line
-          x1={RECT_PAD.l} x2={plotRight}
-          y1={yToPx(0)}   y2={yToPx(0)}
+          x1={RECT_PAD.l}
+          x2={plotRight}
+          y1={yToPx(0)}
+          y2={yToPx(0)}
           stroke={COLOR.axis}
         />
       )}
       {tMinNum < 0 && tMaxNum > 0 && (
         <line
-          x1={xToPx(0)}    x2={xToPx(0)}
-          y1={RECT_PAD.t}  y2={plotBottom}
+          x1={xToPx(0)}
+          x2={xToPx(0)}
+          y1={RECT_PAD.t}
+          y2={plotBottom}
           stroke={COLOR.axis}
         />
       )}
@@ -696,13 +785,18 @@ function RectangularPlot(props) {
       {xTicks.map((v, i) => (
         <g key={`xt${i}`}>
           <line
-            x1={xToPx(v)} x2={xToPx(v)}
-            y1={plotBottom} y2={plotBottom + 4}
+            x1={xToPx(v)}
+            x2={xToPx(v)}
+            y1={plotBottom}
+            y2={plotBottom + 4}
             stroke={COLOR.label}
           />
           <text
-            x={xToPx(v)} y={plotBottom + 16}
-            textAnchor="middle" fontSize="11" fill={COLOR.label}
+            x={xToPx(v)}
+            y={plotBottom + 16}
+            textAnchor="middle"
+            fontSize="11"
+            fill={COLOR.label}
             fontFamily="ui-monospace, monospace"
           >
             {formatX(v)}
@@ -712,13 +806,18 @@ function RectangularPlot(props) {
       {yTicks.map((v, i) => (
         <g key={`yt${i}`}>
           <line
-            x1={RECT_PAD.l - 4} x2={RECT_PAD.l}
-            y1={yToPx(v)}        y2={yToPx(v)}
+            x1={RECT_PAD.l - 4}
+            x2={RECT_PAD.l}
+            y1={yToPx(v)}
+            y2={yToPx(v)}
             stroke={COLOR.label}
           />
           <text
-            x={RECT_PAD.l - 6} y={yToPx(v) + 4}
-            textAnchor="end" fontSize="11" fill={COLOR.label}
+            x={RECT_PAD.l - 6}
+            y={yToPx(v) + 4}
+            textAnchor="end"
+            fontSize="11"
+            fill={COLOR.label}
             fontFamily="ui-monospace, monospace"
           >
             {formatY(v)}
@@ -730,7 +829,9 @@ function RectangularPlot(props) {
       <text
         x={RECT_PAD.l + RECT_PLOT_W / 2}
         y={RECT_H - 8}
-        textAnchor="middle" fontSize="14" fontStyle="italic"
+        textAnchor="middle"
+        fontSize="14"
+        fontStyle="italic"
         fill={COLOR.labelAxis}
       >
         {xAxisLabel}
@@ -738,7 +839,9 @@ function RectangularPlot(props) {
       <text
         x={15}
         y={RECT_PAD.t + RECT_PLOT_H / 2}
-        textAnchor="middle" fontSize="14" fontStyle="italic"
+        textAnchor="middle"
+        fontSize="14"
+        fontStyle="italic"
         fill={COLOR.labelAxis}
         transform={`rotate(-90 15 ${RECT_PAD.t + RECT_PLOT_H / 2})`}
       >
@@ -768,20 +871,30 @@ function RectangularPlot(props) {
       {isFinite(currentDep) && (
         <>
           <line
-            x1={xToPx(t)} x2={xToPx(t)}
-            y1={plotBottom} y2={yToPx(currentDep)}
-            stroke={COLOR.rectPoint} strokeWidth="1"
+            x1={xToPx(t)}
+            x2={xToPx(t)}
+            y1={plotBottom}
+            y2={yToPx(currentDep)}
+            stroke={COLOR.rectPoint}
+            strokeWidth="1"
             strokeDasharray="3 3"
           />
           <line
-            x1={RECT_PAD.l} x2={xToPx(t)}
-            y1={yToPx(currentDep)} y2={yToPx(currentDep)}
-            stroke={COLOR.rectPoint} strokeWidth="1"
+            x1={RECT_PAD.l}
+            x2={xToPx(t)}
+            y1={yToPx(currentDep)}
+            y2={yToPx(currentDep)}
+            stroke={COLOR.rectPoint}
+            strokeWidth="1"
             strokeDasharray="3 3"
           />
           <circle
-            cx={xToPx(t)} cy={yToPx(currentDep)} r="5"
-            fill={COLOR.rectPoint} stroke="white" strokeWidth="1.5"
+            cx={xToPx(t)}
+            cy={yToPx(currentDep)}
+            r="5"
+            fill={COLOR.rectPoint}
+            stroke="white"
+            strokeWidth="1.5"
           />
         </>
       )}
@@ -816,9 +929,12 @@ function RectangularPlot(props) {
 
 function PolarPlot(props) {
   const {
-    pathFull, pathTrail,
-    polarExtent, currentPolar,
-    showGrid, trailMode,
+    pathFull,
+    pathTrail,
+    polarExtent,
+    currentPolar,
+    showGrid,
+    trailMode,
   } = props;
 
   // --- World-to-pixel transforms ---
@@ -854,65 +970,89 @@ function PolarPlot(props) {
   return (
     <svg viewBox={`0 0 ${POLAR_W} ${POLAR_H}`} className="w-full h-auto">
       {/* Radial grid circles */}
-      {showGrid && polarRTicks.map((r, i) => (
-        <circle
-          key={`rc${i}`}
-          cx={POLAR_CX} cy={POLAR_CY}
-          r={r * pScale}
-          fill="none" stroke={COLOR.grid}
-        />
-      ))}
+      {showGrid &&
+        polarRTicks.map((r, i) => (
+          <circle
+            key={`rc${i}`}
+            cx={POLAR_CX}
+            cy={POLAR_CY}
+            r={r * pScale}
+            fill="none"
+            stroke={COLOR.grid}
+          />
+        ))}
 
       {/* Angular ray grid */}
-      {showGrid && angTicks.map((a, i) => (
-        <line
-          key={`al${i}`}
-          x1={POLAR_CX}                    y1={POLAR_CY}
-          x2={POLAR_CX + edge * Math.cos(a)}
-          y2={POLAR_CY - edge * Math.sin(a)}
-          stroke={COLOR.grid}
-        />
-      ))}
+      {showGrid &&
+        angTicks.map((a, i) => (
+          <line
+            key={`al${i}`}
+            x1={POLAR_CX}
+            y1={POLAR_CY}
+            x2={POLAR_CX + edge * Math.cos(a)}
+            y2={POLAR_CY - edge * Math.sin(a)}
+            stroke={COLOR.grid}
+          />
+        ))}
 
       {/* Radial tick labels */}
-      {showGrid && polarRTicks.map((r, i) => (
-        <text
-          key={`rt${i}`}
-          x={POLAR_CX + r * pScale + 3}
-          y={POLAR_CY - 3}
-          fontSize="10" fill={COLOR.label}
-          fontFamily="ui-monospace, monospace"
-        >
-          {Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(1)}
-        </text>
-      ))}
+      {showGrid &&
+        polarRTicks.map((r, i) => (
+          <text
+            key={`rt${i}`}
+            x={POLAR_CX + r * pScale + 3}
+            y={POLAR_CY - 3}
+            fontSize="10"
+            fill={COLOR.label}
+            fontFamily="ui-monospace, monospace"
+          >
+            {Math.abs(r - Math.round(r)) < 1e-9
+              ? String(Math.round(r))
+              : r.toFixed(1)}
+          </text>
+        ))}
 
       {/* Standard-angle labels around the outside */}
-      {showGrid && [
-        { a: 0,             label: "0"    },
-        { a: Math.PI / 2,   label: "π/2"  },
-        { a: Math.PI,       label: "π"    },
-        { a: 3 * Math.PI / 2, label: "3π/2" },
-      ].map((d, i) => (
-        <text
-          key={`alab${i}`}
-          x={POLAR_CX + (edge + 12) * Math.cos(d.a)}
-          y={POLAR_CY - (edge + 12) * Math.sin(d.a) + 4}
-          fontSize="11" fill={COLOR.label}
-          textAnchor="middle"
-        >
-          {d.label}
-        </text>
-      ))}
+      {showGrid &&
+        [
+          { a: 0, label: "0" },
+          { a: Math.PI / 2, label: "π/2" },
+          { a: Math.PI, label: "π" },
+          { a: (3 * Math.PI) / 2, label: "3π/2" },
+        ].map((d, i) => (
+          <text
+            key={`alab${i}`}
+            x={POLAR_CX + (edge + 12) * Math.cos(d.a)}
+            y={POLAR_CY - (edge + 12) * Math.sin(d.a) + 4}
+            fontSize="11"
+            fill={COLOR.label}
+            textAnchor="middle"
+          >
+            {d.label}
+          </text>
+        ))}
 
       {/* Reference x/y axes */}
-      <line x1={POLAR_PAD}     y1={POLAR_CY}  x2={POLAR_W - POLAR_PAD} y2={POLAR_CY} stroke={COLOR.axis} />
-      <line x1={POLAR_CX} y1={POLAR_PAD} x2={POLAR_CX}             y2={POLAR_H - POLAR_PAD} stroke={COLOR.axis} />
+      <line
+        x1={POLAR_PAD}
+        y1={POLAR_CY}
+        x2={POLAR_W - POLAR_PAD}
+        y2={POLAR_CY}
+        stroke={COLOR.axis}
+      />
+      <line
+        x1={POLAR_CX}
+        y1={POLAR_PAD}
+        x2={POLAR_CX}
+        y2={POLAR_H - POLAR_PAD}
+        stroke={COLOR.axis}
+      />
 
       {/* Full polar curve */}
       {trailMode !== "none" && (
         <path
-          d={pathFull} fill="none"
+          d={pathFull}
+          fill="none"
           stroke={trailMode === "partial" ? COLOR.curveFaint : COLOR.curve}
           strokeWidth="2"
         />
@@ -920,8 +1060,10 @@ function PolarPlot(props) {
       {/* Drawn portion of polar curve */}
       {trailMode === "partial" && (
         <path
-          d={pathTrail} fill="none"
-          stroke={COLOR.curve} strokeWidth="2.5"
+          d={pathTrail}
+          fill="none"
+          stroke={COLOR.curve}
+          strokeWidth="2.5"
         />
       )}
 
@@ -932,85 +1074,104 @@ function PolarPlot(props) {
         <>
           {/* Extension of terminal side: green dashed, opposite direction */}
           <line
-            x1={POLAR_CX} y1={POLAR_CY}
+            x1={POLAR_CX}
+            y1={POLAR_CY}
             x2={POLAR_CX + edge * Math.cos(currentPolar.th + Math.PI)}
             y2={POLAR_CY - edge * Math.sin(currentPolar.th + Math.PI)}
-            stroke={COLOR.extension} strokeWidth="2.5"
+            stroke={COLOR.extension}
+            strokeWidth="2.5"
             strokeDasharray="8 5"
           />
 
           {/* Terminal side of θ: solid amber, always emphasized */}
           <line
-            x1={POLAR_CX} y1={POLAR_CY}
+            x1={POLAR_CX}
+            y1={POLAR_CY}
             x2={POLAR_CX + edge * Math.cos(currentPolar.th)}
             y2={POLAR_CY - edge * Math.sin(currentPolar.th)}
-            stroke={COLOR.terminalSide} strokeWidth="3.5"
+            stroke={COLOR.terminalSide}
+            strokeWidth="3.5"
           />
 
           {/* Spiral angle indicator (replaces the SVG arc). Handles |θ| > 2π
               naturally — each extra turn widens outward instead of overdrawing. */}
-          {spiral && (() => {
-            // Arrow head: isoceles triangle, 12 px long and 12 px wide,
-            // oriented along the tangent at the tip of the spiral.
-            const { tipX, tipY, tangentX, tangentY, rhoAt } = spiral;
-            const backX = tipX - 12 * tangentX;
-            const backY = tipY - 12 * tangentY;
-            // Perpendicular (left-hand) to the tangent
-            const perpX = -tangentY;
-            const perpY =  tangentX;
-            const leftX  = backX + 6 * perpX;
-            const leftY  = backY + 6 * perpY;
-            const rightX = backX - 6 * perpX;
-            const rightY = backY - 6 * perpY;
+          {spiral &&
+            (() => {
+              // Arrow head: isoceles triangle, 12 px long and 12 px wide,
+              // oriented along the tangent at the tip of the spiral.
+              const { tipX, tipY, tangentX, tangentY, rhoAt } = spiral;
+              const backX = tipX - 12 * tangentX;
+              const backY = tipY - 12 * tangentY;
+              // Perpendicular (left-hand) to the tangent
+              const perpX = -tangentY;
+              const perpY = tangentX;
+              const leftX = backX + 6 * perpX;
+              const leftY = backY + 6 * perpY;
+              const rightX = backX - 6 * perpX;
+              const rightY = backY - 6 * perpY;
 
-            // θ label placement, following the same heuristic as the earlier
-            // Polar Coordinates Explorer:
-            //   tiny |θ|   → nudge past the tip by a fixed offset
-            //   |θ| ≤ 2π  → midpoint of the first turn
-            //   large |θ| → one half-turn back from the tip, so the label
-            //               sits on the outer edge of the latest winding
-            const sg = Math.sign(currentPolar.th);
-            const absTh = Math.abs(currentPolar.th);
-            const labelU =
-              absTh < 0.5    ? currentPolar.th + sg * 0.45 :
-              absTh <= TWO_PI ? currentPolar.th / 2
-                              : currentPolar.th - sg * Math.PI;
-            const labelRho = rhoAt(labelU) + 12;
-            const labelX = POLAR_CX + labelRho * Math.cos(labelU);
-            const labelY = POLAR_CY - labelRho * Math.sin(labelU) + 4;
+              // θ label placement, following the same heuristic as the earlier
+              // Polar Coordinates Explorer:
+              //   tiny |θ|   → nudge past the tip by a fixed offset
+              //   |θ| ≤ 2π  → midpoint of the first turn
+              //   large |θ| → one half-turn back from the tip, so the label
+              //               sits on the outer edge of the latest winding
+              const sg = Math.sign(currentPolar.th);
+              const absTh = Math.abs(currentPolar.th);
+              const labelU =
+                absTh < 0.5
+                  ? currentPolar.th + sg * 0.45
+                  : absTh <= TWO_PI
+                    ? currentPolar.th / 2
+                    : currentPolar.th - sg * Math.PI;
+              const labelRho = rhoAt(labelU) + 12;
+              const labelX = POLAR_CX + labelRho * Math.cos(labelU);
+              const labelY = POLAR_CY - labelRho * Math.sin(labelU) + 4;
 
-            return (
-              <>
-                <path
-                  d={spiral.d} fill="none"
-                  stroke={COLOR.arcStroke} strokeWidth="2.5"
-                  strokeLinecap="round" strokeLinejoin="round"
-                />
-                <polygon
-                  points={`${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
-                          `${leftX.toFixed(2)},${leftY.toFixed(2)} ` +
-                          `${rightX.toFixed(2)},${rightY.toFixed(2)}`}
-                  fill={COLOR.arcStroke}
-                />
-                <text
-                  x={labelX} y={labelY}
-                  fontSize="13" fill={COLOR.arcLabel}
-                  fontFamily="ui-monospace, monospace" fontWeight="700"
-                  textAnchor="middle"
-                >
-                  θ
-                </text>
-              </>
-            );
-          })()}
+              return (
+                <>
+                  <path
+                    d={spiral.d}
+                    fill="none"
+                    stroke={COLOR.arcStroke}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <polygon
+                    points={
+                      `${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
+                      `${leftX.toFixed(2)},${leftY.toFixed(2)} ` +
+                      `${rightX.toFixed(2)},${rightY.toFixed(2)}`
+                    }
+                    fill={COLOR.arcStroke}
+                  />
+                  <text
+                    x={labelX}
+                    y={labelY}
+                    fontSize="13"
+                    fill={COLOR.arcLabel}
+                    fontFamily="ui-monospace, monospace"
+                    fontWeight="700"
+                    textAnchor="middle"
+                  >
+                    θ
+                  </text>
+                </>
+              );
+            })()}
 
           {/* Radius segment. Color encodes sign of r:
                 r ≥ 0 → amber (lies on terminal side)
                 r < 0 → green (lies on extension) */}
           <line
-            x1={POLAR_CX}             y1={POLAR_CY}
-            x2={pxOf(currentPolar.x)} y2={pyOf(currentPolar.y)}
-            stroke={currentPolar.r >= 0 ? COLOR.radiusPositive : COLOR.radiusNegative}
+            x1={POLAR_CX}
+            y1={POLAR_CY}
+            x2={pxOf(currentPolar.x)}
+            y2={pyOf(currentPolar.y)}
+            stroke={
+              currentPolar.r >= 0 ? COLOR.radiusPositive : COLOR.radiusNegative
+            }
             strokeWidth="4.5"
           />
 
@@ -1019,8 +1180,12 @@ function PolarPlot(props) {
 
           {/* Current point */}
           <circle
-            cx={pxOf(currentPolar.x)} cy={pyOf(currentPolar.y)} r="6"
-            fill={COLOR.rectPoint} stroke="white" strokeWidth="1.5"
+            cx={pxOf(currentPolar.x)}
+            cy={pyOf(currentPolar.y)}
+            r="6"
+            fill={COLOR.rectPoint}
+            stroke="white"
+            strokeWidth="1.5"
           />
 
           {/* r label on radius (hidden when the segment is too short to carry it) */}
@@ -1028,8 +1193,10 @@ function PolarPlot(props) {
             <text
               x={(POLAR_CX + pxOf(currentPolar.x)) / 2 + 8}
               y={(POLAR_CY + pyOf(currentPolar.y)) / 2 - 6}
-              fontSize="12" fill={COLOR.rectPoint}
-              fontFamily="ui-monospace, monospace" fontWeight="600"
+              fontSize="12"
+              fill={COLOR.rectPoint}
+              fontFamily="ui-monospace, monospace"
+              fontWeight="600"
             >
               r = {currentPolar.r.toFixed(2)}
             </text>
@@ -1049,32 +1216,35 @@ function PolarPlot(props) {
 
 export default function PolarVisualizer() {
   // ---------- State ----------
-  const [mode, setMode]             = useState("r_of_theta"); // or "theta_of_r"
-  const [fnStr, setFnStr]           = useState("2 + 2*cos(theta)");
-  const [tMin, setTMin]             = useState("0");
-  const [tMax, setTMax]             = useState("2*pi");
-  const [t, setT]                   = useState(0);
-  const [showGrid, setShowGrid]     = useState(true);
-  const [trailMode, setTrailMode]   = useState("partial"); // "full" | "partial" | "none"
-  const [animating, setAnimating]   = useState(false);
-  const [repeat, setRepeat]         = useState(true);   // loop vs. stop at end
-  const [speed, setSpeed]           = useState(1);
+  const [mode, setMode] = useState("r_of_theta"); // or "theta_of_r"
+  const [fnStr, setFnStr] = useState("2 + 2*cos(theta)");
+  const [tMin, setTMin] = useState("0");
+  const [tMax, setTMax] = useState("2*pi");
+  const [t, setT] = useState(0);
+  const [showGrid, setShowGrid] = useState(true);
+  const [trailMode, setTrailMode] = useState("partial"); // "full" | "partial" | "none"
+  const [animating, setAnimating] = useState(false);
+  const [repeat, setRepeat] = useState(true); // loop vs. stop at end
+  const [speed, setSpeed] = useState(1);
 
   const animRef = useRef(null);
 
   // ---------- Derived: variable names ----------
-  const indepVar     = mode === "r_of_theta" ? "theta" : "r";
-  const depVar       = mode === "r_of_theta" ? "r"     : "theta";
+  const indepVar = mode === "r_of_theta" ? "theta" : "r";
+  const depVar = mode === "r_of_theta" ? "r" : "theta";
   const indepIsAngle = mode === "r_of_theta";
-  const depIsAngle   = mode === "theta_of_r";
-  const xAxisLabel   = indepIsAngle ? "θ" : "r";
-  const yAxisLabel   = depIsAngle   ? "θ" : "r";
+  const depIsAngle = mode === "theta_of_r";
+  const xAxisLabel = indepIsAngle ? "θ" : "r";
+  const yAxisLabel = depIsAngle ? "θ" : "r";
 
   // ---------- Derived: numeric range from string inputs ----------
-  const { tMinNum, tMaxNum } = useMemo(() => ({
-    tMinNum: safeEvaluate(tMin, 0),
-    tMaxNum: safeEvaluate(tMax, TWO_PI),
-  }), [tMin, tMax]);
+  const { tMinNum, tMaxNum } = useMemo(
+    () => ({
+      tMinNum: safeEvaluate(tMin, 0),
+      tMaxNum: safeEvaluate(tMax, TWO_PI),
+    }),
+    [tMin, tMax],
+  );
 
   /** True iff the range is a well-formed, strictly increasing interval. */
   const rangeOK = isFinite(tMinNum) && isFinite(tMaxNum) && tMaxNum > tMinNum;
@@ -1119,10 +1289,7 @@ export default function PolarVisualizer() {
   }, [fn, tMinNum, tMaxNum, rangeOK]);
 
   // ---------- Dependent value at the current slider position ----------
-  const currentDep = useMemo(
-    () => (fn ? fn(t) : NaN),
-    [fn, t],
-  );
+  const currentDep = useMemo(() => (fn ? fn(t) : NaN), [fn, t]);
 
   // ---------- Transform samples to the (x, y) plane for the polar plot ----------
   const polarPts = useMemo(() => {
@@ -1130,7 +1297,7 @@ export default function PolarVisualizer() {
     const rThetaMode = mode === "r_of_theta";
     for (let i = 0; i < samples.length; i++) {
       const s = samples[i];
-      const r  = rThetaMode ? s.v : s.t;
+      const r = rThetaMode ? s.v : s.t;
       const th = rThetaMode ? s.t : s.v;
       if (!isFinite(r) || !isFinite(th)) {
         out[i] = { x: NaN, y: NaN, t: s.t };
@@ -1144,8 +1311,8 @@ export default function PolarVisualizer() {
   // ---------- Current point in world coords (plus raw r, θ for labels) ----------
   const currentPolar = useMemo(() => {
     const rThetaMode = mode === "r_of_theta";
-    const r  = rThetaMode ? currentDep : t;
-    const th = rThetaMode ? t          : currentDep;
+    const r = rThetaMode ? currentDep : t;
+    const th = rThetaMode ? t : currentDep;
     if (!isFinite(r) || !isFinite(th)) {
       return { x: NaN, y: NaN, r, th };
     }
@@ -1153,17 +1320,14 @@ export default function PolarVisualizer() {
   }, [t, currentDep, mode]);
 
   // ---------- Plot extents ----------
-  const rectExtent  = useMemo(() => computeRectExtent(samples),    [samples]);
-  const polarExtent = useMemo(() => computePolarExtent(polarPts),  [polarPts]);
+  const rectExtent = useMemo(() => computeRectExtent(samples), [samples]);
+  const polarExtent = useMemo(() => computePolarExtent(polarPts), [polarPts]);
 
   // ---------- Pre-build SVG paths ----------
   // The cutoff index is where the drawn trail ends; using it lets us pass
   // ready-to-render path strings to the children, and lets binary search
   // replace a per-frame linear scan.
-  const cutoffIdx = useMemo(
-    () => findCutoffIndex(samples, t),
-    [samples, t],
-  );
+  const cutoffIdx = useMemo(() => findCutoffIndex(samples, t), [samples, t]);
 
   const pScale = POLAR_SIZE / (2 * polarExtent);
   const rectPath = useMemo(() => {
@@ -1173,8 +1337,10 @@ export default function PolarVisualizer() {
       RECT_PAD.t +
       ((rectExtent.max - y) / (rectExtent.max - rectExtent.min)) * RECT_PLOT_H;
     return buildRectPath(
-      samples, samples.length - 1,
-      xToPx, yToPx,
+      samples,
+      samples.length - 1,
+      xToPx,
+      yToPx,
       RECT_PAD.t - RECT_Y_CLIP_SLACK,
       RECT_PAD.t + RECT_PLOT_H + RECT_Y_CLIP_SLACK,
     );
@@ -1188,8 +1354,10 @@ export default function PolarVisualizer() {
       RECT_PAD.t +
       ((rectExtent.max - y) / (rectExtent.max - rectExtent.min)) * RECT_PLOT_H;
     return buildRectPath(
-      samples, cutoffIdx,
-      xToPx, yToPx,
+      samples,
+      cutoffIdx,
+      xToPx,
+      yToPx,
       RECT_PAD.t - RECT_Y_CLIP_SLACK,
       RECT_PAD.t + RECT_PLOT_H + RECT_Y_CLIP_SLACK,
     );
@@ -1342,7 +1510,8 @@ export default function PolarVisualizer() {
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                {indepVar}<sub>min</sub>
+                {indepVar}
+                <sub>min</sub>
               </label>
               <input
                 type="text"
@@ -1353,7 +1522,8 @@ export default function PolarVisualizer() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                {indepVar}<sub>max</sub>
+                {indepVar}
+                <sub>max</sub>
               </label>
               <input
                 type="text"
@@ -1369,9 +1539,9 @@ export default function PolarVisualizer() {
             <div
               className="text-sm rounded px-2 py-1 mb-2 border"
               style={{
-                color:           COLOR.errorFg,
+                color: COLOR.errorFg,
                 backgroundColor: COLOR.errorBg,
-                borderColor:     COLOR.errorBorder,
+                borderColor: COLOR.errorBorder,
               }}
             >
               {error}
@@ -1381,12 +1551,14 @@ export default function PolarVisualizer() {
             <div
               className="text-sm rounded px-2 py-1 mb-2 border"
               style={{
-                color:           COLOR.errorFg,
+                color: COLOR.errorFg,
                 backgroundColor: COLOR.errorBg,
-                borderColor:     COLOR.errorBorder,
+                borderColor: COLOR.errorBorder,
               }}
             >
-              {indepVar}<sub>max</sub> must be greater than {indepVar}<sub>min</sub>.
+              {indepVar}
+              <sub>max</sub> must be greater than {indepVar}
+              <sub>min</sub>.
             </div>
           )}
 
@@ -1417,17 +1589,26 @@ export default function PolarVisualizer() {
               max={tMaxNum}
               step={sliderStep}
               value={t}
-              onChange={(e) => setT(snapSliderValue(
-                parseFloat(e.target.value),
-                tMinNum, tMaxNum, sliderStep, indepIsAngle,
-              ))}
+              onChange={(e) =>
+                setT(
+                  snapSliderValue(
+                    parseFloat(e.target.value),
+                    tMinNum,
+                    tMaxNum,
+                    sliderStep,
+                    indepIsAngle,
+                  ),
+                )
+              }
               className="flex-1 accent-indigo-600"
               disabled={!rangeOK}
             />
             {/* Slider readout. Width is conditional so the layout doesn't jump:
                 angle mode needs room for "π/4 ≈ 0.785 rad = 45.00°" (w-72),
                 plain-r mode only needs a three-place decimal (w-28). */}
-            <div className={`font-mono text-sm text-slate-800 ${indepIsAngle ? "w-72" : "w-28"} text-right tabular-nums`}>
+            <div
+              className={`font-mono text-sm text-slate-800 ${indepIsAngle ? "w-72" : "w-28"} text-right tabular-nums`}
+            >
               {indepIsAngle ? formatAngle(t) : t.toFixed(3)}
             </div>
             <button
@@ -1444,9 +1625,11 @@ export default function PolarVisualizer() {
                   ? "bg-indigo-100 border-indigo-400 text-indigo-700"
                   : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
-              title={repeat
-                ? "Looping: animation wraps around at the end"
-                : "One-shot: animation stops at the end"}
+              title={
+                repeat
+                  ? "Looping: animation wraps around at the end"
+                  : "One-shot: animation stops at the end"
+              }
               aria-pressed={repeat}
             >
               Repeat
@@ -1465,7 +1648,9 @@ export default function PolarVisualizer() {
               className="text-sm border border-slate-300 rounded px-1 py-1"
             >
               {SPEED_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}×</option>
+                <option key={s} value={s}>
+                  {s}×
+                </option>
               ))}
             </select>
           </div>
@@ -1502,7 +1687,7 @@ export default function PolarVisualizer() {
                          f(r) rather than the slider value)
                   row 2: Cartesian coordinates, so students can read
                          x = r cos θ and y = r sin θ off the screen */}
-            <div className="ml-auto font-mono text-xs text-slate-600 text-right">
+            <div className="ml-auto font-mono text-base text-slate-600 text-right">
               <div>
                 θ = {formatAngle(currentPolar.th, { compact: true })}
                 ,&nbsp; r = {fmt(currentPolar.r)}
