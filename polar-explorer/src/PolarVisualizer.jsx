@@ -401,6 +401,40 @@ function buildPolarPath(polarPts, endIndex, pxOf, pyOf) {
 }
 
 /**
+ * Snap a raw slider value to a nearby "special" value when it's within half a
+ * step: either an endpoint (tMinNum, tMaxNum) or a multiple of π/12 when the
+ * independent variable is an angle.
+ *
+ * This fixes a UX nuisance for angular ranges: dragging the slider "all the
+ * way to the right" often lands one step short of tMaxNum due to floating-
+ * point step quantization. For θ = 6π with 1000 steps, being short by one
+ * step is ~0.019 rad, which projects to ~4 px of y-deflection on the polar
+ * plot — enough to make the terminal side look visibly off the x-axis when
+ * it mathematically shouldn't be. Snapping to π/12 multiples has the
+ * bonus that π/6, π/4, π/3, π/2, π, etc. are all easy to land on exactly.
+ *
+ * @param {number} raw           value reported by the range input
+ * @param {number} tMinNum
+ * @param {number} tMaxNum
+ * @param {number} step          slider step size
+ * @param {boolean} indepIsAngle snap to π/12 multiples when true
+ * @returns {number}
+ */
+function snapSliderValue(raw, tMinNum, tMaxNum, step, indepIsAngle) {
+  if (!isFinite(raw) || !isFinite(step) || step <= 0) return raw;
+  const tol = step / 2;
+  if (Math.abs(raw - tMinNum) < tol) return tMinNum;
+  if (Math.abs(raw - tMaxNum) < tol) return tMaxNum;
+  if (indepIsAngle) {
+    const base = Math.PI / 12;
+    const k = Math.round(raw / base);
+    const snapped = k * base;
+    if (Math.abs(raw - snapped) < tol) return snapped;
+  }
+  return raw;
+}
+
+/**
  * Build an SVG polyline tracing the angle θ as a spiral from the positive
  * x-axis outward, with radius growing with |u|. Each additional revolution
  * stays visible instead of overdrawing the previous one, so the number of
@@ -963,6 +997,7 @@ export default function PolarVisualizer() {
   const [showGrid, setShowGrid]     = useState(true);
   const [trailMode, setTrailMode]   = useState("partial"); // "full" | "partial" | "none"
   const [animating, setAnimating]   = useState(false);
+  const [repeat, setRepeat]         = useState(true);   // loop vs. stop at end
   const [speed, setSpeed]           = useState(1);
 
   const animRef = useRef(null);
@@ -1114,33 +1149,60 @@ export default function PolarVisualizer() {
   }, [polarPts, cutoffIdx, pScale, trailMode]);
 
   // ---------- Animation loop ----------
+  // On each animation frame: advance t by dt·speed·span / BASE_SWEEP_SECONDS.
+  // When the sweep crosses tMaxNum:
+  //   • repeat = true  → wrap back into [tMinNum, tMaxNum]
+  //   • repeat = false → clamp to tMaxNum, stop animating, and let the user
+  //                       press Play again (which re-starts from the beginning
+  //                       if we were already parked at the end)
   useEffect(() => {
     if (!animating || !rangeOK) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       return;
     }
     let last = performance.now();
+    let stopped = false;
     const step = (now) => {
+      if (stopped) return;
       const dt = Math.min((now - last) / 1000, MAX_DT);
       last = now;
       setT((prev) => {
         const span = tMaxNum - tMinNum;
-        // ~BASE_SWEEP_SECONDS to traverse the whole range at speed=1
         const next = prev + (dt * speed * span) / BASE_SWEEP_SECONDS;
-        if (next > tMaxNum) {
-          // Wrap, clamping to [tMinNum, tMaxNum]
-          const wrapped = tMinNum + ((next - tMinNum) % span);
-          return isFinite(wrapped) ? wrapped : tMinNum;
+        if (next >= tMaxNum) {
+          if (repeat) {
+            const wrapped = tMinNum + ((next - tMinNum) % span);
+            return isFinite(wrapped) ? wrapped : tMinNum;
+          }
+          // One-shot: park at the end and halt the loop
+          stopped = true;
+          setAnimating(false);
+          return tMaxNum;
         }
         return next;
       });
-      animRef.current = requestAnimationFrame(step);
+      if (!stopped) animRef.current = requestAnimationFrame(step);
     };
     animRef.current = requestAnimationFrame(step);
     return () => {
+      stopped = true;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [animating, rangeOK, tMinNum, tMaxNum, speed]);
+  }, [animating, rangeOK, tMinNum, tMaxNum, speed, repeat]);
+
+  // ---------- Play button handler ----------
+  // When Play is pressed while already parked at the end in one-shot mode,
+  // rewind to the start so the user sees the sweep from the beginning.
+  const togglePlay = useCallback(() => {
+    if (animating) {
+      setAnimating(false);
+      return;
+    }
+    if (!repeat && rangeOK && Math.abs(t - tMaxNum) < 1e-9) {
+      setT(tMinNum);
+    }
+    setAnimating(true);
+  }, [animating, repeat, rangeOK, t, tMinNum, tMaxNum]);
 
   // ---------- Preset application ----------
   const applyPreset = useCallback((p) => {
@@ -1295,7 +1357,10 @@ export default function PolarVisualizer() {
               max={tMaxNum}
               step={sliderStep}
               value={t}
-              onChange={(e) => setT(parseFloat(e.target.value))}
+              onChange={(e) => setT(snapSliderValue(
+                parseFloat(e.target.value),
+                tMinNum, tMaxNum, sliderStep, indepIsAngle,
+              ))}
               className="flex-1 accent-indigo-600"
               disabled={!rangeOK}
             />
@@ -1305,11 +1370,25 @@ export default function PolarVisualizer() {
                 : t.toFixed(3)}
             </div>
             <button
-              onClick={() => setAnimating((a) => !a)}
+              onClick={togglePlay}
               className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
               disabled={!rangeOK}
             >
               {animating ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={() => setRepeat((r) => !r)}
+              className={`px-3 py-1.5 text-sm rounded border ${
+                repeat
+                  ? "bg-indigo-100 border-indigo-400 text-indigo-700"
+                  : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+              title={repeat
+                ? "Looping: animation wraps around at the end"
+                : "One-shot: animation stops at the end"}
+              aria-pressed={repeat}
+            >
+              Repeat
             </button>
             <button
               onClick={() => rangeOK && setT(tMinNum)}
