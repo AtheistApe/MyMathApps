@@ -213,17 +213,24 @@ function piTicks(min, max) {
 }
 
 /**
- * Render a numeric value as a π-fraction (e.g. 3π/4, -π, 2π) when it matches
- * one of the simple multiples students see in class, otherwise as a two-place
- * decimal.
+ * If `v` is a simple multiple of π that students recognize (numerator over a
+ * denominator in {1, 2, 3, 4, 6, 8, 12}), return the π-fraction string.
+ * Otherwise return null.
+ *
+ * Kept separate from `formatPi` so formatters that only want the exact form
+ * (e.g. the slider readout, which already shows the decimal elsewhere) can
+ * skip the decimal fallback.
  *
  * @param {number} v
- * @returns {string}
+ * @returns {string|null}
  */
-function formatPi(v) {
-  if (!isFinite(v)) return "—";
+function piFractionOrNull(v) {
+  if (!isFinite(v)) return null;
   const r = v / Math.PI;
-  if (Math.abs(r) < 1e-9) return "0";
+  // Zero is its own clean decimal; prefixing "0 ≈ 0.000 rad = 0.00°" would
+  // just echo the number back. Callers that need a tick-label string handle
+  // zero themselves.
+  if (Math.abs(r) < 1e-9) return null;
   for (const den of [1, 2, 3, 4, 6, 8, 12]) {
     const num = r * den;
     if (Math.abs(num - Math.round(num)) < 1e-6) {
@@ -238,7 +245,22 @@ function formatPi(v) {
       return `${n}π/${den}`;
     }
   }
-  return v.toFixed(2);
+  return null;
+}
+
+/**
+ * Render a numeric value as a π-fraction (e.g. 3π/4, -π, 2π) when it matches
+ * one of the simple multiples students see in class, otherwise as a two-place
+ * decimal. Used for tick labels where every tick needs *some* string.
+ *
+ * @param {number} v
+ * @returns {string}
+ */
+function formatPi(v) {
+  if (!isFinite(v)) return "—";
+  if (Math.abs(v) < 1e-9) return "0";
+  const p = piFractionOrNull(v);
+  return p !== null ? p : v.toFixed(2);
 }
 
 /**
@@ -250,6 +272,35 @@ function formatPlain(v) {
   return Math.abs(v - Math.round(v)) < 1e-9
     ? String(Math.round(v))
     : v.toFixed(2);
+}
+
+/**
+ * Format an angle in both radians and degrees for the readouts.
+ *
+ * Shape:
+ *   • "π/4 ≈ 0.785 rad = 45.00°"   — when θ is a recognized π-fraction
+ *   • "0.500 rad = 28.65°"          — when it isn't (no redundant prefix)
+ *   • "0.785 rad = 45.0°"           — compact variant used in the status line
+ *
+ * The π-fraction prefix is dropped when `piFractionOrNull` has nothing to add,
+ * so the readout never shows the same decimal twice in slightly different
+ * precisions.
+ *
+ * @param {number} theta       angle in radians
+ * @param {object} [opts]
+ * @param {boolean} [opts.compact=false]  drop the π-fraction form entirely
+ * @returns {string}
+ */
+function formatAngle(theta, { compact = false } = {}) {
+  if (!isFinite(theta)) return "—";
+  const deg = (theta * 180) / Math.PI;
+  const decRad = `${theta.toFixed(3)} rad`;
+  if (compact) {
+    return `${decRad} = ${deg.toFixed(1)}°`;
+  }
+  const base = `${decRad} = ${deg.toFixed(2)}°`;
+  const piForm = piFractionOrNull(theta);
+  return piForm !== null ? `${piForm} ≈ ${base}` : base;
 }
 
 /**
@@ -1371,10 +1422,8 @@ export default function PolarVisualizer() {
               className="flex-1 accent-indigo-600"
               disabled={!rangeOK}
             />
-            <div className="font-mono text-sm text-slate-800 w-28 text-right tabular-nums">
-              {indepIsAngle
-                ? `${formatPi(t)} ≈ ${t.toFixed(2)}`
-                : t.toFixed(3)}
+            <div className={`font-mono text-sm text-slate-800 ${indepIsAngle ? "w-72" : "w-28"} text-right tabular-nums`}>
+              {indepIsAngle ? formatAngle(t) : t.toFixed(3)}
             </div>
             <button
               onClick={togglePlay}
@@ -1442,10 +1491,14 @@ export default function PolarVisualizer() {
                 </button>
               ))}
             </div>
-            <div className="ml-auto font-mono text-xs text-slate-600">
-              ({indepVar}, {depVar}) = ({fmt(t)}, {fmt(currentDep)})
-              &nbsp;→&nbsp;
-              (x, y) = ({fmt(currentPolar.x)}, {fmt(currentPolar.y)})
+            <div className="ml-auto font-mono text-xs text-slate-600 text-right">
+              <div>
+                θ = {formatAngle(currentPolar.th, { compact: true })}
+                ,&nbsp; r = {fmt(currentPolar.r)}
+              </div>
+              <div>
+                (x, y) = ({fmt(currentPolar.x)}, {fmt(currentPolar.y)})
+              </div>
             </div>
           </div>
         </div>
