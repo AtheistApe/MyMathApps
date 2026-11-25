@@ -512,7 +512,14 @@ const PRESETS = [
   // Real lemniscate r² = 9·cos(2θ) ⇒ r = 3·√(cos(2θ)), undefined where
   // cos(2θ) < 0. mathjs's sqrt returns a Complex for negative input, which
   // our evaluator folds to NaN — so the curve correctly breaks between lobes.
-  { name: "Lemniscate",           mode: "r_of_theta", fn: "3*sqrt(cos(2*theta))",  min: "0", max: "2*pi" },
+  //
+  // The +1e-12 bias is a floating-point hack: Math.cos(3π/2) and Math.cos(7π/2)
+  // return tiny negative values (~-2e-16) instead of exact zero due to π being
+  // inexact. Without the bias, sqrt produces NaN at those two angles and the
+  // lobes fail to close at the origin. The bias is small enough that genuinely
+  // negative values of cos(2θ) one sample away (~0.02) still correctly break
+  // the curve between the two lobes.
+  { name: "Lemniscate",           mode: "r_of_theta", fn: "3*sqrt(cos(2*theta) + 1e-12)",  min: "0", max: "2*pi" },
   { name: "Archimedean spiral",   mode: "r_of_theta", fn: "0.3*theta",             min: "0", max: "6*pi" },
   { name: "Circle r=3",           mode: "r_of_theta", fn: "3",                     min: "0", max: "2*pi" },
   { name: "Circle r=4sin(θ)",     mode: "r_of_theta", fn: "4*sin(theta)",          min: "0", max: "pi"   },
